@@ -74,24 +74,52 @@ select{font:inherit;padding:8px 10px;border-radius:10px;border:0;background:line
   canvas#cv{max-height:44vh}
   .frame{padding:5px}
 }
+#studio fieldset{margin:8px 0 0;padding:0;border:0}.tools{gap:6px;flex-wrap:wrap;margin-top:8px}.tools button{padding:7px 12px}button:disabled,fieldset:disabled{opacity:.5}
+#showControls:not([hidden]){display:flex;justify-content:center;gap:8px}
+#showControls button{background:#272832;border:1px solid #54545e;color:#faf7f0;border-radius:24px;padding:8px 16px}
+#showControls button[aria-pressed=true]{background:#eee9db;color:#222}
+body.showing{background:#101015}
+.showing .app{box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;gap:10px;height:100dvh;padding:10px;max-width:none}
+.showing .stage{position:static;background:none;margin:0;padding:0;box-shadow:none}
+.showing .panel,.showing .brand,.showing .bar{display:none}
+.showing .frame{background:none;box-shadow:none;padding:0}
+.showing #cv{height:calc(100dvh - 80px);width:auto;max-height:none;max-width:calc(100vw - 20px);object-fit:contain;pointer-events:none}
 </style>
 </head>
 <body>
 <div class="app">
   <div class="stage">
-    <div class="brand"><h1>Untitled Worlds</h1><span>prototype 0.1 · drag the picture to look around · pinch or scroll to zoom</span></div>
+    <div class="brand"><h1>Untitled Worlds</h1><span>tap a shape to select · drag to look around · pinch or scroll to zoom</span></div>
     <div class="frame"><div class="cvwrap"><canvas id="cv" width="1024" height="768"></canvas><div id="scan"></div></div></div>
     <div id="err"></div>
     <div class="bar">
       <button class="btn hot" id="dice" title="Make a new random world">🎲 Surprise me</button>
       <div class="status"><i id="prog"></i><b id="stat">…</b></div>
       <button class="btn teal" id="save">Save picture</button>
+      <button class="btn" id="present">Present</button>
       <button class="btn" id="share">Copy link</button>
     </div>
   </div>
 
+  <nav id="showControls" aria-label="Presentation controls" hidden>
+    <button id="turntable" aria-pressed="false">Orbit</button>
+    <button id="dusk" aria-pressed="false">Dusk</button>
+    <button id="exitShow">Back to editor</button>
+  </nav>
   <div class="panel">
     <div class="sec"><h2>Worlds</h2><div class="thumbs" id="thumbs"></div></div>
+
+    <div class="sec" id="studio"><h2>Object studio</h2>
+      <div class="row"><select class="grow" id="objectList" aria-label="Selected object"></select><button class="btn" id="emptyWorld">Blank world</button></div>
+      <div class="row tools"><button class="btn" data-shape="0">+ Sphere</button><button class="btn" data-shape="1">+ Box</button><button class="btn" data-shape="2">+ Pyramid</button></div>
+      <fieldset id="objectFields"><label class="sl">Surface<select id="surface"></select></label>
+<label class="sl">Across<input id="ox" type="range" min="-60" max="60" step="0.1"></label>
+<label class="sl">Height<input id="oy" type="range" min="-6" max="40" step="0.1"></label>
+<label class="sl">Depth<input id="oz" type="range" min="-75" max="45" step="0.1"></label>
+<label class="sl">Size<input id="radius" type="range" min="0.1" max="14" step="0.1"></label>
+<label class="sl">Turn<input id="angle" type="range" min="-180" max="180" step="1"></label>
+      <div class="row tools"><button class="btn" id="cloneObj">Duplicate</button><button class="btn" id="dropObj">Remove</button></div></fieldset>
+    </div>
 
     <div class="sec"><h2>Sun &amp; sky</h2>
       <div class="row">
@@ -117,6 +145,14 @@ select{font:inherit;padding:8px 10px;border-radius:10px;border:0;background:line
       <label class="sl" style="margin-top:8px">Height<input type="range" id="th" min="0" max="12" step="0.1"></label>
       <label class="sl">Size<input type="range" id="tr" min="2" max="16" step="0.1"></label>
       <label class="sl">Cragginess<input type="range" id="ridge" min="0" max="1" step="0.01"></label>
+      <div id="channelTools">
+        <button class="btn" id="channelToggle" aria-pressed="false">Carve a channel</button>
+        <div id="channelControls" hidden>
+          <label class="sl">Position<input id="channelOffset" type="range" min="-0.8" max="0.8" step="0.01"></label>
+          <label class="sl">Direction<input id="channelAngle" type="range" min="-90" max="90" step="1"></label>
+          <label class="sl">Width<input id="channelWidth" type="range" min="0.04" max="0.5" step="0.01"></label>
+        </div>
+      </div>
       <div class="row" style="margin-top:6px"><button class="btn" id="newland">New land</button><button class="btn" id="noland">No land</button></div>
     </div>
 
@@ -142,6 +178,7 @@ uniform vec3 uZenith, uHorizon, uHazeCol, uSunCol, uCloudCol, uSunDir;
 uniform float uHaze, uCloud, uStreak, uStars, uSkySeed;
 uniform int uGround; uniform vec3 uG1, uG2; uniform float uWave, uGrain, uGRefl;
 uniform float uTerrOn, uTerrMode, uTerrH, uTerrR, uTerrFreq, uTerrRidge, uTerrSeed, uSnow;
+uniform vec4 uChannel; // unit normal, offset and half-width in island radii
 uniform vec3 uT1, uT2, uT3;
 #define MAXO 12
 uniform int uNObj; uniform vec4 uOA[MAXO]; uniform vec4 uOB[MAXO]; uniform vec4 uOC[MAXO];
@@ -164,6 +201,10 @@ float terr(vec2 p,int oct){
   float mask;
   if(uTerrMode<.5){ float d=length(p)/uTerrR; mask=smoothstep(1.,0.,d); }
   else { float d=length(p); mask=smoothstep(.36,.7,noise(p*(.6/uTerrR)+uTerrSeed*.37+5.)); mask*=smoothstep(uTerrR*9.,uTerrR*6.,d)*smoothstep(uTerrR*3.1,uTerrR*4.6,d); }
+  if(uChannel.w>0.){
+    float distanceToCut=abs(dot(p/uTerrR,uChannel.xy)-uChannel.z);
+    mask*=smoothstep(uChannel.w*.55,uChannel.w,distanceToCut);
+  }
   return uTerrH*(s*mask*1.6*(.3+.7*mask)-.16*(1.-mask)-.015);
 }
 float marchTerr(vec3 ro,vec3 rd,float tmax){
@@ -462,7 +503,7 @@ function fromPreset(i){ const p=JSON.parse(JSON.stringify(PRESETS[i])); p.size=S
 // The picture itself is ray traced by one fragment shader (the <script id="fs"> above) drawn on a full-screen triangle.
 const V3N=['uCamPos','uCamTgt','uSunDir','uZenith','uHorizon','uHazeCol','uSunCol','uCloudCol','uG1','uG2','uT1','uT2','uT3'];
 const F1N=['uFov','uHaze','uCloud','uStreak','uStars','uSkySeed','uWave','uGrain','uGRefl','uTerrOn','uTerrMode','uTerrH','uTerrR','uTerrFreq','uTerrRidge','uTerrSeed','uSnow'];
-const uniforms={uRes:{value:new THREE.Vector2()},uOrg:{value:new THREE.Vector2()},uAA:{value:1},uGround:{value:0},uNObj:{value:0},
+const uniforms={uChannel:{value:new THREE.Vector4()},uRes:{value:new THREE.Vector2()},uOrg:{value:new THREE.Vector2()},uAA:{value:1},uGround:{value:0},uNObj:{value:0},
   uOA:{value:new Float32Array(48)},uOB:{value:new Float32Array(48)},uOC:{value:new Float32Array(48)}};
 V3N.forEach(n=>uniforms[n]={value:new THREE.Vector3()}); F1N.forEach(n=>uniforms[n]={value:0});
 let traceScene, blitScene, blitMat, nullCam, lowRT, thumbRT, wireScene, wireCam, wireGroup, ready=false;
@@ -492,7 +533,7 @@ function buildWire(objs){
     const m=new THREE.Mesh(g,WIRE); m.position.set(o.p[0],o.p[1],o.p[2]); m.rotation.y=-o.rot+(o.t===2?Math.PI/4:0); wireGroup.add(m); });
 }
 const u3=(n,c)=>uniforms[n].value.set(c[0],c[1],c[2]), u1=(n,v)=>{ uniforms[n].value=v; };
-function setScene(s,w,h){
+function setScene(s,w,h,withWire=true){
   const sk=SKIES[s.sky], g=GROUNDS[s.ground], ld=LANDS[s.land];
   const c=s.cam, tgt=new THREE.Vector3(0,c.ty,0);
   const dist=s.terr.on&&s.terr.mode?Math.min(c.dist,s.terr.r*2.6):c.dist;
@@ -508,12 +549,17 @@ function setScene(s,w,h){
   u1('uGround',g.type); u3('uG1',lin(hex(g.g1))); u3('uG2',lin(hex(g.g2))); u1('uWave',s.wave); u1('uGrain',s.grain); u1('uGRefl',g.refl);
   const t=s.terr; u1('uTerrOn',t.on&&t.h>.05?1:0); u1('uTerrMode',t.mode); u1('uTerrH',Math.max(t.h,.05)); u1('uTerrR',t.r);
   u1('uTerrFreq',t.freq*(8/Math.max(t.r,2))*(t.mode?1.2:1)); u1('uTerrRidge',t.ridge); u1('uTerrSeed',t.seed*13.7); u1('uSnow',ld.snow);
+  const cut=t.channel;
+  if(cut && !t.mode){
+    const angle=THREE.MathUtils.degToRad(cut.angle);
+    uniforms.uChannel.value.set(Math.cos(angle),Math.sin(angle),cut.offset,cut.width);
+  } else uniforms.uChannel.value.set(0,0,0,0);
   u3('uT1',lin(hex(ld.t1))); u3('uT2',lin(hex(ld.t2))); u3('uT3',lin(hex(ld.t3)));
-  const objs=layout(s.style,s.count,s.oseed).slice(0,12), m=MATS[s.mat], mc=lin(hex(m.c));
+  const objs=sceneObjects(s);
   const A=uniforms.uOA.value,B=uniforms.uOB.value,C=uniforms.uOC.value; A.fill(0); B.fill(0); C.fill(0);
   objs.forEach((o,i)=>{ A.set([o.p[0],o.p[1],o.p[2],o.t],i*4); B.set([o.s[0],o.s[1],o.s[2],o.rot],i*4);
-    const alt=(s.style==='monolith'&&i>0&&m.m===3)||(s.style==='floor'&&i%2===1); const mm=alt?{c:lin(hex(m.m===1?'#f5b83a':'#eef2f6')),m:1}:{c:mc,m:m.m}; C.set([mm.c[0],mm.c[1],mm.c[2],mm.m],i*4); });
-  u1('uNObj',objs.length); buildWire(objs);
+    const material=MATS[o.mat]; C.set([...lin(hex(material.c)),material.m],i*4); });
+  u1('uNObj',objs.length); if(withWire) buildWire(objs);
 }
 function drawRect(x,y,w,h,resW,resH,aa){ renderer.setRenderTarget(null); renderer.setViewport(0,0,resW,resH); renderer.setScissor(x,y,w,h); renderer.setScissorTest(true);
   uniforms.uRes.value.set(resW,resH); uniforms.uAA.value=aa; renderer.render(traceScene,nullCam); renderer.setScissorTest(false); }
@@ -554,15 +600,30 @@ function preview(){ if(!ready) return; job++; window.__done=false; setScene(S); 
 let kickT=0; function kick(delay){ clearTimeout(kickT); if(delay){ preview(); kickT=setTimeout(render,delay); } else render(); }
 
 // ---------- share link ----------
-function saveHash(){ try{ history.replaceState(null,'','#w='+btoa(JSON.stringify(S))); }catch(e){} }
+function saveHash(){ if(showOriginal) return; try{ history.replaceState(null,'','#w='+btoa(JSON.stringify(S))); }catch(e){} }
 function loadHash(){ try{ const m=location.hash.match(/^#w=(.+)$/); if(!m) return null; const s=JSON.parse(atob(m[1]));
   const ok=Number.isInteger(s.sky)&&SKIES[s.sky]&&GROUNDS[s.ground]&&LANDS[s.land]&&MATS[s.mat]&&SIZES[s.size]&&s.cam&&s.sun&&s.terr&&typeof s.style==='string';
-  if(!ok) return null; s.count=Math.max(0,Math.min(12,s.count|0)); return s; }catch(e){ return null; } }
+  if(s.terr?.channel){
+    const {angle,offset,width}=s.terr.channel;
+    if(![angle,offset,width].every(Number.isFinite) || Math.abs(angle)>90 || Math.abs(offset)>.8 || width<.04 || width>.5) delete s.terr.channel;
+  }
+  if(!ok || (s.objects !== undefined && !validObjects(s.objects))) return null; s.count=Math.max(0,Math.min(12,s.count|0)); return s; }catch(e){ return null; } }
 
 // ---------- UI ----------
 function chips(host,list,key,sq,paint){ const el=$(host); list.forEach((it,i)=>{ const b=document.createElement('button'); b.className='chip'+(sq?' sq':''); b.title=it.n; b.setAttribute('aria-label',it.n);
-  b.style.background=paint(it); b.onclick=()=>{ S[key]=i; if(key==='land'){ S.terr.on=1; if(S.terr.h<.5) S.terr.h=5; } sync(); kick(); }; el.appendChild(b); }); }
+  b.style.background=paint(it); b.onclick=()=>{ S[key]=i; if(key==="mat" && S.objects) S.objects.forEach(o=>o.mat=i); if(key==='land'){ S.terr.on=1; if(S.terr.h<.5) S.terr.h=5; } sync(); kick(); }; el.appendChild(b); }); }
 function sync(){
+  syncStudio();
+  const cut=S.terr.channel;
+  $('channelTools').hidden=!S.terr.on || !!S.terr.mode;
+  $('channelToggle').textContent=cut?'Fill channel':'Carve a channel';
+  $('channelToggle').setAttribute('aria-pressed',String(!!cut));
+  $('channelControls').hidden=!cut;
+  if(cut){
+    $('channelOffset').value=cut.offset;
+    $('channelAngle').value=cut.angle;
+    $('channelWidth').value=cut.width;
+  }
   [['skies','sky'],['grounds','ground'],['lands','land'],['mats','mat']].forEach(([h,k])=>[...$(h).children].forEach((c,i)=>c.classList.toggle('on',i===S[k]&&(k!=='land'||S.terr.on))));
   $('haze').value=S.hazeAmt; $('cover').value=S.cover; $('streak').value=S.streak; $('wave').value=S.wave; $('grain').value=S.grain;
   $('th').value=S.terr.on?S.terr.h:0; $('tr').value=S.terr.r; $('ridge').value=S.terr.ridge; $('count').value=S.count; $('size').value=S.size;
@@ -585,6 +646,174 @@ function randomize(){
   sync(); kick();
 }
 
+const shapeNames = ['Sphere', 'Box', 'Pyramid'];
+let selectedObject = 0;
+function sceneObjects(scene) {
+  if (scene.objects) return scene.objects;
+  return layout(scene.style, scene.count, scene.oseed).map((object, index) => {
+    const base = MATS[scene.mat];
+    const accent = (scene.style === 'monolith' && index > 0 && base.m === 3)
+      || (scene.style === 'floor' && index % 2 === 1);
+    object.mat = accent ? (base.m === 1 ? 2 : 1) : scene.mat;
+    return object;
+  });
+}
+function validObjects(items) {
+  const triple = v => Array.isArray(v) && v.length === 3 && v.every(Number.isFinite);
+  return Array.isArray(items) && items.length <= 12 && items.every(o => o &&
+    Number.isInteger(o.t) && shapeNames[o.t] && Number.isInteger(o.mat) && MATS[o.mat] &&
+    triple(o.p) && triple(o.s) && o.s.every(n => n > 0) && Number.isFinite(o.rot));
+}
+function editableObjects() {
+  return S.objects ??= sceneObjects(S);
+}
+function addShape(type) {
+  const objects = editableObjects();
+  if (objects.length >= 12) return;
+  const x = (objects.length % 3 - 1) * 2;
+  objects.push({t:type, p:[x,S.cam.ty,1], s:[1.2,1.2,1.2], rot:0, mat:S.mat});
+  selectedObject = objects.length - 1;
+}
+function syncStudio() {
+  const objects = sceneObjects(S);
+  selectedObject = Math.max(0, Math.min(selectedObject, objects.length - 1));
+  const obj = objects[selectedObject];
+  const list = $('objectList');
+  list.replaceChildren(...objects.map((o,i) => new Option(shapeNames[o.t] + ' ' + (i+1), i)));
+  if (!obj) list.add(new Option('Empty scene', ''));
+  list.selectedIndex = selectedObject;
+  $('objectFields').disabled = !obj;
+  document.querySelectorAll('[data-shape], #cloneObj').forEach(b => b.disabled = objects.length >= 12);
+  if (!obj) return;
+  ['ox','oy','oz'].forEach((id,i) => $(id).value = obj.p[i]);
+  $('surface').value = obj.mat;
+  $('radius').value = obj.s[0];
+  $('angle').value = obj.rot * 180 / Math.PI;
+  $('angle').disabled = obj.t === 0;
+}
+function studioChanged(delay) {
+  S.count = S.objects.length;
+  activePreset = -1;
+  sync();
+  kick(delay);
+}
+function initStudio() {
+  MATS.forEach((m,i) => $('surface').add(new Option(m.n,i)));
+  $('objectList').onchange = e => { selectedObject = Number(e.target.value); syncStudio(); };
+  $('surface').onchange = e => {
+    editableObjects()[selectedObject].mat = Number(e.target.value);
+    studioChanged();
+  };
+  document.querySelectorAll('[data-shape]').forEach(button => button.onclick = () => {
+    addShape(Number(button.dataset.shape));
+    studioChanged();
+  });
+  $('emptyWorld').onclick = () => {
+    S = fromPreset(0);
+    S.terr.on = 0;
+    S.objects = [];
+    studioChanged();
+  };
+  $('cloneObj').onclick = () => {
+    const objects = editableObjects();
+    const copy = structuredClone(objects[selectedObject]);
+    copy.p[0] += 1.5 * copy.s[0];
+    objects.push(copy);
+    selectedObject = objects.length - 1;
+    studioChanged();
+  };
+  $('dropObj').onclick = () => {
+    editableObjects().splice(selectedObject,1);
+    studioChanged();
+  };
+  for (const id of ['ox','oy','oz','radius','angle']) {
+    $(id).oninput = e => {
+      const obj = editableObjects()[selectedObject];
+      const value = Number(e.target.value);
+      if (id === 'radius') obj.s = obj.s.map(n => n * value / obj.s[0]);
+      else if (id === 'angle') obj.rot = value * Math.PI / 180;
+      else obj.p[['ox','oy','oz'].indexOf(id)] = value;
+      studioChanged(220);
+    };
+  }
+  let tap;
+  cv.addEventListener('pointerdown', e => { tap = e.isPrimary ? [e.clientX,e.clientY] : null; });
+  cv.addEventListener('pointermove', e => {
+    if (tap && Math.hypot(e.clientX-tap[0],e.clientY-tap[1]) > 5) tap = null;
+  });
+  cv.addEventListener('pointercancel', () => { tap = null; });
+  cv.addEventListener('pointerup', e => {
+    if (!tap) return;
+    tap = null;
+    const box = cv.getBoundingClientRect();
+    const pointer = new THREE.Vector2(2*(e.clientX-box.left)/box.width-1,1-2*(e.clientY-box.top)/box.height);
+    wireScene.updateMatrixWorld(true);
+    wireCam.updateMatrixWorld(true);
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(pointer, wireCam);
+    const [hit] = ray.intersectObjects(wireGroup.children,false);
+    if (hit) { selectedObject = wireGroup.children.indexOf(hit.object); syncStudio(); }
+  });
+}
+
+// A presentation uses a temporary scene so returning to the editor restores the composition.
+let showOriginal = null;
+function initPresentation() {
+  let orbitFrame = 0, lastFrame = 0;
+  const stopOrbit = () => {
+    cancelAnimationFrame(orbitFrame);
+    orbitFrame = 0;
+    lastFrame = 0;
+    $('turntable').setAttribute('aria-pressed','false');
+  };
+  function orbit(now) {
+    if (!lastFrame || now-lastFrame >= 48) {
+      const elapsed = lastFrame ? Math.min(now-lastFrame,150) : 0;
+      S.cam.yaw += elapsed * 0.00019;
+      lastFrame = now;
+      setScene(S,cv.width,cv.height,false);
+      drawLow(Math.max(1,Math.ceil(cv.width/600)));
+    }
+    orbitFrame = requestAnimationFrame(orbit);
+  }
+  $('present').onclick = () => {
+    clearTimeout(kickT);
+    showOriginal = S;
+    S = structuredClone(S);
+    document.body.classList.add('showing');
+    $('showControls').hidden = false;
+    $('dusk').setAttribute('aria-pressed','false');
+    $('turntable').focus();
+    render();
+  };
+  $('turntable').onclick = () => {
+    if (orbitFrame) { stopOrbit(); render(); return; }
+    job++;
+    window.__done = false;
+    $('scan').style.opacity = 0;
+    $('turntable').setAttribute('aria-pressed','true');
+    orbitFrame = requestAnimationFrame(orbit);
+  };
+  $('dusk').onclick = () => {
+    const on = $('dusk').getAttribute('aria-pressed') !== 'true';
+    $('dusk').setAttribute('aria-pressed',String(on));
+    S.sky = on ? 2 : showOriginal.sky;
+    S.sun = on ? {az:showOriginal.sun.az+1.4, el:0.13} : {...showOriginal.sun};
+    if (!orbitFrame) render();
+  };
+  const exit = () => {
+    if (!showOriginal) return;
+    stopOrbit();
+    S = showOriginal;
+    showOriginal = null;
+    document.body.classList.remove('showing');
+    $('showControls').hidden = true;
+    $('present').focus();
+    render();
+  };
+  $('exitShow').onclick = exit;
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') exit(); });
+}
 function boot(){
   if(!renderer||!initGL()) return;
   SIZES.forEach((s,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=s.n; $('size').appendChild(o); });
@@ -599,11 +828,21 @@ function boot(){
   slider('haze',v=>S.hazeAmt=v); slider('cover',v=>S.cover=v); slider('streak',v=>S.streak=v);
   slider('wave',v=>S.wave=v); slider('grain',v=>S.grain=v);
   slider('th',v=>{ S.terr.h=v; S.terr.on=v>.05?1:0; }); slider('tr',v=>S.terr.r=v); slider('ridge',v=>S.terr.ridge=v);
-  slider('count',v=>S.count=v);
+  $('channelToggle').onclick=()=>{
+    if(S.terr.channel) delete S.terr.channel;
+    else S.terr.channel={offset:0,angle:25,width:.27};
+    activePreset=-1; sync(); kick();
+  };
+  slider('channelOffset',v=>S.terr.channel.offset=v);
+  slider('channelAngle',v=>S.terr.channel.angle=v);
+  slider('channelWidth',v=>S.terr.channel.width=v);
+  initPresentation();
+  initStudio();
+  slider('count',v=>{ if(S.objects){ S.objects.splice(v); while(S.objects.length<v) addShape(0); } S.count=v; });
   $('size').onchange=e=>{ S.size=+e.target.value; kick(); };
   $('newland').onclick=()=>{ S.terr.on=1; if(S.terr.h<.5) S.terr.h=5; S.terr.seed=Math.random()*50; activePreset=-1; sync(); kick(); };
   $('noland').onclick=()=>{ S.terr.on=0; activePreset=-1; sync(); kick(); };
-  $('shuffle').onclick=()=>{ S.oseed=Math.floor(Math.random()*9999); if(S.count<1) S.count=4; activePreset=-1; sync(); kick(); };
+  $('shuffle').onclick=()=>{ delete S.objects; S.oseed=Math.floor(Math.random()*9999); if(S.count<1) S.count=4; activePreset=-1; sync(); kick(); };
   $('dice').onclick=randomize;
   $('save').onclick=()=>cv.toBlob(b=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='world-'+Date.now()+'.png'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); },'image/png');
   $('share').onclick=async()=>{ saveHash(); try{ await navigator.clipboard.writeText(location.href); $('share').textContent='Copied ✓'; }catch(e){ $('share').textContent='Link is in the address bar'; } setTimeout(()=>$('share').textContent='Copy link',1800); };
