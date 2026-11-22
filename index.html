@@ -85,6 +85,14 @@ body.showing{background:#101015}
 .showing .panel,.showing .brand,.showing .bar{display:none}
 .showing .frame{background:none;box-shadow:none;padding:0}
 .showing #cv{height:calc(100dvh - 80px);width:auto;max-height:none;max-width:calc(100vw - 20px);object-fit:contain;pointer-events:none}
+/* embed mode: picture only, driven by a parent page (used by concept.html) */
+.embed{background:#0b0b10;overflow:hidden}
+.embed .app{display:block;padding:0;max-width:none}
+.embed .panel,.embed .brand,.embed .bar,.embed #showControls{display:none!important}
+.embed .stage{position:static;margin:0;padding:0;background:none;box-shadow:none}
+.embed .frame{padding:0;border-radius:0;box-shadow:none;background:none}
+.embed .cvwrap{width:100vw;height:100dvh}
+.embed #cv{width:100vw;height:100dvh;max-width:none;max-height:none;object-fit:cover;border-radius:0}
 </style>
 </head>
 <body>
@@ -994,7 +1002,20 @@ function boot(){
 window.__setPreset=i=>{ S=fromPreset(i); activePreset=i; sync(); render(); };
 window.__setSize=i=>{ S.size=i; sync(); render(); };
 window.__randomize=()=>randomize();
+// ---------- embed mode: a parent page sends {vista:1,cmd,...}; this page answers with its state ----------
+const EMBED=new URLSearchParams(location.search).has('embed');
+if(EMBED) document.body.classList.add('embed');
+function tell(){ if(EMBED&&S) parent.postMessage({vistaState:{sky:S.sky,ground:S.ground,land:S.land,mat:S.mat,sun:S.sun,hazeAmt:S.hazeAmt,preset:activePreset,done:!!window.__done}},'*'); }
+window.addEventListener('message',e=>{ const m=e.data; if(!EMBED||!m||m.vista!==1||!S) return;
+  const keep={sky:['sky','skySeed','sun','hazeAmt','cover','streak'],sea:['ground','wave','grain'],land:['land','terr'],things:['mat','count','oseed','style']};
+  if(m.cmd==='preset'){ S=fromPreset(m.i); activePreset=m.i; sync(); render(); }
+  else if(m.cmd==='dice'){ const old=JSON.parse(JSON.stringify(S)); randomize(); (m.locks||[]).forEach(k=>(keep[k]||[]).forEach(f=>{ if(f in old) S[f]=old[f]; })); sync(); render(); }
+  else if(m.cmd==='set'){ for(const k of ['sky','ground','land','mat','hazeAmt']) if(k in m) S[k]=m[k]; if('mat' in m&&S.objects) S.objects.forEach(o=>o.mat=m.mat); if('land' in m){ S.terr.on=1; if(S.terr.h<.5) S.terr.h=5; } if(m.sun) S.sun={...S.sun,...m.sun}; activePreset=-1; sync(); m.live?kick(250):render(); }
+  else if(m.cmd==='size'){ S.size=m.i; sync(); render(); }
+  tell(); });
+if(EMBED) setInterval(tell,400);
 boot();
+if(EMBED&&S){ S.size=innerHeight>innerWidth?4:3; sync(); render(); }
 </script>
 </body>
 </html>

@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Untitled Worlds · interface concept</title>
+<style>
+:root{--glass:rgba(18,18,26,.62);--line:rgba(255,255,255,.14);--ink:#f6f3ea;--soft:rgba(246,243,234,.62);--hot:#ff6a4a;--teal:#39d0c6}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#0b0b10;color:var(--ink);font:14px/1.35 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
+iframe{position:fixed;inset:0;width:100%;height:100%;border:0;display:block}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+.glass{background:var(--glass);backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);border:1px solid var(--line);box-shadow:0 10px 40px rgba(0,0,0,.35)}
+/* top bar */
+.top{position:fixed;top:12px;left:12px;right:12px;display:flex;gap:8px;align-items:center;pointer-events:none;z-index:5}
+.top>*{pointer-events:auto}
+.pill{border-radius:999px;padding:8px 14px;display:flex;align-items:center;gap:10px;min-height:42px}
+.mark{font:italic 600 17px/1 Georgia,"Times New Roman",serif;letter-spacing:.3px}
+.wname{color:var(--soft);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:32vw}
+.sp{flex:1}
+.ib{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font-size:17px}
+.ib:disabled{opacity:.4}
+.cta{background:linear-gradient(#ff8a66,#e2452e);border-radius:999px;padding:0 18px;height:42px;font-weight:650;box-shadow:0 6px 18px rgba(226,69,46,.45)}
+.ask{color:var(--soft);gap:8px;cursor:text}
+kbd{font:600 11px ui-monospace,monospace;border:1px solid var(--line);border-radius:5px;padding:1px 5px;color:var(--soft)}
+/* progress + coach */
+#prog{position:fixed;top:0;left:0;height:3px;width:0;background:linear-gradient(90deg,var(--teal),#fff);z-index:9;transition:width .4s,opacity .6s}
+#coach{position:fixed;top:70px;left:50%;transform:translateX(-50%);border-radius:999px;padding:7px 14px;font-size:13px;color:var(--soft);z-index:4;transition:opacity .6s;white-space:nowrap}
+/* dock */
+.dockwrap{position:fixed;left:0;right:0;bottom:calc(14px + env(safe-area-inset-bottom));display:flex;justify-content:center;z-index:6;pointer-events:none;padding:0 10px}
+.dock{pointer-events:auto;border-radius:26px;padding:7px;display:flex;gap:4px;align-items:center;max-width:100%;overflow-x:auto;scrollbar-width:none}
+.dock::-webkit-scrollbar{display:none}
+.room{position:relative;border-radius:19px;padding:8px 13px 7px;display:grid;justify-items:center;gap:3px;min-width:60px;font-size:11.5px;font-weight:600;color:var(--soft);flex:none}
+.room i{font-style:normal;font-size:20px;line-height:1;filter:saturate(1.1)}
+.room[aria-pressed=true]{background:rgba(255,255,255,.16);color:var(--ink)}
+.room .lock{position:absolute;top:2px;right:4px;font-size:10px;opacity:0}
+.room.locked .lock{opacity:1}
+.dice{flex:none;width:58px;height:58px;border-radius:50%;background:linear-gradient(#ff8a66,#e2452e);font-size:26px;box-shadow:0 6px 20px rgba(226,69,46,.5);margin:0 4px;transition:transform .35s cubic-bezier(.3,1.6,.5,1)}
+.dice:active{transform:rotate(200deg) scale(.92)}
+/* sheet */
+#sheet{position:fixed;left:50%;transform:translate(-50%,20px);bottom:calc(104px + env(safe-area-inset-bottom));width:min(560px,calc(100vw - 20px));max-height:min(52vh,430px);overflow:auto;border-radius:22px;padding:14px 16px 16px;z-index:6;opacity:0;pointer-events:none;transition:opacity .2s,transform .25s cubic-bezier(.2,.9,.3,1)}
+#sheet.open{opacity:1;pointer-events:auto;transform:translate(-50%,0)}
+.sh{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.sh h2{margin:0;font:650 16px/1 ui-sans-serif,system-ui}
+.sh .mini{margin-left:auto;display:flex;gap:6px}
+.tag{font-size:11px;border:1px solid var(--line);border-radius:999px;padding:5px 10px;color:var(--soft)}
+.tag[aria-pressed=true]{background:#f6f3ea;color:#15151c;border-color:transparent}
+.soon{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;background:rgba(255,255,255,.14);border-radius:6px;padding:2px 6px;color:var(--soft)}
+h3{font:650 11px/1 ui-sans-serif,system-ui;letter-spacing:1.4px;text-transform:uppercase;color:var(--soft);margin:14px 0 8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:8px}
+.card{border-radius:14px;aspect-ratio:1;position:relative;overflow:hidden;border:2px solid transparent;display:block;width:100%}
+.card.wide{aspect-ratio:4/3}
+.card img{width:100%;height:100%;object-fit:cover;display:block}
+.card span{position:absolute;left:0;right:0;bottom:0;padding:14px 4px 4px;font-size:10.5px;font-weight:650;text-align:center;background:linear-gradient(transparent,rgba(0,0,0,.6));text-shadow:0 1px 2px #000}
+.card.on{border-color:#fff;box-shadow:0 0 0 2px var(--hot)}
+.ball span{background:none}
+.arc{position:relative;height:74px;border-radius:16px;margin:2px 0 4px;background:linear-gradient(90deg,#2a1a55,#ff9a5a 16%,#8fd0ff 38%,#5fb2ff 62%,#ff8a4a 84%,#0a0c26);touch-action:none;cursor:ew-resize;border:1px solid var(--line);overflow:hidden}
+.arc b{position:absolute;top:50%;width:30px;height:30px;margin:-15px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#ffe9a0 45%,#f0a020);box-shadow:0 0 18px 5px rgba(255,240,170,.8);pointer-events:none}
+.arc small{position:absolute;bottom:4px;font-size:10px;font-weight:650;opacity:.85;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.dial{display:grid;grid-template-columns:70px 1fr 54px;gap:10px;align-items:center;margin:8px 0}
+.dial output{font:600 12px ui-monospace,monospace;border:1px solid var(--line);border-radius:8px;padding:4px 6px;text-align:center}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:8px;border-radius:4px;background:rgba(255,255,255,.2);outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:50%;border:0;background:#fff}
+input[type=text]{font:inherit;color:inherit;background:rgba(255,255,255,.1);border:1px solid var(--line);border-radius:12px;padding:10px 12px;width:100%;outline:none}
+.note{color:var(--soft);font-size:12.5px;margin:8px 0 0}
+.ideas{display:grid;gap:8px}
+.idea{border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:flex;gap:10px;align-items:flex-start}
+.idea i{font-style:normal;font-size:20px}
+.idea b{display:block;font-size:13.5px}.idea span{color:var(--soft);font-size:12.5px}
+/* views rail */
+.rail{position:fixed;right:12px;top:50%;transform:translateY(-50%);border-radius:22px;padding:8px 6px;display:grid;gap:8px;z-index:4}
+.dot{width:30px;height:30px;border-radius:50%;border:1.5px dashed var(--line);display:grid;place-items:center;font-size:11px;color:var(--soft)}
+.dot.full{border:2px solid #fff;background-size:cover;background-position:center}
+/* history strip */
+#hist{position:fixed;left:12px;top:66px;display:grid;gap:6px;z-index:4}
+#hist button{width:54px;height:40px;border-radius:9px;border:1.5px solid var(--line);overflow:hidden;font-size:9px;color:#fff;font-weight:700;text-shadow:0 1px 2px #000;display:grid;place-items:end center;padding-bottom:2px;background-size:cover}
+#hist button.now{border-color:#fff}
+/* cover overlay */
+#cover{position:fixed;inset:0;display:none;z-index:3;pointer-events:none;place-items:center}
+#cover.on{display:grid}
+#cover .sq{width:min(78vw,62vh);aspect-ratio:1;box-shadow:0 0 0 100vmax rgba(8,8,14,.72);border:1px solid rgba(255,255,255,.5);position:relative;margin-bottom:8vh}
+#cover .t{position:absolute;left:7%;right:7%;top:7%;font:300 clamp(18px,5vmin,44px)/1.05 "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.42em;text-transform:uppercase;color:#fff;text-shadow:0 1px 10px rgba(0,0,0,.35);word-break:break-word}
+#cover .a{position:absolute;left:7%;bottom:6%;font:500 clamp(9px,1.6vmin,13px)/1 ui-monospace,monospace;letter-spacing:.3em;text-transform:uppercase;opacity:.9}
+/* command bar */
+#cmd{position:fixed;inset:0;background:rgba(5,5,10,.45);z-index:20;display:none;justify-content:center;align-items:flex-start;padding:14vh 12px 0}
+#cmd.open{display:flex}
+#cmd .box{width:min(560px,100%);border-radius:20px;overflow:hidden}
+#cmd input{border:0;border-radius:0;border-bottom:1px solid var(--line);padding:16px 18px;font-size:17px;background:none}
+#cmd ul{list-style:none;margin:0;padding:6px;max-height:44vh;overflow:auto}
+#cmd li{padding:10px 12px;border-radius:12px;display:flex;gap:10px;align-items:center;cursor:pointer}
+#cmd li.sel,#cmd li:hover{background:rgba(255,255,255,.14)}
+#cmd li em{margin-left:auto;font-style:normal;color:var(--soft);font-size:12px}
+#toast{position:fixed;left:50%;bottom:130px;transform:translateX(-50%);border-radius:999px;padding:8px 16px;z-index:30;opacity:0;transition:opacity .3s;pointer-events:none;font-size:13px}
+@media (max-width:700px){
+  .wname,.ask span,.rail,#hist,kbd{display:none}
+  .top{top:8px;left:8px;right:8px;gap:6px}
+  .room{min-width:52px;padding:8px 8px 7px}
+  .dice{width:52px;height:52px}
+  #sheet{bottom:calc(96px + env(safe-area-inset-bottom));max-height:46vh}
+  #coach{top:60px;font-size:12px}
+}
+</style>
+</head>
+<body>
+<iframe id="world" src="index.html?embed" title="The world, ray traced live"></iframe>
+<div id="prog"></div>
+<div id="cover"><div class="sq"><div class="t" id="coverT">Low Tide</div><div class="a" id="coverA">untitled worlds · side a</div></div></div>
+
+<div class="top">
+  <div class="pill glass"><span class="mark">Untitled Worlds</span><span class="wname" id="wname">Red Moons</span></div>
+  <button class="ib glass" title="Undo (design only)" disabled>↶</button>
+  <button class="ib glass" title="Redo (design only)" disabled>↷</button>
+  <div class="sp"></div>
+  <button class="pill glass ask" id="ask">🔎 <span>Find anything</span> <kbd>/</kbd></button>
+  <button class="ib glass" id="share" title="Copy a link to this world">🔗</button>
+  <button class="cta" id="save">Save</button>
+</div>
+
+<div id="coach" class="glass">Drag the picture to look around · scroll or pinch to zoom</div>
+<div id="hist" aria-label="History"></div>
+<div class="rail glass" aria-label="Saved views"><button class="dot" title="Saved view (design only)">1</button><button class="dot" title="Saved view (design only)">2</button><button class="dot" title="Saved view (design only)">3</button></div>
+
+<div id="sheet" class="glass" role="dialog" aria-label="Controls"></div>
+<div class="dockwrap"><div class="dock glass" id="dock"></div></div>
+
+<div id="cmd"><div class="box glass"><input type="text" id="q" placeholder="Try: dusk, chrome, lagoon, roll the sky…" autocomplete="off"><ul id="res"></ul></div></div>
+<div id="toast" class="glass"></div>
+
+<script>
+const $=id=>document.getElementById(id), W=$('world');
+const send=m=>W.contentWindow.postMessage({vista:1,...m},'*');
+let st={}, lastDone=true;
+const SKIES=[['Postcard','#1648b8','#9fd0f5'],['Sherbet','#00d27a','#f58cb8'],['Dusk','#4a22b0','#ff8a4a'],['Lilac','#6b4fd0','#f0b8e8'],['Acid','#0c6b3a','#e8f04a'],['Midnight','#03051c','#1b2f6e'],['Mars','#7a2a1a','#f0b070'],['Ice','#0f6f8f','#d8fbff']];
+const SEAS=[['Ocean','#1d5fd0','#0b2a7a'],['Teal','#19b3a6','#0b5f6a'],['Lagoon','#5fe0d0','#1387a0'],['Mercury','#e6e9ee','#7c8390'],['Ink','#22243a','#07070f'],['Checker','#f3f3f3','#222'],['Candy floor','#ff9ad0','#fff'],['Lava','#ff7a1a','#5a0d00']];
+const LANDS=[['Island','#cdb98a','#4f8a4a'],['Red rock','#d07a4a','#7a2f1a'],['Slate','#8d93a0','#3d4250'],['Alpine','#ffffff','#6f7f8f'],['Alien','#c05fe0','#2f8a7a'],['Ember','#3a1a14','#ff5a1a'],['Pale rock','#e8e0d0','#a89f90']];
+const MATS=[['Red gloss','#e0201a'],['Chrome','#cfd6e0'],['Gold','#e8b030'],['Glass','#bfe6ff'],['Blue gloss','#1f55e0'],['Black pearl','#16161c'],['Stone','#8a8378'],['Bubblegum','#ff7ac0']];
+const WORLDS=['Red Moons','Monolith','Crag Lagoon','Checker Dream','Chrome Moon','Lava Teeth'];
+const ROOMS=[['worlds','🪐','Worlds'],['sky','🌤️','Sky'],['sea','🌊','Sea'],['land','⛰️','Land'],['things','🔮','Things'],['dice'],['type','🔠','Type'],['cover','💿','Cover'],['more','✨','New']];
+const locks=new Set(); let open=null, day=.32;
+
+function toast(t){ const e=$('toast'); e.textContent=t; e.style.opacity=1; clearTimeout(toast.t); toast.t=setTimeout(()=>e.style.opacity=0,1700); }
+function snap(label){ // history thumbnail from the live canvas
+  setTimeout(()=>{ try{ const c=W.contentDocument.getElementById('cv'); const t=document.createElement('canvas'); t.width=108; t.height=80; t.getContext('2d').drawImage(c,0,0,108,80);
+    const b=document.createElement('button'); b.style.backgroundImage=`url(${t.toDataURL('image/jpeg',.7)})`; b.textContent=label; b.title='History is design only for now';
+    const h=$('hist'); [...h.children].forEach(x=>x.classList.remove('now')); b.className='now'; h.prepend(b); while(h.children.length>5) h.lastChild.remove(); }catch(e){} },2600); }
+function act(label,m){ send(m); snap(label); $('coach').style.opacity=0; }
+
+function dock(){ const d=$('dock'); d.innerHTML='';
+  ROOMS.forEach(([id,ic,name])=>{ if(id==='dice'){ const b=document.createElement('button'); b.className='dice'; b.textContent='🎲'; b.title='Roll everything that is not locked';
+      b.onclick=()=>{ act('Roll',{cmd:'dice',locks:[...locks]}); $('wname').textContent='Untitled world'; toast(locks.size?`Rolled · kept ${[...locks].join(', ')}`:'Rolled a new world'); }; d.appendChild(b); return; }
+    const b=document.createElement('button'); b.className='room'+(locks.has(id)?' locked':''); b.setAttribute('aria-pressed',open===id);
+    b.innerHTML=`<i>${ic}</i>${name}<span class="lock">🔒</span>`; b.onclick=()=>{ open=open===id?null:id; draw(); }; d.appendChild(b); }); }
+const grad=(a,b)=>`linear-gradient(${a},${b})`;
+function cards(list,cur,paint,on,cls=''){ return `<div class="grid">${list.map((x,i)=>`<button class="card ${cls} ${i===cur?'on':''}" data-i="${i}" style="background:${paint(x)}"><span>${x[0]}</span></button>`).join('')}</div>`; }
+function head(title,id,lockable){ return `<div class="sh"><h2>${title}</h2><div class="mini">${lockable?`<button class="tag" id="lk" aria-pressed="${locks.has(id)}">${locks.has(id)?'🔒 Kept when rolling':'🔓 Keep when rolling'}</button><button class="tag" id="roll1">🎲 Roll only this</button>`:''}</div></div>`; }
+function draw(){ dock(); const s=$('sheet'); $('cover').classList.toggle('on',open==='cover');
+  if(!open){ s.classList.remove('open'); return; } s.classList.add('open'); let h='';
+  if(open==='worlds') h=head('Start from a world')+`<div class="grid" style="grid-template-columns:repeat(3,1fr)">${WORLDS.map((n,i)=>`<button class="card wide ${st.preset===i?'on':''}" data-i="${i}"><img src="shots/scene-${i}.png" alt=""><span>${n}</span></button>`).join('')}</div><p class="note">Every world is a starting point. Change anything, then share it as a link.</p>`;
+  if(open==='sky') h=head('Sky','sky',1)+`<h3>Time of day · drag the sun</h3><div class="arc" id="arc"><b id="sunb"></b><small style="left:8px">dawn</small><small style="left:50%;transform:translateX(-50%)">noon</small><small style="right:8px">night</small></div><h3>Colour</h3>`+cards(SKIES,st.sky,x=>grad(x[1],x[2]))+`<div class="dial"><span>Haze</span><input type="range" id="haze" min="0" max="1" step=".01" value="${st.hazeAmt??.4}"><output id="hazeo">${Math.round((st.hazeAmt??.4)*100)}</output></div>`;
+  if(open==='sea') h=head('Sea & floor','sea',1)+cards(SEAS,st.ground,x=>x[0]==='Checker'?'conic-gradient(#f3f3f3 25%,#222 0 50%,#f3f3f3 0 75%,#222 0)':grad(x[1],x[2]));
+  if(open==='land') h=head('Land','land',1)+cards(LANDS,st.land,x=>grad(x[1],x[2]))+`<div class="ideas" style="margin-top:12px"><div class="idea"><i>🖌️</i><div><b>Sculpt with your finger <span class="soon">next</span></b><span>Push and pull the island right on the picture: raise a ridge, carve a bay. Channel carving already works in the current editor.</span></div></div></div>`;
+  if(open==='things') h=head('Things','things',1)+`<h3>Material</h3>`+cards(MATS,st.mat,x=>`radial-gradient(circle at 35% 28%,#fff,${x[1]} 38%,#111 96%)`,0,'ball')+`<p class="note">In the full design you tap a shape on the picture and a small ring appears around it: move, size, material, copy, remove. No side panel needed.</p>`;
+  if(open==='type') h=head('3D lettering')+`<div class="ideas"><div class="idea"><i>🔠</i><div><b>Chrome words in the world <span class="soon">works in editor</span></b><span>Type a title and it stands in the water as real mirrored letters. Already built; it moves into this dock next.</span></div></div><div class="idea"><i>🅰️</i><div><b>Letter styles <span class="soon">idea</span></b><span>Blocky, rounded, serif. Glass or gold letters. Letters that float apart like the spheres.</span></div></div></div>`;
+  if(open==='cover') h=head('Album cover')+`<input type="text" id="ct" value="${$('coverT').textContent}" maxlength="28" aria-label="Album title"><div style="height:8px"></div><input type="text" id="ca" value="${$('coverA').textContent}" maxlength="40" aria-label="Artist line"><p class="note">The square shows the crop. Design preview: the text sits on top here and is not yet part of the saved picture.</p>`;
+  if(open==='more') h=head('What the original never had')+`<div class="ideas">${[['⚡','Live picture, no waiting','You always see the real ray traced image. In 1996 a simple scene took over 20 minutes.','works'],['🔒','Lock what you love, roll the rest','Keep the sky, re-roll the land. Tap the lock in any room.','works'],['🔗','Every world is a link','Send it. Friends open it and remix it.','works'],['💿','Cover maker','Square crop, title, jewel-case and cassette mock-ups.','preview'],['🎞️','Loops','Export a 10-second orbit or drifting-cloud loop for stories.','idea'],['🎧','Plays to your music','Drop in a track: spheres bob and the sun pulses to it.','idea'],['📼','Era lens','640×480, 256 colours, CRT glow. Or a replay of the render at 1994 speed.','idea'],['🧬','Nine cousins','Show nine variations of this world. Tap the one you like. Repeat.','idea'],['🕶️','Step inside','360° picture for a phone or headset.','idea']].map(x=>`<div class="idea"><i>${x[0]}</i><div><b>${x[1]} <span class="soon">${x[3]}</span></b><span>${x[2]}</span></div></div>`).join('')}</div>`;
+  s.innerHTML=h; wire(); }
+function wire(){ const s=$('sheet'), setK={sky:'sky',sea:'ground',land:'land',things:'mat'}[open];
+  s.querySelectorAll('.card').forEach(c=>c.onclick=()=>{ const i=+c.dataset.i;
+    if(open==='worlds'){ act(WORLDS[i],{cmd:'preset',i}); $('wname').textContent=WORLDS[i]; st.preset=i; }
+    else { act(({sky:SKIES,sea:SEAS,land:LANDS,things:MATS})[open][i][0],{cmd:'set',[setK]:i}); st[setK]=i; }
+    s.querySelectorAll('.card').forEach(x=>x.classList.toggle('on',x===c)); });
+  const lk=$('lk'); if(lk) lk.onclick=()=>{ locks.has(open)?locks.delete(open):locks.add(open); draw(); };
+  const r1=$('roll1'); if(r1) r1.onclick=()=>{ const others=['sky','sea','land','things'].filter(k=>k!==open); act('Roll '+open,{cmd:'dice',locks:others}); toast('Rolled only the '+open); };
+  const arc=$('arc'); if(arc){ const place=()=>{ $('sunb').style.left=(6+day*88)+'%'; $('sunb').style.top=(78-Math.sin(Math.PI*Math.min(day/.85,1))*50)+'%'; }; place();
+    const mv=(e,live)=>{ const r=arc.getBoundingClientRect(); day=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)); place();
+      const t=Math.min(day/.85,1), el=Math.max(.03,Math.sin(Math.PI*t)*1.15), night=day>.9;
+      send({cmd:'set',live,sun:{el:night?.5:el,az:-1.5+3*t},...(night?{sky:5}:day>.7?{sky:2}:{})}); };
+    arc.onpointerdown=e=>{ arc.setPointerCapture(e.pointerId); mv(e,1); }; arc.onpointermove=e=>{ if(arc.hasPointerCapture(e.pointerId)) mv(e,1); }; arc.onpointerup=e=>{ mv(e,0); snap('Sun'); }; }
+  const hz=$('haze'); if(hz){ hz.oninput=()=>{ $('hazeo').textContent=Math.round(hz.value*100); send({cmd:'set',live:1,hazeAmt:+hz.value}); }; hz.onchange=()=>snap('Haze'); }
+  const ct=$('ct'); if(ct){ ct.oninput=()=>$('coverT').textContent=ct.value; $('ca').oninput=()=>$('coverA').textContent=$('ca').value; } }
+
+// command bar
+const CMDS=[...WORLDS.map((n,i)=>['🪐',`World: ${n}`,()=>{ act(n,{cmd:'preset',i}); $('wname').textContent=n; },'world']),
+  ...SKIES.map((x,i)=>['🌤️',`Sky: ${x[0]}`,()=>act(x[0],{cmd:'set',sky:i}),'sky']),...SEAS.map((x,i)=>['🌊',`Sea: ${x[0]}`,()=>act(x[0],{cmd:'set',ground:i}),'sea']),
+  ...LANDS.map((x,i)=>['⛰️',`Land: ${x[0]}`,()=>act(x[0],{cmd:'set',land:i}),'land']),...MATS.map((x,i)=>['🔮',`Material: ${x[0]}`,()=>act(x[0],{cmd:'set',mat:i}),'things']),
+  ['🎲','Roll a new world',()=>act('Roll',{cmd:'dice',locks:[...locks]}),'dice'],['🎲','Roll the sky only',()=>act('Roll sky',{cmd:'dice',locks:['sea','land','things']}),'dice'],
+  ['🌇','Make it dusk',()=>act('Dusk',{cmd:'set',sky:2,sun:{el:.13}}),'light'],['☀️','Make it noon',()=>act('Noon',{cmd:'set',sun:{el:1.1}}),'light'],
+  ['💿','Open the cover maker',()=>{ open='cover'; draw(); },'room'],['🔗','Copy a link to this world',()=>$('share').click(),'share'],['💾','Save the picture',()=>$('save').click(),'save']];
+let sel=0, shown=[];
+function cmdDraw(){ const q=$('q').value.trim().toLowerCase(); shown=CMDS.filter(c=>q.split(/\s+/).every(w=>(c[1]+' '+c[3]).toLowerCase().includes(w))).slice(0,9); sel=Math.min(sel,Math.max(0,shown.length-1));
+  $('res').innerHTML=shown.map((c,i)=>`<li class="${i===sel?'sel':''}" data-i="${i}"><span>${c[0]}</span>${c[1]}<em>${c[3]}</em></li>`).join('')||'<li>Nothing found. Try “dusk” or “chrome”.</li>';
+  $('res').querySelectorAll('li[data-i]').forEach(l=>l.onclick=()=>run(+l.dataset.i)); }
+function run(i){ const c=shown[i]; if(!c) return; cmdClose(); c[2](); toast(c[1]); }
+function cmdOpen(){ $('cmd').classList.add('open'); $('q').value=''; sel=0; cmdDraw(); setTimeout(()=>$('q').focus(),30); }
+function cmdClose(){ $('cmd').classList.remove('open'); }
+$('ask').onclick=cmdOpen; $('q').oninput=()=>{ sel=0; cmdDraw(); };
+$('cmd').onclick=e=>{ if(e.target===$('cmd')) cmdClose(); };
+addEventListener('keydown',e=>{ const inField=/INPUT|TEXTAREA/.test(document.activeElement.tagName);
+  if($('cmd').classList.contains('open')){ if(e.key==='Escape') cmdClose(); else if(e.key==='ArrowDown'){ sel=Math.min(shown.length-1,sel+1); cmdDraw(); e.preventDefault(); } else if(e.key==='ArrowUp'){ sel=Math.max(0,sel-1); cmdDraw(); e.preventDefault(); } else if(e.key==='Enter') run(sel); return; }
+  if((e.key==='/'&&!inField)||(e.key==='k'&&(e.metaKey||e.ctrlKey))){ e.preventDefault(); cmdOpen(); } else if(e.key==='Escape'){ open=null; draw(); } else if(e.key===' '&&!inField){ e.preventDefault(); document.querySelector('.dice').click(); } });
+
+$('save').onclick=()=>{ try{ const c=W.contentDocument.getElementById('cv'); const a=document.createElement('a'); a.download='untitled-world.png'; a.href=c.toDataURL('image/png'); a.click(); toast('Saved the picture'); }catch(e){ toast('Could not save here'); } };
+$('share').onclick=async()=>{ try{ const u=new URL('index.html'+W.contentWindow.location.hash,location.href).href; await navigator.clipboard.writeText(u); toast('Link copied'); }catch(e){ toast('Could not copy here'); } };
+
+addEventListener('message',e=>{ const s=e.data&&e.data.vistaState; if(!s) return; const first=st.sky===undefined; Object.assign(st,s);
+  const p=$('prog'); if(!s.done){ p.style.opacity=1; p.style.width='70%'; } else if(!lastDone){ p.style.width='100%'; setTimeout(()=>{ p.style.opacity=0; setTimeout(()=>p.style.width=0,600); },300); } lastDone=s.done;
+  if(first) draw(); });
+window.__concept={open:id=>{ open=id; draw(); },cmd:cmdOpen,st:()=>st};
+draw(); setTimeout(()=>$('coach').style.opacity=0,7000);
+</script>
+</body>
+</html>
