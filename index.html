@@ -156,6 +156,12 @@ body.showing{background:#101015}
       <div id="channelTools">
         <button class="btn" id="channelToggle" aria-pressed="false">Carve a channel</button>
         <div id="channelControls" hidden>
+          <svg id="channelMap" viewBox="-1.2 -1.2 2.4 2.4" aria-label="Overhead channel map. Drag to bend the middle." role="img" style="display:block;width:min(100%,160px);margin:8px auto;background:#163b49;border-radius:6px;touch-action:none;cursor:ew-resize">
+            <defs><clipPath id="islandEdge"><circle r="1"/></clipPath></defs>
+            <circle r="1" fill="#9bada1"/><g clip-path="url(#islandEdge)"><polyline id="riverLine" fill="none" stroke="#23657a"/></g>
+            <circle id="riverHandle" r=".075" stroke="#18313a" stroke-width=".025" fill="#fff5cc"/>
+          </svg>
+          <label class="sl">Bend<input id="channelBend" type="range" min="-0.8" max="0.8" step="0.01"></label>
           <label class="sl">Position<input id="channelOffset" type="range" min="-0.8" max="0.8" step="0.01"></label>
           <label class="sl">Direction<input id="channelAngle" type="range" min="-90" max="90" step="1"></label>
           <label class="sl">Width<input id="channelWidth" type="range" min="0.04" max="0.5" step="0.01"></label>
@@ -186,6 +192,7 @@ uniform vec3 uZenith, uHorizon, uHazeCol, uSunCol, uCloudCol, uSunDir;
 uniform float uHaze, uCloud, uStreak, uStars, uSkySeed;
 uniform int uGround; uniform vec3 uG1, uG2; uniform float uWave, uGrain, uGRefl;
 uniform float uTerrOn, uTerrMode, uTerrH, uTerrR, uTerrFreq, uTerrRidge, uTerrSeed, uSnow;
+uniform float uChannelBend;
 uniform vec4 uChannel; // unit normal, offset and half-width in island radii
 uniform vec3 uT1, uT2, uT3;
 #define MAXO 12
@@ -210,7 +217,10 @@ float terr(vec2 p,int oct){
   if(uTerrMode<.5){ float d=length(p)/uTerrR; mask=smoothstep(1.,0.,d); }
   else { float d=length(p); mask=smoothstep(.36,.7,noise(p*(.6/uTerrR)+uTerrSeed*.37+5.)); mask*=smoothstep(uTerrR*9.,uTerrR*6.,d)*smoothstep(uTerrR*3.1,uTerrR*4.6,d); }
   if(uChannel.w>0.){
-    float distanceToCut=abs(dot(p/uTerrR,uChannel.xy)-uChannel.z);
+    vec2 local=p/uTerrR;
+    float along=dot(local,vec2(-uChannel.y,uChannel.x));
+    float curve=uChannelBend*exp(-5.*along*along);
+    float distanceToCut=abs(dot(local,uChannel.xy)-uChannel.z-curve);
     mask*=smoothstep(uChannel.w*.55,uChannel.w,distanceToCut);
   }
   return uTerrH*(s*mask*1.6*(.3+.7*mask)-.16*(1.-mask)-.015);
@@ -549,7 +559,7 @@ function fromPreset(i){ const p=JSON.parse(JSON.stringify(PRESETS[i])); p.size=S
 // three.js runs the canvas, render targets, camera maths and the wireframe view.
 // The picture itself is ray traced by one fragment shader (the <script id="fs"> above) drawn on a full-screen triangle.
 const V3N=['uCamPos','uCamTgt','uSunDir','uZenith','uHorizon','uHazeCol','uSunCol','uCloudCol','uG1','uG2','uT1','uT2','uT3'];
-const F1N=['uFov','uHaze','uCloud','uStreak','uStars','uSkySeed','uWave','uGrain','uGRefl','uTerrOn','uTerrMode','uTerrH','uTerrR','uTerrFreq','uTerrRidge','uTerrSeed','uSnow'];
+const F1N=['uChannelBend','uFov','uHaze','uCloud','uStreak','uStars','uSkySeed','uWave','uGrain','uGRefl','uTerrOn','uTerrMode','uTerrH','uTerrR','uTerrFreq','uTerrRidge','uTerrSeed','uSnow'];
 const uniforms={uTitleBox:{value:new THREE.Vector3()},uTitlePose:{value:new THREE.Vector4()},uLetters:{value:null},uChannel:{value:new THREE.Vector4()},uRes:{value:new THREE.Vector2()},uOrg:{value:new THREE.Vector2()},uAA:{value:1},uGround:{value:0},uNObj:{value:0},
   uOA:{value:new Float32Array(48)},uOB:{value:new Float32Array(48)},uOC:{value:new Float32Array(48)}};
 V3N.forEach(n=>uniforms[n]={value:new THREE.Vector3()}); F1N.forEach(n=>uniforms[n]={value:0});
@@ -616,6 +626,7 @@ function setScene(s,w,h,withWire=true){
   const t=s.terr; u1('uTerrOn',t.on&&t.h>.05?1:0); u1('uTerrMode',t.mode); u1('uTerrH',Math.max(t.h,.05)); u1('uTerrR',t.r);
   u1('uTerrFreq',t.freq*(8/Math.max(t.r,2))*(t.mode?1.2:1)); u1('uTerrRidge',t.ridge); u1('uTerrSeed',t.seed*13.7); u1('uSnow',ld.snow);
   const cut=t.channel;
+  u1('uChannelBend',cut?.bend??0);
   if(cut && !t.mode){
     const angle=THREE.MathUtils.degToRad(cut.angle);
     uniforms.uChannel.value.set(Math.cos(angle),Math.sin(angle),cut.offset,cut.width);
@@ -673,7 +684,8 @@ function loadHash(){ try{ const m=location.hash.match(/^#w=(.+)$/); if(!m) retur
     !['x','z','yaw','width','lift'].every(k=>Number.isFinite(s.title[k])) ||
     s.title.width<3 || s.title.width>20 || s.title.lift<0 || s.title.lift>10)) delete s.title;
   if(s.terr?.channel){
-    const {angle,offset,width}=s.terr.channel;
+    const {angle,offset,width,bend}=s.terr.channel;
+    if(!Number.isFinite(bend) || Math.abs(bend)>.8) delete s.terr.channel.bend;
     if(![angle,offset,width].every(Number.isFinite) || Math.abs(angle)>90 || Math.abs(offset)>.8 || width<.04 || width>.5) delete s.terr.channel;
   }
   if(!ok || (s.objects !== undefined && !validObjects(s.objects))) return null; s.count=Math.max(0,Math.min(12,s.count|0)); return s; }catch(e){ return null; } }
@@ -692,6 +704,18 @@ function sync(){
   $('channelToggle').setAttribute('aria-pressed',String(!!cut));
   $('channelControls').hidden=!cut;
   if(cut){
+    const bend=cut.bend??0;
+    $('channelBend').value=bend;
+    const angle=THREE.MathUtils.degToRad(cut.angle), nx=Math.cos(angle), nz=Math.sin(angle);
+    const points=[];
+    for(let i=0;i<=40;i++){
+      const along=i/20-1, across=cut.offset+bend*Math.exp(-5*along*along);
+      points.push([nx*across-nz*along,nz*across+nx*along].join(','));
+    }
+    $('riverLine').setAttribute('points',points.join(' '));
+    $('riverLine').setAttribute('stroke-width',2*cut.width);
+    $('riverHandle').setAttribute('cx',nx*(cut.offset+bend));
+    $('riverHandle').setAttribute('cy',nz*(cut.offset+bend));
     $('channelOffset').value=cut.offset;
     $('channelAngle').value=cut.angle;
     $('channelWidth').value=cut.width;
@@ -899,6 +923,9 @@ function boot(){
   if(!start && new URLSearchParams(location.search).has('lettering')){
     S=fromPreset(2); S.cam.yaw=.12; S.sky=2; S.ground=3; S.wave=.055; S.grain=.015;
     S.title={text:'LOW TIDE',x:0,z:8.5,yaw:-.09,width:14,lift:.85}; activePreset=-1;
+  } else if(!start && new URLSearchParams(location.search).has('river')){
+    S=fromPreset(2); S.cam.pitch=1.02; S.cam.dist=24; S.cam.ty=.8;
+    S.terr.channel={offset:-.20,angle:5,width:.12,bend:.40}; activePreset=-1;
   } else if(start){ S=start; activePreset=-1; } else { S=fromPreset(0); activePreset=0; }
   slider('haze',v=>S.hazeAmt=v); slider('cover',v=>S.cover=v); slider('streak',v=>S.streak=v);
   slider('wave',v=>S.wave=v); slider('grain',v=>S.grain=v);
@@ -908,6 +935,17 @@ function boot(){
     else S.terr.channel={offset:0,angle:25,width:.27};
     activePreset=-1; sync(); kick();
   };
+  slider('channelBend',v=>S.terr.channel.bend=v);
+  const map=$('channelMap');
+  function bendAt(e){
+    const point=new DOMPoint(e.clientX,e.clientY).matrixTransform(map.getScreenCTM().inverse());
+    const cut=S.terr.channel, angle=THREE.MathUtils.degToRad(cut.angle);
+    const bend=point.x*Math.cos(angle)+point.y*Math.sin(angle)-cut.offset;
+    cut.bend=Math.round(100*THREE.MathUtils.clamp(bend,-.8,.8))/100;
+    activePreset=-1; sync(); kick(260);
+  }
+  map.onpointerdown=e=>{ if(e.isPrimary && e.button===0){ map.setPointerCapture(e.pointerId); bendAt(e); } };
+  map.onpointermove=e=>{ if(map.hasPointerCapture(e.pointerId)) bendAt(e); };
   slider('channelOffset',v=>S.terr.channel.offset=v);
   slider('channelAngle',v=>S.terr.channel.angle=v);
   slider('channelWidth',v=>S.terr.channel.width=v);
