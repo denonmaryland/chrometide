@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
+<link rel="icon" href="data:,">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Untitled Worlds · prototype 0.1</title>
@@ -109,6 +110,13 @@ body.showing{background:#101015}
   <div class="panel">
     <div class="sec"><h2>Worlds</h2><div class="thumbs" id="thumbs"></div></div>
 
+    <div class="sec"><h2>3D lettering</h2>
+      <label class="row">Title <input id="titleText" class="grow" style="min-width:0;font:inherit;padding:6px" maxlength="32" placeholder="Type an album title"></label>
+      <div id="titleTools" hidden>
+        <label class="sl">Width<input id="titleWidth" type="range" min="3" max="20" step=".1"></label>
+        <label class="sl">Lift<input id="titleLift" type="range" min="0" max="10" step=".1"></label>
+      </div>
+    </div>
     <div class="sec" id="studio"><h2>Object studio</h2>
       <div class="row"><select class="grow" id="objectList" aria-label="Selected object"></select><button class="btn" id="emptyWorld">Blank world</button></div>
       <div class="row tools"><button class="btn" data-shape="0">+ Sphere</button><button class="btn" data-shape="1">+ Box</button><button class="btn" data-shape="2">+ Pyramid</button></div>
@@ -255,8 +263,41 @@ float iObj(int i,vec3 ro,vec3 rd,out vec3 n){
   if(tN>tF||tN<1e-3) return -1.;
   n=rotY(best,B.w); return tN;
 }
+uniform sampler2D uLetters;
+uniform vec4 uTitlePose; // centre and rotation
+uniform vec3 uTitleBox; // half extents
+float letterDistance(vec3 p){
+  vec2 uv=clamp(p.xy/(2.*uTitleBox.xy)+.5,0.,1.);
+  float pixel=2.*uTitleBox.y/float(textureSize(uLetters,0).y);
+  float edge=(texture(uLetters,vec2(uv.x,1.-uv.y)).r*255.-128.)*.25*pixel;
+  float bevel=min(uTitleBox.z*.6,pixel*2.6);
+  vec2 d=vec2(edge+bevel,abs(p.z)-uTitleBox.z+bevel);
+  return length(max(d,0.))+min(max(d.x,d.y),0.)-bevel;
+}
+float hitLetters(vec3 ro,vec3 rd,float limit,out vec3 normal){
+  if(uTitleBox.x<=0.) return -1.;
+  vec3 o=rotY(ro-uTitlePose.xyz,-uTitlePose.w), d=rotY(rd,-uTitlePose.w);
+  vec3 safe=mix(vec3(1e-8),d,greaterThan(abs(d),vec3(1e-8)));
+  vec3 a=(-uTitleBox-o)/safe,b=(uTitleBox-o)/safe;
+  vec3 lo=min(a,b),hi=max(a,b);
+  float t=max(.002,max(lo.x,max(lo.y,lo.z))), end=min(limit,min(hi.x,min(hi.y,hi.z)));
+  for(int i=0;i<100;i++){
+    if(t>end+.0002) break;
+    vec3 p=o+t*d;
+    float h=letterDistance(p);
+    if(h<.001){
+      vec2 e=vec2(.0015,0.);
+      normal=rotY(normalize(vec3(letterDistance(p+e.xyy)-letterDistance(p-e.xyy),
+        letterDistance(p+e.yxy)-letterDistance(p-e.yxy),letterDistance(p+e.yyx)-letterDistance(p-e.yyx))),uTitlePose.w);
+      return t;
+    }
+    t+=max(.0008,h*.88);
+  }
+  return -1.;
+}
 float objShadow(vec3 p){ float s=1.; vec3 n;
   for(int i=0;i<MAXO;i++){ if(i>=uNObj) break; float t=iObj(i,p,uSunDir,n); if(t>0.) s=min(s,int(uOC[i].w+.5)==2?.55:0.); }
+  if(hitLetters(p,uSunDir,600.,n)>0.) return 0.;
   return s; }
 
 // ---------- sky ----------
@@ -298,6 +339,8 @@ vec3 trace(vec3 ro,vec3 rd){
     vec3 nn;
     for(int i=0;i<MAXO;i++){ if(i>=uNObj) break; float to=iObj(i,ro,rd,nn); if(to>0.&&to<t){ t=to; kind=3; id=i; n=nn; } }
     if(uTerrOn>.5){ float tt=marchTerr(ro,rd,min(t,600.)); if(tt>0.&&tt<t){ t=tt; kind=2; } }
+    float letters=hitLetters(ro,rd,t,nn);
+    if(letters>0.){ t=letters; kind=4; n=nn; }
     if(kind==0){ col+=thr*sky(rd,sunOn); return col; }
     vec3 p=ro+rd*t;
     float T=exp(-t*uHaze*uHaze*.02);
@@ -345,6 +388,9 @@ vec3 trace(vec3 ro,vec3 rd){
       if(uGround==2) alb=mix(alb,uG1*2.,smoothstep(.06,0.,hh)*.8);
       float sh=min(objShadow(p+n*.01),terrShadow(p+n*.02));
       lc=alb*(amb*(.6+.4*n.y)+uSunCol*max(dot(n,uSunDir),0.)*sh);
+    } else if(kind==4){
+      refl=.87;
+      lc=vec3(.34,.38,.42)*(amb+.65*max(dot(n,uSunDir),0.));
     } else {
       vec4 C=uOC[id]; int m=int(C.w+.5); vec3 alb=C.rgb;
       float sh=objShadow(p+n*.003); if(uTerrOn>.5) sh=min(sh,terrShadow(p+n*.02));
@@ -397,6 +443,7 @@ void main(){
 
 <script type="module">
 import * as THREE from './vendor/three.module.js';
+import { titleField } from './lettering.js';
 const $=id=>document.getElementById(id);
 const cv=$('cv');
 function fail(msg){ const e=$('err'); e.style.display='block'; e.textContent=msg; $('stat').textContent='Could not start'; window.__error=msg; }
@@ -503,7 +550,7 @@ function fromPreset(i){ const p=JSON.parse(JSON.stringify(PRESETS[i])); p.size=S
 // The picture itself is ray traced by one fragment shader (the <script id="fs"> above) drawn on a full-screen triangle.
 const V3N=['uCamPos','uCamTgt','uSunDir','uZenith','uHorizon','uHazeCol','uSunCol','uCloudCol','uG1','uG2','uT1','uT2','uT3'];
 const F1N=['uFov','uHaze','uCloud','uStreak','uStars','uSkySeed','uWave','uGrain','uGRefl','uTerrOn','uTerrMode','uTerrH','uTerrR','uTerrFreq','uTerrRidge','uTerrSeed','uSnow'];
-const uniforms={uChannel:{value:new THREE.Vector4()},uRes:{value:new THREE.Vector2()},uOrg:{value:new THREE.Vector2()},uAA:{value:1},uGround:{value:0},uNObj:{value:0},
+const uniforms={uTitleBox:{value:new THREE.Vector3()},uTitlePose:{value:new THREE.Vector4()},uLetters:{value:null},uChannel:{value:new THREE.Vector4()},uRes:{value:new THREE.Vector2()},uOrg:{value:new THREE.Vector2()},uAA:{value:1},uGround:{value:0},uNObj:{value:0},
   uOA:{value:new Float32Array(48)},uOB:{value:new Float32Array(48)},uOC:{value:new Float32Array(48)}};
 V3N.forEach(n=>uniforms[n]={value:new THREE.Vector3()}); F1N.forEach(n=>uniforms[n]={value:0});
 let traceScene, blitScene, blitMat, nullCam, lowRT, thumbRT, wireScene, wireCam, wireGroup, ready=false;
@@ -533,7 +580,26 @@ function buildWire(objs){
     const m=new THREE.Mesh(g,WIRE); m.position.set(o.p[0],o.p[1],o.p[2]); m.rotation.y=-o.rot+(o.t===2?Math.PI/4:0); wireGroup.add(m); });
 }
 const u3=(n,c)=>uniforms[n].value.set(c[0],c[1],c[2]), u1=(n,v)=>{ uniforms[n].value=v; };
+let cachedTitle='';
+function setLetters(title){
+  if(!title?.text.trim()){ uniforms.uTitleBox.value.set(0,0,0); return; }
+  if(cachedTitle!==title.text){
+    const {data,w,h}=titleField(title.text);
+    const tex=new THREE.DataTexture(data,w,h,THREE.RedFormat);
+    tex.minFilter=tex.magFilter=THREE.LinearFilter;
+    tex.needsUpdate=true;
+    uniforms.uLetters.value?.dispose();
+    uniforms.uLetters.value=tex;
+    cachedTitle=title.text;
+  }
+  const {width,height}=uniforms.uLetters.value.image;
+  const halfWidth=Math.min(title.width,width/88*3.5)*.5;
+  const halfHeight=halfWidth*height/width;
+  uniforms.uTitleBox.value.set(halfWidth,halfHeight,Math.min(.45,halfHeight*.14));
+  uniforms.uTitlePose.value.set(title.x,title.lift+halfHeight*.48,title.z,-title.yaw);
+}
 function setScene(s,w,h,withWire=true){
+  setLetters(s.title);
   const sk=SKIES[s.sky], g=GROUNDS[s.ground], ld=LANDS[s.land];
   const c=s.cam, tgt=new THREE.Vector3(0,c.ty,0);
   const dist=s.terr.on&&s.terr.mode?Math.min(c.dist,s.terr.r*2.6):c.dist;
@@ -600,9 +666,12 @@ function preview(){ if(!ready) return; job++; window.__done=false; setScene(S); 
 let kickT=0; function kick(delay){ clearTimeout(kickT); if(delay){ preview(); kickT=setTimeout(render,delay); } else render(); }
 
 // ---------- share link ----------
-function saveHash(){ if(showOriginal) return; try{ history.replaceState(null,'','#w='+btoa(JSON.stringify(S))); }catch(e){} }
+function saveHash(){ if(showOriginal) return; try{ history.replaceState(null,'','#w='+btoa(JSON.stringify(S).replace(/[^\x00-\x7f]/g,c=>'\\u'+c.charCodeAt(0).toString(16).padStart(4,'0')))); }catch(e){} }
 function loadHash(){ try{ const m=location.hash.match(/^#w=(.+)$/); if(!m) return null; const s=JSON.parse(atob(m[1]));
   const ok=Number.isInteger(s.sky)&&SKIES[s.sky]&&GROUNDS[s.ground]&&LANDS[s.land]&&MATS[s.mat]&&SIZES[s.size]&&s.cam&&s.sun&&s.terr&&typeof s.style==='string';
+  if(s.title && (typeof s.title.text!=='string' || s.title.text.length>32 ||
+    !['x','z','yaw','width','lift'].every(k=>Number.isFinite(s.title[k])) ||
+    s.title.width<3 || s.title.width>20 || s.title.lift<0 || s.title.lift>10)) delete s.title;
   if(s.terr?.channel){
     const {angle,offset,width}=s.terr.channel;
     if(![angle,offset,width].every(Number.isFinite) || Math.abs(angle)>90 || Math.abs(offset)>.8 || width<.04 || width>.5) delete s.terr.channel;
@@ -614,6 +683,9 @@ function chips(host,list,key,sq,paint){ const el=$(host); list.forEach((it,i)=>{
   b.style.background=paint(it); b.onclick=()=>{ S[key]=i; if(key==="mat" && S.objects) S.objects.forEach(o=>o.mat=i); if(key==='land'){ S.terr.on=1; if(S.terr.h<.5) S.terr.h=5; } sync(); kick(); }; el.appendChild(b); }); }
 function sync(){
   syncStudio();
+  $('titleText').value=S.title?.text||'';
+  $('titleTools').hidden=!S.title;
+  if(S.title){ $('titleWidth').value=S.title.width; $('titleLift').value=S.title.lift; }
   const cut=S.terr.channel;
   $('channelTools').hidden=!S.terr.on || !!S.terr.mode;
   $('channelToggle').textContent=cut?'Fill channel':'Carve a channel';
@@ -824,7 +896,10 @@ function boot(){
   S={size:1}; const start=loadHash();
   PRESETS.forEach((p,i)=>{ const b=document.createElement('button'); b.className='thumb'; const im=new Image(); im.alt=p.name; im.src=thumb(fromPreset(i),128,96);
     const em=document.createElement('em'); em.textContent=p.name; b.append(im,em); b.onclick=()=>{ S=fromPreset(i); activePreset=i; sync(); kick(); }; $('thumbs').appendChild(b); });
-  if(start){ S=start; activePreset=-1; } else { S=fromPreset(0); activePreset=0; }
+  if(!start && new URLSearchParams(location.search).has('lettering')){
+    S=fromPreset(2); S.cam.yaw=.12; S.sky=2; S.ground=3; S.wave=.055; S.grain=.015;
+    S.title={text:'LOW TIDE',x:0,z:8.5,yaw:-.09,width:14,lift:.85}; activePreset=-1;
+  } else if(start){ S=start; activePreset=-1; } else { S=fromPreset(0); activePreset=0; }
   slider('haze',v=>S.hazeAmt=v); slider('cover',v=>S.cover=v); slider('streak',v=>S.streak=v);
   slider('wave',v=>S.wave=v); slider('grain',v=>S.grain=v);
   slider('th',v=>{ S.terr.h=v; S.terr.on=v>.05?1:0; }); slider('tr',v=>S.terr.r=v); slider('ridge',v=>S.terr.ridge=v);
@@ -836,6 +911,19 @@ function boot(){
   slider('channelOffset',v=>S.terr.channel.offset=v);
   slider('channelAngle',v=>S.terr.channel.angle=v);
   slider('channelWidth',v=>S.terr.channel.width=v);
+  $('titleText').oninput=e=>{
+    const text=e.target.value;
+    if(text){
+      const yaw=S.cam.yaw, depth=S.cam.dist*.32;
+      S.title??={x:Math.sin(yaw)*depth,z:Math.cos(yaw)*depth,yaw,width:13,lift:1.1};
+      S.title.text=text;
+    } else delete S.title;
+    $('titleTools').hidden=!S.title;
+    if(S.title){ $('titleWidth').value=S.title.width; $('titleLift').value=S.title.lift; }
+    activePreset=-1; kick(180);
+  };
+  slider('titleWidth',v=>S.title.width=v);
+  slider('titleLift',v=>S.title.lift=v);
   initPresentation();
   initStudio();
   slider('count',v=>{ if(S.objects){ S.objects.splice(v); while(S.objects.length<v) addShape(0); } S.count=v; });
