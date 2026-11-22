@@ -1,10 +1,12 @@
 // The bar across the top: the world's name, undo, how the render is going, and the ways out
 // (share, cover, loop, save).
 import * as React from "react"
-import { Check, Clapperboard, Disc3, Download, Link, Redo2, Search, SlidersHorizontal, Undo2 } from "lucide-react"
+import { Check, Clapperboard, Disc3, Download, FolderOpen, GanttChart, Link, Redo2, Search, SlidersHorizontal, Undo2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Kbd } from "@/components/ui/kbd"
+import { exportGLB, exportHeightmap, exportOBJ, importModel, photoToLand, pickFile, setPicture } from "@/io"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { StatusGlyph } from "@/components/ui/status-glyph"
 import { QUALITY } from "@/engine/engine"
@@ -19,6 +21,7 @@ export const fileName = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-
 
 export function TopBar({ onInspector }: { onInspector: () => void }) {
   const name = useApp((s) => s.world.name), remix = useApp((s) => s.world.remixOf), status = useApp((s) => s.status), canUndo = useApp((s) => s.past.length > 0), canRedo = useApp((s) => s.future.length > 0)
+  const timeline = useApp((s) => s.timeline); const [note, setNote] = React.useState("")
   const [copied, setCopied] = React.useState(false); const [saving, setSaving] = React.useState<number | null>(null)
   const share = async () => { const url = await shareLink(); try { await navigator.clipboard.writeText(url) } catch { /* clipboard blocked: the link is still in the address bar */ } history.replaceState(null, "", url); setCopied(true); setTimeout(() => setCopied(false), 1800) }
   const save = async () => { if (!engine || saving !== null) return; const w = get().world; setSaving(0)
@@ -33,6 +36,22 @@ export function TopBar({ onInspector }: { onInspector: () => void }) {
       {remix && <span className="hidden rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground md:inline">remix of {remix}</span>}
       <Tip label="Undo (Ctrl Z)"><Button variant="ghost" size="icon-sm" className="max-sm:hidden" onClick={undo} disabled={!canUndo} aria-label="Undo"><Undo2 /></Button></Tip>
       <Tip label="Redo (Ctrl Shift Z)"><Button variant="ghost" size="icon-sm" className="max-sm:hidden" onClick={redo} disabled={!canRedo} aria-label="Redo"><Redo2 /></Button></Tip>
+      <DropdownMenu>
+        <DropdownMenuTrigger render={<Button variant="ghost" size="sm" data-testid="file-menu" />}><FolderOpen /><span className="hidden lg:inline">File</span></DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-60">
+          <DropdownMenuGroup><DropdownMenuLabel>Bring in</DropdownMenuLabel>
+          <DropdownMenuItem data-testid="import-model" onClick={async () => { const f = await pickFile(".glb,.gltf,.obj"); if (f) { setNote("Reading the model…"); const ok = await importModel(f).catch(() => false); setNote(ok ? "" : "That file had no shape I could read."); if (!ok) setTimeout(() => setNote(""), 4000) } }}>A 3D model (.glb, .obj)…</DropdownMenuItem>
+          <DropdownMenuItem onClick={async () => { const f = await pickFile("image/*"); if (f) { await photoToLand(f); patch({ sel: { type: "land" } }) } }}>A picture as land…</DropdownMenuItem>
+          <DropdownMenuItem onClick={async () => { const f = await pickFile("image/*"); if (f) await setPicture(f) }}>A picture for materials…</DropdownMenuItem>
+          </DropdownMenuGroup><DropdownMenuSeparator />
+          <DropdownMenuGroup><DropdownMenuLabel>Take out</DropdownMenuLabel>
+          <DropdownMenuItem data-testid="export-glb" onClick={() => void exportGLB()}>This world as 3D (.glb)</DropdownMenuItem>
+          <DropdownMenuItem data-testid="export-obj" onClick={() => exportOBJ()}>This world as 3D (.obj)</DropdownMenuItem>
+          <DropdownMenuItem onClick={exportHeightmap}>The land as a height picture</DropdownMenuItem></DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <Tip label="Animate with keys on a timeline"><Button variant={timeline ? "glass" : "ghost"} size="sm" onClick={() => patch({ timeline: !timeline, playing: false })} data-testid="open-timeline"><GanttChart /><span className="hidden lg:inline">Timeline</span></Button></Tip>
+      {note && <span className="text-[12px] text-muted-foreground">{note}</span>}
       <div className="ml-auto flex items-center gap-1.5">
         <span className="hidden items-center gap-1.5 pr-1 text-[12px] text-muted-foreground tabular-nums lg:flex" data-testid="status">
           {status.phase === "done" ? <Check className="size-3.5" /> : <StatusGlyph activity="running" className="size-4" />}{label}

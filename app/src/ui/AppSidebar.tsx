@@ -7,10 +7,10 @@ import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupAction, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuAction,
   SidebarMenuButton, SidebarMenuItem, SidebarRail,
 } from "@/components/ui/sidebar"
-import { type LockKey, type World, KINDS, KIND_LABEL, STARTERS } from "@/engine/scene"
+import { type LockKey, type World, KIND_LABEL, STARTERS } from "@/engine/scene"
 import { type Sel, dropFromShelf, editThing, engine, openSaved, patch, replaceWorld, saveToShelf, toggleLock, useApp } from "@/store"
 
-import { KIND_ICON, newThing } from "./Viewport"
+import { ADDABLE, KIND_ICON, newThing } from "./Viewport"
 
 const PARTS: { type: Exclude<Sel["type"], "thing">; label: string; icon: React.ComponentType<{ className?: string }>; lock?: LockKey }[] = [
   { type: "sky", label: "Sky", icon: Sun, lock: "sky" }, { type: "sea", label: "Sea & floor", icon: Waves, lock: "sea" }, { type: "land", label: "Land", icon: Mountain, lock: "land" },
@@ -54,7 +54,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Things <span className="ml-1.5 font-mono text-[10px] text-muted-foreground">{things.length}/20</span></SidebarGroupLabel>
           <DropdownMenu>
             <DropdownMenuTrigger render={<SidebarGroupAction aria-label="Add a thing" />}><Plus /></DropdownMenuTrigger>
-            <DropdownMenuContent side="right" align="start" className="w-44">{KINDS.map((k) => { const I = KIND_ICON[k]; return <DropdownMenuItem key={k} onClick={() => newThing(k)}><I className="size-4" /> {KIND_LABEL[k]}</DropdownMenuItem> })}</DropdownMenuContent>
+            <DropdownMenuContent side="right" align="start" className="w-44">{ADDABLE.map((k) => { const I = KIND_ICON[k]; return <DropdownMenuItem key={k} onClick={() => newThing(k)}><I className="size-4" /> {KIND_LABEL[k]}</DropdownMenuItem> })}</DropdownMenuContent>
           </DropdownMenu>
           <SidebarGroupContent><SidebarMenu>
             {things.length === 0 && <p className="px-2 py-1 text-[12px] text-muted-foreground group-data-[collapsible=icon]:hidden">Nothing floating here yet. Press + to add a shape.</p>}

@@ -2,44 +2,54 @@
 // push the land up and down.
 import * as React from "react"
 import * as THREE from "three"
-import { Box, Circle, Cone, Copy, Cylinder, Dices, Diamond, Donut, Droplet, Lock, LockOpen, Mountain, Plus, Scissors, Trash2, TreeDeciduous, TreePine, Triangle, ArrowDownToLine, Disc } from "lucide-react"
+import { Box, Boxes, Circle, Cone, Copy, Cylinder, Dices, Diamond, Donut, Droplet, Lock, LockOpen, Mountain, Plus, Scissors, Trash2, TreeDeciduous, TreePine, Triangle, ArrowDownToLine, Disc } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { Engine, QUALITY } from "@/engine/engine"
+import { Engine, GRID, QUALITY } from "@/engine/engine"
 import { type Kind, type LockKey, type Vec3, KINDS, KIND_LABEL, mat, thing } from "@/engine/scene"
 import { addThing, duplicateThing, edit, editThing, engine, get, patch, removeThing, rollDice, selectedThing, setEngine, toggleLock, useApp } from "@/store"
 
 export const KIND_ICON: Record<Kind, React.ComponentType<{ className?: string }>> = {
-  sphere: Circle, box: Box, pyramid: Triangle, cylinder: Cylinder, cone: Cone, torus: Donut, disc: Disc, stone: Diamond, blob: Droplet, tree: TreeDeciduous, pine: TreePine,
+  sphere: Circle, box: Box, pyramid: Triangle, cylinder: Cylinder, cone: Cone, torus: Donut, disc: Disc, stone: Diamond, blob: Droplet, tree: TreeDeciduous, pine: TreePine, crag: Mountain, model: Boxes,
 }
+export const ADDABLE = KINDS.filter((k) => k !== "model")
 const LOCKS: { key: LockKey; label: string }[] = [{ key: "sky", label: "Sky" }, { key: "sea", label: "Sea" }, { key: "land", label: "Land" }, { key: "things", label: "Things" }, { key: "camera", label: "Camera" }]
 
 export function newThing(kind: Kind) {
   const w = get().world, c = w.cam.target
-  const size: Vec3 = kind === "disc" ? [1.6, 0.08, 1.6] : kind === "tree" || kind === "pine" ? [1.4, 1.8, 1.4] : [1.2, 1.2, 1.2]
-  const m = kind === "tree" || kind === "pine" ? mat("Leaf") : kind === "stone" ? mat("Stone") : mat("Chrome")
+  const size: Vec3 = kind === "disc" ? [1.6, 0.08, 1.6] : kind === "crag" ? [3, 2.2, 3] : kind === "tree" || kind === "pine" ? [1.4, 1.8, 1.4] : [1.2, 1.2, 1.2]
+  const m = kind === "tree" || kind === "pine" ? mat("Leaf") : kind === "stone" || kind === "crag" ? mat("Stone") : mat("Chrome")
   addThing(thing(kind, [c[0] + (Math.random() - 0.5) * 3, Math.max(size[1] + 0.2, c[1]), c[2] + (Math.random() - 0.5) * 3], size, m, { name: KIND_LABEL[kind] }))
 }
 
-/** Push the land up or down around a point: a 64 by 64 grid of heights, kept in the world as text. */
-function sculptAt(x: number, z: number, tool: "raise" | "lower" | "smooth", size: number) {
+/** Push the land up or down around a point: a grid of heights, kept in the world as text. */
+export function readGrid(sculpt?: string) { const d = new Uint8Array(GRID * GRID).fill(128); if (sculpt) { try { const raw = atob(sculpt); for (let i = 0; i < Math.min(raw.length, d.length); i++) d[i] = raw.charCodeAt(i) } catch { /* start again from flat */ } } return d }
+export function writeGrid(d: Uint8Array) { let s = ""; for (let i = 0; i < d.length; i += 0x4000) s += String.fromCharCode(...d.subarray(i, i + 0x4000)); return btoa(s) }
+export type SculptTool = "raise" | "lower" | "smooth" | "erode"
+function sculptAt(x: number, z: number, tool: SculptTool, size: number) {
   edit("sculpt", (w) => {
-    const N = 64, d = new Uint8Array(N * N).fill(128)
-    if (w.land.sculpt) { try { const raw = atob(w.land.sculpt); for (let i = 0; i < Math.min(raw.length, d.length); i++) d[i] = raw.charCodeAt(i) } catch { /* start again from flat */ } }
+    const N = GRID, d = readGrid(w.land.sculpt)
     const u = x / (w.land.radius * 3.2) + 0.5, v = z / (w.land.radius * 3.2) + 0.5, r = size * N
-    const src = d.slice()
-    for (let j = Math.max(0, Math.floor(v * N - r)); j <= Math.min(N - 1, Math.ceil(v * N + r)); j++)
+    const src = d.slice(), cl = (n: number) => Math.max(0, Math.min(N - 1, n))
+    if (tool === "erode") {
+      // water drops: each lands in the brush, runs downhill and away from the middle, and wears a gully as it goes
+      for (let n = 0; n < 26; n++) { const a = Math.random() * 6.283, q = Math.sqrt(Math.random()) * r; let px = u * N + Math.cos(a) * q, py = v * N + Math.sin(a) * q
+        for (let step = 0; step < 34; step++) { const i = cl(Math.round(px)), j = cl(Math.round(py)), k = j * N + i
+          const gx = d[j * N + cl(i + 1)] - d[j * N + cl(i - 1)], gy = d[cl(j + 1) * N + i] - d[cl(j - 1) * N + i]
+          let dx = -gx + (px - N / 2) * 0.05 + (Math.random() - 0.5) * 0.8, dy = -gy + (py - N / 2) * 0.05 + (Math.random() - 0.5) * 0.8; const l = Math.hypot(dx, dy) || 1
+          d[k] = Math.max(0, d[k] - (step < 28 ? 2 : 0)); px += dx / l; py += dy / l; if (px < 1 || py < 1 || px > N - 2 || py > N - 2) break } }
+    } else for (let j = Math.max(0, Math.floor(v * N - r)); j <= Math.min(N - 1, Math.ceil(v * N + r)); j++)
       for (let i = Math.max(0, Math.floor(u * N - r)); i <= Math.min(N - 1, Math.ceil(u * N + r)); i++) {
         const k = Math.max(0, 1 - Math.hypot(i + 0.5 - u * N, j + 0.5 - v * N) / r); if (k <= 0) continue
         const f = k * k * (3 - 2 * k), at = j * N + i
         if (tool === "smooth") { const a = (src[at] + src[Math.max(0, at - 1)] + src[Math.min(N * N - 1, at + 1)] + src[Math.max(0, at - N)] + src[Math.min(N * N - 1, at + N)]) / 5; d[at] = Math.round(src[at] + (a - src[at]) * f) }
         else d[at] = Math.max(0, Math.min(255, Math.round(src[at] + (tool === "raise" ? 9 : -9) * f)))
       }
-    let s = ""; for (let i = 0; i < d.length; i++) s += String.fromCharCode(d[i]); w.land.sculpt = btoa(s); w.land.on = true
+    w.land.sculpt = writeGrid(d); w.land.on = true
   })
 }
 
@@ -89,7 +99,7 @@ export function Viewport() {
       const t = w.things.find((x) => x.id === hit.id)!; patch({ sel: { type: "thing", id: t.id } })
       const p = onPlane(nx, ny, t.pos[1]); drag.current = { ...d, mode: "thing", id: t.id, planeY: t.pos[1], off: p ? [t.pos[0] - p.x, t.pos[2] - p.z] : [0, 0] }; return
     }
-    if (hit?.kind === "land" && get().sel.type === "land" && get().sculpt.tool !== "off") { drag.current = { ...d, mode: "sculpt" }; sculptAt(hit.point[0], hit.point[2], get().sculpt.tool as "raise", get().sculpt.size); return }
+    if (hit?.kind === "land" && get().sel.type === "land" && get().sculpt.tool !== "off") { drag.current = { ...d, mode: "sculpt" }; sculptAt(hit.point[0], hit.point[2], get().sculpt.tool as SculptTool, get().sculpt.size); return }
     if (hit?.kind === "sky") { const { rd } = engine.ray(nx, ny), s = w.sky.sun
       const sd = new THREE.Vector3(Math.cos(s.el) * Math.sin(s.az), Math.sin(s.el), Math.cos(s.el) * Math.cos(s.az))
       if (rd.dot(sd) > Math.cos(0.09)) { drag.current = { ...d, mode: "sun" }; patch({ sel: { type: "sky" } }); return } }
@@ -110,7 +120,7 @@ export function Viewport() {
       else { const q = onPlane(nx, ny, d.planeY); if (q) editThing(d.id, "move", (t) => { t.pos[0] = q.x + d.off[0]; t.pos[2] = q.z + d.off[1] }) }
     }
     else if (d.mode === "sun") { const { rd } = engine.ray(nx, ny); edit("sun", (w) => { w.sky.sun = { az: Math.atan2(rd.x, rd.z), el: Math.max(0.02, Math.asin(Math.max(-1, Math.min(1, rd.y)))) } }) }
-    else if (d.mode === "sculpt") { const h = engine.pick(nx, ny); if (h && (h.kind === "land" || h.kind === "sea")) sculptAt(h.point[0], h.point[2], get().sculpt.tool as "raise", get().sculpt.size) }
+    else if (d.mode === "sculpt") { const h = engine.pick(nx, ny); if (h && (h.kind === "land" || h.kind === "sea")) sculptAt(h.point[0], h.point[2], get().sculpt.tool as SculptTool, get().sculpt.size) }
   }
   const up = (e: React.PointerEvent) => {
     pts.current.delete(e.pointerId); pinch.current = 0; const d = drag.current; drag.current = null
@@ -137,7 +147,7 @@ export function Viewport() {
         <div className="glass-panel absolute top-3 left-1/2 flex -translate-x-1/2 items-center gap-0.5 rounded-lg p-1">
           <span className="px-2 text-[12.5px] font-medium">{picked.name}</span>
           <Tip label={picked.role === "cut" ? "Cutting: make solid" : "Cut this shape out of its set"}><Button variant={picked.role === "cut" ? "glass" : "ghost"} size="icon-sm" onClick={() => editThing(picked.id, "role", (t) => { t.role = t.role === "cut" ? "solid" : "cut" })}><Scissors /></Button></Tip>
-          <Tip label="Rest it on the ground"><Button variant="ghost" size="icon-sm" onClick={() => editThing(picked.id, "land", (t) => { const h = engine?.pick(0.5, 0.5); void h; t.pos[1] = t.size[1] })}><ArrowDownToLine /></Button></Tip>
+          <Tip label="Rest it on the ground"><Button variant="ghost" size="icon-sm" onClick={() => { const g = engine?.groundAt(picked.pos[0], picked.pos[2]) ?? 0; editThing(picked.id, "land", (t) => { t.pos[1] = g + t.size[1] }) }}><ArrowDownToLine /></Button></Tip>
           <Tip label="Duplicate"><Button variant="ghost" size="icon-sm" onClick={() => duplicateThing(picked.id)}><Copy /></Button></Tip>
           <Tip label="Remove"><Button variant="ghost" size="icon-sm" onClick={() => removeThing(picked.id)}><Trash2 /></Button></Tip>
         </div>
@@ -148,7 +158,7 @@ export function Viewport() {
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button variant="ghost" size="sm" className="h-8" />}><Plus /> Add</DropdownMenuTrigger>
           <DropdownMenuContent side="top" align="start" className="w-44">
-            {KINDS.map((k) => { const I = KIND_ICON[k]; return <DropdownMenuItem key={k} onClick={() => newThing(k)}><I className="size-4" /> {KIND_LABEL[k]}</DropdownMenuItem> })}
+            {ADDABLE.map((k) => { const I = KIND_ICON[k]; return <DropdownMenuItem key={k} onClick={() => newThing(k)}><I className="size-4" /> {KIND_LABEL[k]}</DropdownMenuItem> })}
           </DropdownMenuContent>
         </DropdownMenu>
         <div className="mx-0.5 h-5 w-px bg-border" />

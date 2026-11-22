@@ -3,15 +3,15 @@
 
 export type Vec3 = [number, number, number]
 
-export const KINDS = ["sphere", "box", "pyramid", "cylinder", "cone", "torus", "disc", "stone", "blob", "tree", "pine"] as const
+export const KINDS = ["sphere", "box", "pyramid", "cylinder", "cone", "torus", "disc", "stone", "blob", "tree", "pine", "crag", "model"] as const
 export type Kind = (typeof KINDS)[number]
 export const KIND_LABEL: Record<Kind, string> = {
   sphere: "Sphere", box: "Box", pyramid: "Pyramid", cylinder: "Cylinder", cone: "Cone", torus: "Ring",
-  disc: "Disc", stone: "Stone", blob: "Blob", tree: "Tree", pine: "Pine",
+  disc: "Disc", stone: "Stone", blob: "Blob", tree: "Tree", pine: "Pine", crag: "Floating rock", model: "Imported model",
 }
 export const ROLES = ["solid", "cut", "keep"] as const
 export type Role = (typeof ROLES)[number]
-export const TEXTURES = ["none", "stone", "marble", "wood", "checker", "stripes", "dots", "clouded"] as const
+export const TEXTURES = ["none", "stone", "marble", "wood", "checker", "stripes", "dots", "clouded", "picture"] as const
 export type Texture = (typeof TEXTURES)[number]
 
 export interface Material {
@@ -20,6 +20,10 @@ export interface Material {
   texture: Texture; texScale: number
   diffuse: number; reflect: number; metal: number; shine: number; gloss: number
   clear: number; ior: number; bump: number; glow: number
+  /** a second pattern laid over the first */
+  layer?: Texture; layerColor?: string; layerMix?: number
+  /** 0 solid; above 0 the shape is made of cloud */
+  cloud?: number
 }
 export interface Thing {
   id: string; name: string; kind: Kind
@@ -27,6 +31,7 @@ export interface Thing {
   round: number; role: Role; group: number
   mat: Material; hidden?: boolean
   bob?: number; spin?: number // used by loops
+  beam?: number // for glowing things: 0 lights all around, above 0 is a spotlight this many degrees wide, pointing down its own axis
 }
 export interface Sky {
   zenith: string; horizon: string; haze: string; sunColor: string
@@ -38,6 +43,7 @@ export interface Sky {
   stars: number
   moon: number; moonAz: number; moonEl: number; moonSize: number; moonPhase: number
   rainbow: number; halo: number
+  rays?: number; comet?: number
 }
 export const SEA_KINDS = ["water", "checker", "lava", "sand", "mirror", "none"] as const
 export type SeaKind = (typeof SEA_KINDS)[number]
@@ -47,7 +53,8 @@ export interface Land {
   snow: number; c1: string; c2: string; c3: string
   terrace: number; plateau: number; sharp: number
   channel?: { offset: number; angle: number; width: number; bend: number }
-  sculpt?: string // base64 of a 64 x 64 grid of heights, 128 = untouched
+  sculpt?: string // base64 of a 128 x 128 grid of heights, 128 = untouched
+  flat?: boolean // no generated land: only what the grid holds (used for land made from a photo)
 }
 export interface Camera { yaw: number; pitch: number; dist: number; target: Vec3; fov: number; roll: number; lens: number; focus: number; pano?: boolean }
 export interface Title { text: string; x: number; z: number; yaw: number; width: number; lift: number; depth: number; mat: Material }
@@ -58,7 +65,12 @@ export interface World {
   cam: Camera; views: (Camera | null)[]
   frame: Frame
   remixOf?: string
+  anim?: Anim
+  picture?: string // a small picture (data URL) that materials with the "picture" pattern show
+  model?: { n: number; data: string } // an imported shape, kept as a grid of distances
 }
+export type Pose = Pick<World, "sky" | "sea" | "land" | "cam" | "things" | "title">
+export interface Anim { seconds: number; loop: boolean; ease: boolean; keys: { t: number; pose: Pose }[] }
 
 // ---------- materials (all original) ----------
 const M = (name: string, color: string, o: Partial<Material> = {}): Material => ({
@@ -280,8 +292,8 @@ async function pipe(data: Uint8Array, stream: CompressionStream | DecompressionS
   const w = stream.writable.getWriter(); void w.write(data as BufferSource); void w.close()
   return new Uint8Array(await new Response(stream.readable).arrayBuffer())
 }
-export async function encodeWorld(w: World): Promise<string> {
-  const lean = clone(w); lean.things.forEach((t) => { t.pos = t.pos.map(r3) as Vec3; t.size = t.size.map(r3) as Vec3 })
+export async function encodeWorld(w: World, full = false): Promise<string> {
+  const lean = clone(w); if (!full) { delete lean.model; delete lean.picture; lean.things = lean.things.filter((t) => t.kind !== "model") } lean.things.forEach((t) => { t.pos = t.pos.map(r3) as Vec3; t.size = t.size.map(r3) as Vec3 })
   return "w2." + b64(await pipe(new TextEncoder().encode(JSON.stringify(lean)), new CompressionStream("deflate-raw")))
 }
 export async function decodeWorld(code: string): Promise<World | null> {

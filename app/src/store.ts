@@ -2,14 +2,16 @@
 import * as React from "react"
 
 import type { Engine, Status } from "./engine/engine"
+import { at, keyAt, newAnim, pose } from "./engine/anim"
 import { type LockKey, type Thing, type World, STARTERS, clone, decodeWorld, encodeWorld, newId, roll } from "./engine/scene"
 
 export type Sel = { type: "sky" | "sea" | "land" | "title" | "camera" | "picture" } | { type: "thing"; id: string }
 export interface Saved { id: string; name: string; code: string; thumb: string; at: number }
 export interface State {
   world: World; sel: Sel; locks: LockKey[]; past: World[]; future: World[]
-  quality: number; status: Status; saved: Saved[]; sculpt: { tool: "off" | "raise" | "lower" | "smooth"; size: number }
+  quality: number; status: Status; saved: Saved[]; sculpt: { tool: "off" | "raise" | "lower" | "smooth" | "erode"; size: number }
   wires: boolean; mask: number; dialog: null | "cover" | "loop" | "find" | "gallery"; rolls: number
+  playhead: number; playing: boolean; timeline: boolean
 }
 const KEY = "untitled-worlds:saved"
 const loadSaved = (): Saved[] => { try { return JSON.parse(localStorage.getItem(KEY) ?? "[]") } catch { return [] } }
@@ -17,7 +19,7 @@ const loadSaved = (): Saved[] => { try { return JSON.parse(localStorage.getItem(
 let state: State = {
   world: STARTERS[0](), sel: { type: "sky" }, locks: [], past: [], future: [], quality: 1,
   status: { phase: "blocks", samples: 0, target: 16 }, saved: loadSaved(), sculpt: { tool: "off", size: 0.12 },
-  wires: true, mask: 0, dialog: null, rolls: 0,
+  wires: true, mask: 0, dialog: null, rolls: 0, playhead: 0, playing: false, timeline: false,
 }
 const subs = new Set<() => void>()
 const emit = () => subs.forEach((f) => f())
@@ -35,6 +37,8 @@ let lastLabel = "", lastAt = 0
 export function edit(label: string, fn: (w: World) => void) {
   const now = Date.now(), fresh = label !== lastLabel || now - lastAt > 700
   const next = clone(state.world); fn(next)
+  // editing while the playhead sits on a key changes that key
+  const ki = keyAt(next.anim, state.playhead); if (ki >= 0 && !label.startsWith("anim")) next.anim!.keys[ki].pose = pose(next)
   state = { ...state, world: next, past: fresh ? [...state.past.slice(-80), state.world] : state.past, future: [] }
   lastLabel = label; lastAt = now; emit()
 }
@@ -64,9 +68,14 @@ export async function loadFromHash(): Promise<boolean> {
   const w = await decodeWorld(m[1]); if (!w) return false
   w.remixOf = w.remixOf ?? w.name; state = { ...state, world: w, past: [], future: [] }; emit(); history.replaceState(null, "", location.pathname + location.search); return true
 }
+// ---------- the timeline ----------
+export function seek(t: number) { t = Math.min(1, Math.max(0, t)); const w = state.world; state = { ...state, playhead: t, world: w.anim && w.anim.keys.length ? at(w, t) : w }; emit() }
+export function addKey() { const t = state.playhead; edit("anim-key", (w) => { const an = (w.anim ??= newAnim()); const i = keyAt(an, t); const k = { t, pose: pose(w) }; if (i >= 0) an.keys[i] = k; else an.keys.push(k); an.keys.sort((a, b) => a.t - b.t) }) }
+export function removeKey(i: number) { edit("anim-unkey", (w) => { w.anim?.keys.splice(i, 1) }) }
+
 export async function saveToShelf() {
   if (!engine) return
-  const w = state.world, item: Saved = { id: newId(), name: w.name, code: await encodeWorld(w), thumb: engine.thumb(w, 192, 144), at: Date.now() }
+  const w = state.world, item: Saved = { id: newId(), name: w.name, code: await encodeWorld(w, true), thumb: engine.thumb(w, 192, 144), at: Date.now() }
   const saved = [item, ...state.saved.filter((s) => s.name !== w.name)].slice(0, 40)
   try { localStorage.setItem(KEY, JSON.stringify(saved)) } catch { /* storage full or blocked: keep it for this visit only */ }
   patch({ saved })

@@ -7,17 +7,19 @@ import { Clapperboard, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
+import { at } from "@/engine/anim"
 import { type World, clone } from "@/engine/scene"
 import { engine, get, patch, useApp } from "@/store"
 
 import { Dial, Row, Segmented } from "./fields"
 import { fileName } from "./TopBar"
 
-export interface LoopOpts { orbit: boolean; float: boolean; day: boolean; drift: boolean; seconds: number; size: "small" | "square" | "wide" | "tall" }
+export interface LoopOpts { timeline?: boolean; orbit: boolean; float: boolean; day: boolean; drift: boolean; seconds: number; size: "small" | "square" | "wide" | "tall" }
 const SIZES = { small: [480, 360], square: [720, 720], wide: [960, 540], tall: [540, 960] } as const
 
 /** The world at a moment of the loop, t from 0 to 1. Everything returns to where it began. */
 export function worldAt(w: World, o: LoopOpts, t: number): { world: World; time: number; phase: number } {
+  if (o.timeline && w.anim && w.anim.keys.length > 1) return { world: at(w, t), time: 0, phase: t }
   const x = clone(w)
   if (o.orbit) x.cam.yaw += t * Math.PI * 2
   if (o.day) { x.sky.sun.el = Math.max(0.03, w.sky.sun.el + Math.sin(t * Math.PI * 2) * Math.min(0.45, w.sky.sun.el * 0.8)); x.sky.sun.az += Math.sin(t * Math.PI * 2 + 1.2) * 0.35 }
@@ -29,7 +31,7 @@ const pickType = () => ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video
 
 export async function recordLoop(w: World, o: LoopOpts, onProgress: (f: number, frame: HTMLCanvasElement) => void, alive: () => boolean): Promise<Blob | null> {
   if (!engine) return null; const type = pickType(); if (!type) return null
-  const [W, H] = SIZES[o.size], fps = 24, n = Math.round(o.seconds * fps)
+  const secs = o.timeline && w.anim ? w.anim.seconds : o.seconds, [W, H] = SIZES[o.size], fps = 24, n = Math.round(secs * fps)
   const stage = document.createElement("canvas"); stage.width = W; stage.height = H; const ctx = stage.getContext("2d")!
   const stream = stage.captureStream(0), track = stream.getVideoTracks()[0] as MediaStreamTrack & { requestFrame?: () => void }
   const rec = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 9_000_000 }); const chunks: Blob[] = []
@@ -49,7 +51,8 @@ export async function recordLoop(w: World, o: LoopOpts, onProgress: (f: number, 
 }
 
 export function LoopDialog() {
-  const open = useApp((s) => s.dialog === "loop"); const name = useApp((s) => s.world.name)
+  const open = useApp((s) => s.dialog === "loop"); const name = useApp((s) => s.world.name), hasKeys = useApp((s) => (s.world.anim?.keys.length ?? 0) > 1)
+  React.useEffect(() => { if (open && get().world.anim && get().world.anim!.keys.length > 1) setO((x) => ({ ...x, timeline: true })) }, [open])
   const [o, setO] = React.useState<LoopOpts>({ orbit: true, float: true, day: false, drift: false, seconds: 6, size: "square" })
   const [busy, setBusy] = React.useState<number | null>(null); const [url, setUrl] = React.useState<string>(); const [note, setNote] = React.useState("")
   const view = React.useRef<HTMLCanvasElement>(null); const run = React.useRef(0)
@@ -70,6 +73,7 @@ export function LoopDialog() {
             {url ? <video src={url} autoPlay loop muted playsInline controls className="max-h-[62dvh] w-full object-contain" data-testid="loop-video" /> : <canvas ref={view} className="max-h-[62dvh] w-full object-contain" />}
           </div>
           <div className="flex flex-col gap-2.5">
+            {hasKeys && <Row label="Play my timeline"><Switch checked={!!o.timeline} onCheckedChange={(v) => set({ timeline: v })} aria-label="Timeline" /></Row>}
             <Row label="Camera circles the world"><Switch checked={o.orbit} onCheckedChange={(v) => set({ orbit: v })} aria-label="Orbit" /></Row>
             <Row label="Things float up and down"><Switch checked={o.float} onCheckedChange={(v) => set({ float: v })} aria-label="Float" /></Row>
             <Row label="Sun rises and falls"><Switch checked={o.day} onCheckedChange={(v) => set({ day: v })} aria-label="Day" /></Row>

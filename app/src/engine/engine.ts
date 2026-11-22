@@ -10,6 +10,7 @@ import { DISPLAY_FRAG, MAT_COLS, MAXO, TRACE_FRAG, VERT } from "./shader"
 export type Phase = "moving" | "blocks" | "refining" | "done"
 export interface Status { phase: Phase; samples: number; target: number }
 export interface Hit { kind: "sky" | "sea" | "land" | "thing" | "title"; id?: string; point: [number, number, number]; dist: number }
+export const GRID = 128 // the hand-sculpted land is a grid this many cells across
 export const QUALITY = [
   { name: "Draft", samples: 4 }, { name: "Good", samples: 16 }, { name: "Fine", samples: 48 }, { name: "Premium", samples: 160 },
 ]
@@ -44,6 +45,8 @@ const WIRE: Record<string, () => THREE.BufferGeometry> = {
   blob: () => new THREE.WireframeGeometry(new THREE.SphereGeometry(1, 10, 6)),
   tree: () => new THREE.WireframeGeometry(new THREE.IcosahedronGeometry(0.7, 1).translate(0, 0.3, 0)),
   pine: () => new THREE.EdgesGeometry(new THREE.ConeGeometry(0.8, 1.8, 8).translate(0, 0.1, 0), 20),
+  crag: () => new THREE.EdgesGeometry(new THREE.CylinderGeometry(1, 0.2, 1.6, 10), 20),
+  model: () => new THREE.EdgesGeometry(new THREE.BoxGeometry(2, 2, 2)),
 }
 
 export class Engine {
@@ -58,6 +61,7 @@ export class Engine {
   private matTex!: THREE.DataTexture; private matData = new Float32Array(MAT_COLS * (MAXO + 1) * 4)
   private letterTex: THREE.DataTexture | null = null; private letterKey = ""
   private sculptTex!: THREE.DataTexture; private sculptKey = ""
+  private picTex!: THREE.Texture; private picKey = ""; private modelTex!: THREE.Data3DTexture; private modelKey = ""
   private wireScene = new THREE.Scene(); private wireCam = new THREE.PerspectiveCamera(); private wires = new Map<string, THREE.LineSegments>()
   private float = false
   private world: World | null = null; private ids: string[] = []
@@ -79,19 +83,21 @@ export class Engine {
     }
     const r = this.r; r.setPixelRatio(1); r.autoClear = false; r.outputColorSpace = THREE.LinearSRGBColorSpace
     this.float = !!r.getContext().getExtension("EXT_color_buffer_float")
-    const V3 = ["uCamPos", "uCamFw", "uCamRt", "uCamUp", "uZenith", "uHorizon", "uHazeCol", "uSunCol", "uSunDir", "uCloudCol", "uCloud2Col", "uFogCol", "uMoonDir", "uG1", "uG2", "uT1", "uT2", "uT3", "uTitleBox"]
+    const V3 = ["uCamPos", "uCamFw", "uCamRt", "uCamUp", "uZenith", "uHorizon", "uHazeCol", "uSunCol", "uSunDir", "uCloudCol", "uCloud2Col", "uFogCol", "uMoonDir", "uG1", "uG2", "uT1", "uT2", "uT3", "uTitleBox", "uCometDir", "uPRo", "uPRd"]
     const F1 = ["uSample", "uPreview", "uMode", "uLDR", "uBounces", "uBlend", "uTime", "uFocal", "uLens", "uFocus", "uPanoYaw", "uProj", "uHaze", "uCloud", "uStreak", "uCloudScale", "uCloud2", "uStars", "uSkySeed", "uSunSize", "uSunGlow", "uSunSoft", "uAmbient",
-      "uFog", "uFogH", "uMoon", "uMoonSize", "uMoonPhase", "uRainbow", "uHalo", "uGround", "uWave", "uGrain", "uGRefl", "uGScale", "uTerrOn", "uTerrMode", "uTerrH", "uTerrR", "uTerrFreq", "uTerrRidge", "uTerrSeed", "uSnow", "uTerrace", "uPlateau", "uSharp", "uChannelBend", "uSculptOn", "uNObj", "uNLight"]
+      "uFog", "uFogH", "uMoon", "uMoonSize", "uMoonPhase", "uRainbow", "uHalo", "uGround", "uWave", "uGrain", "uGRefl", "uGScale", "uTerrOn", "uTerrMode", "uTerrH", "uTerrR", "uTerrFreq", "uTerrRidge", "uTerrSeed", "uSnow", "uTerrace", "uPlateau", "uSharp", "uChannelBend", "uSculptOn", "uNObj", "uNLight", "uRays", "uComet", "uTerrFlat", "uGridHalf"]
     V3.forEach((n) => (this.u[n] = { value: new THREE.Vector3() })); F1.forEach((n) => (this.u[n] = { value: 0 }))
     this.u.uRes = { value: new THREE.Vector2(2, 2) }; this.u.uPickUV = { value: new THREE.Vector2() }
     this.u.uChannel = { value: new THREE.Vector4() }; this.u.uTitlePose = { value: new THREE.Vector4() }
     for (const n of ["uOP", "uOS", "uR0", "uR1", "uR2"]) this.u[n] = { value: Array.from({ length: MAXO }, () => new THREE.Vector4()) }
-    this.u.uLP = { value: Array.from({ length: 4 }, () => new THREE.Vector4()) }; this.u.uLC = { value: Array.from({ length: 4 }, () => new THREE.Vector3()) }
+    this.u.uLP = { value: Array.from({ length: 4 }, () => new THREE.Vector4()) }; this.u.uLC = { value: Array.from({ length: 4 }, () => new THREE.Vector3()) }; this.u.uLD = { value: Array.from({ length: 4 }, () => new THREE.Vector4(0, -1, 0, -2)) }
     this.matTex = new THREE.DataTexture(this.matData, MAT_COLS, MAXO + 1, THREE.RGBAFormat, THREE.FloatType); this.matTex.needsUpdate = true
     this.u.uMat = { value: this.matTex }
     const blank = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1, THREE.RGBAFormat); blank.needsUpdate = true
     this.u.uLetters = { value: blank }
-    this.sculptTex = new THREE.DataTexture(new Uint8Array(64 * 64 * 4).fill(128), 64, 64, THREE.RGBAFormat)
+    this.picTex = blank; this.u.uPic = { value: blank }
+    this.modelTex = new THREE.Data3DTexture(new Uint8Array([255]), 1, 1, 1); this.modelTex.format = THREE.RedFormat; this.modelTex.unpackAlignment = 1; this.modelTex.needsUpdate = true; this.u.uModel = { value: this.modelTex }
+    this.sculptTex = new THREE.DataTexture(new Uint8Array(GRID * GRID * 4).fill(128), GRID, GRID, THREE.RGBAFormat)
     this.sculptTex.magFilter = this.sculptTex.minFilter = THREE.LinearFilter; this.sculptTex.needsUpdate = true
     this.u.uSculpt = { value: this.sculptTex }
     const tri = new THREE.BufferGeometry(); tri.setAttribute("position", new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 3, -1, 0, -1, 3, 0]), 3))
@@ -150,8 +156,10 @@ export class Engine {
     const cut = t.channel; u.uChannelBend.value = cut?.bend ?? 0
     if (cut && t.mode !== "range") { const a = THREE.MathUtils.degToRad(cut.angle); u.uChannel.value.set(Math.cos(a), Math.sin(a), cut.offset, cut.width) } else u.uChannel.value.set(0, 0, 0, 0)
     v3("uT1", hex(t.c1)); v3("uT2", hex(t.c2)); v3("uT3", hex(t.c3))
+    u.uTerrFlat.value = t.flat ? 1 : 0; u.uRays.value = num(s.rays, 0, 0, 2); u.uComet.value = num(s.comet, 0, 0, 2); v3("uCometDir", dir(s.seed * 1.3 + 0.7, 0.42 + 0.25 * Math.sin(s.seed * 2.1)))
+    this.pictures(w)
     u.uSculptOn.value = on && t.sculpt ? 1 : 0
-    if (t.sculpt && t.sculpt !== this.sculptKey) { this.sculptKey = t.sculpt; try { const raw = atob(t.sculpt), d = this.sculptTex.image.data as Uint8Array; for (let i = 0; i < 4096; i++) d[i * 4] = i < raw.length ? raw.charCodeAt(i) : 128; this.sculptTex.needsUpdate = true } catch { /* a bad sculpt string leaves the land untouched */ } }
+    if (t.sculpt && t.sculpt !== this.sculptKey) { this.sculptKey = t.sculpt; try { const raw = atob(t.sculpt), d = this.sculptTex.image.data as Uint8Array; for (let i = 0; i < GRID * GRID; i++) d[i * 4] = i < raw.length ? raw.charCodeAt(i) : 128; this.sculptTex.needsUpdate = true } catch { /* a bad sculpt string leaves the land untouched */ } }
     // things
     const things = w.things.filter((x) => !x.hidden).slice(0, MAXO); this.ids = things.map((x) => x.id)
     const m4 = new THREE.Matrix4(), e = new THREE.Euler(); let nl = 0
@@ -165,7 +173,8 @@ export class Engine {
       u.uR0.value[i].set(el[0], el[1], el[2], Math.max(0, ROLES.indexOf(o.role))); u.uR1.value[i].set(el[4], el[5], el[6], Math.min(3, Math.max(0, Math.round(o.group || 0)))); u.uR2.value[i].set(el[8], el[9], el[10], bound)
       this.putMat(i, o.mat)
       if (o.mat.glow > 0 && nl < 4 && o.role === "solid") { const c = hex(o.mat.color), p = o.mat.glow * Math.min(40, 2.5 + sz[0] * sz[0] * 4)
-        u.uLP.value[nl].set(o.pos[0], o.pos[1] + bob, o.pos[2], Math.max(...sz)); u.uLC.value[nl].set(c[0] * p, c[1] * p, c[2] * p); nl++ }
+        u.uLP.value[nl].set(o.pos[0], o.pos[1] + bob, o.pos[2], Math.max(...sz)); const beam = num(o.beam, 0, 0, 170), k = beam > 0 ? 2.2 : 1; u.uLC.value[nl].set(c[0] * p * k, c[1] * p * k, c[2] * p * k)
+        u.uLD.value[nl].set(-el[4], -el[5], -el[6], beam > 0 ? Math.cos(THREE.MathUtils.degToRad(beam / 2)) : -2); nl++ }
     })
     u.uNObj.value = things.length; u.uNLight.value = nl
     // lettering
@@ -181,10 +190,21 @@ export class Engine {
     this.matTex.needsUpdate = true
     u.uRes.value.set(vw, vh)
   }
+  /** The world's picture (for materials) and imported shape, loaded into textures when they change. */
+  private pictures(w: World) {
+    const pic = w.picture ?? ""
+    if (pic !== this.picKey) { this.picKey = pic
+      if (!pic.startsWith("data:image/")) this.u.uPic.value = this.picTex
+      else { const im = new Image(); im.onload = () => { if (this.picKey !== pic) return; const tx = new THREE.Texture(im); tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.minFilter = tx.magFilter = THREE.LinearFilter; tx.generateMipmaps = false; tx.needsUpdate = true; this.u.uPic.value = tx; this.touch() }; im.src = pic } }
+    const md = w.model, key = md ? `${md.n}:${md.data.length}:${md.data.slice(0, 64)}` : ""
+    if (key !== this.modelKey) { this.modelKey = key
+      if (md && md.n >= 4 && md.n <= 64) { try { const raw = atob(md.data), n = md.n, d = new Uint8Array(n * n * n).fill(255); for (let i = 0; i < Math.min(raw.length, d.length); i++) d[i] = raw.charCodeAt(i)
+        this.modelTex.dispose(); const tx = new THREE.Data3DTexture(d, n, n, n); tx.format = THREE.RedFormat; tx.minFilter = tx.magFilter = THREE.LinearFilter; tx.unpackAlignment = 1; tx.needsUpdate = true; this.modelTex = tx; this.u.uModel.value = tx } catch { /* a bad model leaves a box */ } } }
+  }
   private putMat(row: number, m: Material) {
     const d = this.matData, o = row * MAT_COLS * 4, c = hex(m.color), c2 = hex(m.color2)
     d.set([c[0], c[1], c[2], Math.max(0, TEXTURES.indexOf(m.texture)), c2[0], c2[1], c2[2], num(m.texScale, 1, 0.05, 20),
-      num(m.diffuse, 1, 0, 1), num(m.reflect, 0, 0, 1), num(m.metal, 0, 0, 1), num(m.shine, 0.5, 0, 1), num(m.gloss, 0.8, 0, 1), num(m.clear, 0, 0, 1), num(m.ior, 1.33, 1, 2.6), num(m.bump, 0, 0, 1), num(m.glow, 0, 0, 5), 0, 0, 0], o)
+      num(m.diffuse, 1, 0, 1), num(m.reflect, 0, 0, 1), num(m.metal, 0, 0, 1), num(m.shine, 0.5, 0, 1), num(m.gloss, 0.8, 0, 1), num(m.clear, 0, 0, 1), num(m.ior, 1.33, 1, 2.6), num(m.bump, 0, 0, 1), num(m.glow, 0, 0, 5), num(m.cloud, 0, 0, 1), Math.max(0, TEXTURES.indexOf(m.layer ?? "none")), m.layer && m.layer !== "none" ? num(m.layerMix, 0.5, 0, 1) : 0, ...hex(m.layerColor ?? "#ffffff"), 0], o)
   }
 
   // ---------- drawing ----------
@@ -274,6 +294,36 @@ export class Engine {
     const kind = (["sky", "sea", "land", "thing", "title"] as const)[Math.round(px[0])] ?? "sky"
     const { ro, rd } = this.ray(nx, ny); const d = kind === "sky" ? 0 : px[2]; const p = ro.clone().addScaledVector(rd, d)
     return { kind, id: kind === "thing" ? this.ids[Math.round(px[1])] : undefined, point: [p.x, p.y, p.z], dist: d }
+  }
+
+  /** What a ray from anywhere meets: used to rest things on the land and to scatter copies. */
+  probe(ro: [number, number, number], rd: [number, number, number]): { kind: Hit["kind"]; dist: number } | null {
+    if (!this.pickRT || !this.world) return null
+    this.upload(this.world, this.w, this.h); this.u.uPRo.value.set(...ro); this.u.uPRd.value.set(...rd)
+    this.pass(this.pickRT, 1, 1, { sample: 0, preview: true, ldr: false, blend: 1, mode: 10 }); this.u.uRes.value.set(this.w, this.h)
+    const px = new Float32Array(4); this.r.readRenderTargetPixels(this.pickRT, 0, 0, 1, 1, px); this.r.setRenderTarget(null)
+    return { kind: (["sky", "sea", "land", "thing", "title"] as const)[Math.round(px[0])] ?? "sky", dist: px[2] }
+  }
+  /** The land as a square grid of heights, n by n, covering half-width `half` around the middle. */
+  heights(n: number, half: number): Float32Array {
+    const out = new Float32Array(n * n); if (!this.float || !this.world) return out
+    const rt = new THREE.WebGLRenderTarget(n, n, { depthBuffer: false, type: THREE.FloatType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, generateMipmaps: false })
+    this.upload(this.world, this.w, this.h); this.u.uGridHalf.value = half
+    const keep = this.traceMat.blending; this.traceMat.blending = THREE.NoBlending
+    this.pass(rt, n, n, { sample: 0, preview: true, ldr: false, blend: 1, mode: 11 }); this.traceMat.blending = keep; this.u.uRes.value.set(this.w, this.h)
+    const px = new Float32Array(n * n * 4); this.r.readRenderTargetPixels(rt, 0, 0, n, n, px); this.r.setRenderTarget(null); rt.dispose(); this.dirty = true
+    for (let i = 0; i < n * n; i++) out[i] = px[i * 4]
+    return out
+  }
+  /** The height of the ground (land, or sea level) under a point. */
+  groundAt(x: number, z: number): number { return this.probeDown(x, z) }
+  private probeDown(x: number, z: number): number {
+    if (!this.pickRT || !this.world) return 0
+    const w = this.world, bare = { ...w, things: [], title: undefined }
+    this.upload(bare, this.w, this.h); this.u.uPRo.value.set(x, 200, z); this.u.uPRd.value.set(0, -1, 0)
+    this.pass(this.pickRT, 1, 1, { sample: 0, preview: true, ldr: false, blend: 1, mode: 10 }); this.u.uRes.value.set(this.w, this.h)
+    const px = new Float32Array(4); this.r.readRenderTargetPixels(this.pickRT, 0, 0, 1, 1, px); this.r.setRenderTarget(null); this.dirty = true
+    return Math.round(px[0]) === 2 ? Math.max(0, 200 - px[2]) : 0
   }
 
   /** Render a world to its own pixels, away from the screen: for saved pictures, thumbnails and loop frames. */

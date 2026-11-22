@@ -13,7 +13,23 @@ import {
 } from "@/engine/scene"
 import { edit, editThing, engine, get, patch, removeThing, rollDice, selectedThing, useApp } from "@/store"
 
+import { exportHeightmap, photoToLand, pickFile, setPicture } from "@/io"
+
 import { Color, Colors, Dial, Looks, Row, Section, Segmented } from "./fields"
+
+/** Put every thing in a row, a ring, or at one height. */
+function arrangeAll(how: "row" | "ring" | "level") {
+  edit("arrange-" + how, (w) => { const ts = w.things.filter((t) => !t.hidden && t.role === "solid"), n = ts.length; if (!n) return
+    if (how === "level") { const y = ts.reduce((a, t) => a + t.pos[1], 0) / n; ts.forEach((t) => { t.pos[1] = y }) }
+    else if (how === "row") { const gap = 0.5, total = ts.reduce((a, t) => a + t.size[0] * 2, 0) + gap * (n - 1); let x = -total / 2; ts.forEach((t) => { t.pos[0] = x + t.size[0]; t.pos[2] = 0; x += t.size[0] * 2 + gap }) }
+    else { const r = Math.max(3, ts.reduce((a, t) => a + t.size[0] * 2 + 0.6, 0) / (Math.PI * 2)); ts.forEach((t, i) => { const a = (i / n) * Math.PI * 2; t.pos[0] = Math.cos(a) * r; t.pos[2] = Math.sin(a) * r }) } })
+}
+/** Copies of a thing, thrown around it at random sizes and turns, each resting on the ground under it. */
+function scatter(t: Thing) {
+  const spots = Array.from({ length: 6 }, () => { const a = Math.random() * 6.283, d = t.size[0] * (2 + Math.random() * 5), x = t.pos[0] + Math.cos(a) * d, z = t.pos[2] + Math.sin(a) * d, k = 0.45 + Math.random() * 0.8
+    return { x, z, k, g: engine?.groundAt(x, z) ?? 0, turn: Math.random() * 360 } })
+  edit("scatter" + t.id, (w) => { spots.forEach((s, i) => { if (w.things.length >= 20) return; const c = clone(t); c.id = newId(); c.name = `${t.name} ${i + 2}`; c.size = t.size.map((v) => v * s.k) as Vec3; c.pos = [s.x, s.g + c.size[1], s.z]; c.rot = [s.turn, t.rot[1], t.rot[2]]; w.things.push(c) }) })
+}
 
 const grad = (a: string, b: string) => `linear-gradient(${a}, ${b})`
 const TITLES = { sky: "Sky", sea: "Sea & floor", land: "Land", title: "Lettering", camera: "Camera", picture: "Picture", thing: "Thing" }
@@ -74,6 +90,7 @@ function SkyPanel() {
       {d("Stars", "stars", { max: 2.5 })}{d("Moon", "moon", { max: 1.5 })}
       {s.moon > 0 && <>{d("Moon phase", "moonPhase")}{d("Moon size", "moonSize", { min: 0.02, max: 0.25, step: 0.005 })}{d("Moon turn", "moonAz", { min: -3.14, max: 3.14 })}{d("Moon height", "moonEl", { min: 0.05, max: 1.4 })}</>}
       {d("Rainbow", "rainbow")}{d("Sun ring", "halo")}
+      <Dial label="Light rays" value={s.rays ?? 0} max={1.5} onChange={(v) => set("rays", (k) => { k.rays = v })} /><Dial label="Comet" value={s.comet ?? 0} max={1.5} onChange={(v) => set("comet", (k) => { k.comet = v })} />
     </Section>
   </>)
 }
@@ -113,11 +130,19 @@ function LandPanel() {
       {d("Sharpen", "sharp")}{d("Terraces", "terrace")}{d("Flat top", "plateau")}{d("Snow", "snow")}
     </Section>
     <Section title="Sculpt by hand" action={l.sculpt ? <Button variant="ghost" size="xs" onClick={() => set("unsculpt", (k) => { delete k.sculpt })}><Eraser /> Clear</Button> : undefined}>
-      <Segmented label="Sculpt tool" value={sculpt.tool} options={[{ value: "off", label: "Off" }, { value: "raise", label: "Raise" }, { value: "lower", label: "Lower" }, { value: "smooth", label: "Smooth" }]} onChange={(v) => patch({ sculpt: { ...sculpt, tool: v } })} />
+      <Segmented label="Sculpt tool" value={sculpt.tool} options={[{ value: "off", label: "Off" }, { value: "raise", label: "Raise" }, { value: "lower", label: "Lower" }, { value: "smooth", label: "Smooth" }, { value: "erode", label: "Erode" }]} onChange={(v) => patch({ sculpt: { ...sculpt, tool: v } })} />
       <Dial label="Brush" value={sculpt.size} min={0.04} max={0.3} onChange={(v) => patch({ sculpt: { ...sculpt, size: v } })} />
       <p className="text-[11.5px] text-muted-foreground">{sculpt.tool === "off" ? "Pick a tool, then drag on the land in the picture." : "Drag on the land or the water near it."}</p>
     </Section>
-    {l.mode === "island" && <Section title="Channel" action={<Switch checked={!!l.channel} onCheckedChange={(v) => set("ch", (k) => { if (v) k.channel = { offset: 0, angle: 25, width: 0.27, bend: 0 }; else delete k.channel })} aria-label="Cut a channel" />}>
+    <Section title="From a picture">
+      <div className="flex flex-wrap gap-1.5">
+        <Button variant="glass" size="xs" data-testid="photo-land" onClick={async () => { const f = await pickFile("image/*"); if (f) await photoToLand(f) }}>Picture → land</Button>
+        {l.flat && <Button variant="glass" size="xs" onClick={() => set("unflat", (k) => { delete k.flat; delete k.sculpt })}>Back to grown land</Button>}
+        <Button variant="glass" size="xs" onClick={exportHeightmap}>Save land as picture</Button>
+      </div>
+      <p className="text-[11.5px] text-muted-foreground">Bright parts of the picture rise, dark parts sink under the water.</p>
+    </Section>
+    {l.mode === "island" && !l.flat && <Section title="Channel" action={<Switch checked={!!l.channel} onCheckedChange={(v) => set("ch", (k) => { if (v) k.channel = { offset: 0, angle: 25, width: 0.27, bend: 0 }; else delete k.channel })} aria-label="Cut a channel" />}>
       {l.channel && <>
         <Dial label="Place" value={l.channel.offset} min={-0.8} max={0.8} onChange={(v) => set("cho", (k) => { k.channel!.offset = v })} />
         <Dial label="Angle" value={l.channel.angle} min={-90} max={90} step={1} unit="°" onChange={(v) => set("cha", (k) => { k.channel!.angle = v })} />
@@ -160,6 +185,12 @@ function MaterialLab({ m, set }: { m: Material; set: (label: string, fn: (k: Mat
       {m.texture !== "none" && d("Pattern size", "texScale", { min: 0.2, max: 6 })}
       {d("Colour", "diffuse")}{d("Mirror", "reflect")}{d("Metal", "metal")}{d("Shine", "shine")}{d("Polish", "gloss")}{d("See-through", "clear")}
       {m.clear > 0 && d("Bend light", "ior", { min: 1, max: 2.4 })}{d("Bumps", "bump")}{d("Glow", "glow", { max: 4 })}
+      <Dial label="Made of cloud" value={m.cloud ?? 0} onChange={(v) => set("cloud", (k) => { k.cloud = v; k.name = "Custom" })} />
+    </Section>
+    <Section title="Second layer">
+      <Row label="Pattern on top"><select value={m.layer ?? "none"} onChange={(e) => set("layer", (k) => { k.layer = e.target.value as Material["texture"]; k.layerMix = k.layerMix ?? 0.6; k.layerColor = k.layerColor ?? "#ffffff"; k.name = "Custom" })} className="h-6 rounded-sm bg-muted/60 px-1.5 text-[12px] capitalize outline-none">{TEXTURES.filter((t) => t !== "picture").map((t) => <option key={t} value={t}>{t}</option>)}</select></Row>
+      {m.layer && m.layer !== "none" && <><Dial label="How much" value={m.layerMix ?? 0.6} onChange={(v) => set("layerMix", (k) => { k.layerMix = v })} /><Color label="Layer colour" value={m.layerColor ?? "#ffffff"} onChange={(v) => set("layerColor", (k) => { k.layerColor = v })} /></>}
+      {m.texture === "picture" && <><Button variant="glass" size="xs" data-testid="set-picture" onClick={async () => { const f = await pickFile("image/*"); if (f) await setPicture(f) }}>Choose the picture…</Button><p className="text-[11.5px] text-muted-foreground">One picture per world. It is not sent with share links.</p></>}
     </Section>
   </>)
 }
@@ -195,7 +226,7 @@ function ThingPanel() {
       <Dial label="Turn" value={t.rot[0]} min={-180} max={180} step={1} unit="°" onChange={(v) => set("r0", (k) => { k.rot[0] = v })} />
       <Dial label="Tilt" value={t.rot[1]} min={-180} max={180} step={1} unit="°" onChange={(v) => set("r1", (k) => { k.rot[1] = v })} />
       <Dial label="Roll" value={t.rot[2]} min={-180} max={180} step={1} unit="°" onChange={(v) => set("r2", (k) => { k.rot[2] = v })} />
-      <div className="flex gap-1.5"><Button variant="glass" size="xs" onClick={() => set("ground", (k) => { k.pos[1] = k.size[1] })}>Rest on ground</Button><Button variant="glass" size="xs" onClick={() => repeat(false)}>Repeat in a row</Button><Button variant="glass" size="xs" onClick={() => repeat(true)}>In a ring</Button></div>
+      <div className="flex flex-wrap gap-1.5"><Button variant="glass" size="xs" onClick={() => { const g = engine?.groundAt(t.pos[0], t.pos[2]) ?? 0; set("ground", (k) => { k.pos[1] = g + k.size[1] }) }}>Rest on ground</Button><Button variant="glass" size="xs" onClick={() => repeat(false)}>Repeat in a row</Button><Button variant="glass" size="xs" onClick={() => repeat(true)}>In a ring</Button></div>
     </Section>
     <Section title="Cut & combine">
       <Segmented label="Role" value={t.role} options={[{ value: "solid", label: "Solid" }, { value: "cut", label: "Cuts" }, { value: "keep", label: "Overlap only" }]} onChange={(v) => set("role", (k) => { k.role = v })} />
@@ -203,6 +234,15 @@ function ThingPanel() {
       <p className="text-[11.5px] text-muted-foreground">A shape that cuts carves a hole in the solid shapes of its own set. Blobs in one set melt together.</p>
     </Section>
     <MaterialLab m={t.mat} set={(label, fn) => set("mat:" + label, (k) => fn(k.mat))} />
+    {t.mat.glow > 0 && <Section title="Light"><Dial label="Spotlight" value={t.beam ?? 0} max={140} step={1} unit="°" onChange={(v) => set("beam", (k) => { k.beam = v })} />
+      <p className="text-[11.5px] text-muted-foreground">At 0 it shines all around. Above 0 it is a beam pointing down the shape's own axis; use Tilt and Roll to aim it.</p></Section>}
+    <Section title="Arrange">
+      <div className="flex flex-wrap gap-1.5">
+        <Button variant="glass" size="xs" onClick={() => set("cx", (k) => { k.pos[0] = 0 })}>Centre across</Button><Button variant="glass" size="xs" onClick={() => set("cz", (k) => { k.pos[2] = 0 })}>Centre in depth</Button>
+        <Button variant="glass" size="xs" data-testid="line-up" onClick={() => arrangeAll("row")}>Line all up</Button><Button variant="glass" size="xs" onClick={() => arrangeAll("ring")}>All in a ring</Button><Button variant="glass" size="xs" onClick={() => arrangeAll("level")}>Same height</Button>
+        <Button variant="glass" size="xs" data-testid="scatter" onClick={() => scatter(t)}>Scatter 6 copies</Button>
+      </div>
+    </Section>
     <Section title="In loops"><Dial label="Bob" value={t.bob ?? 0} max={1.5} onChange={(v) => set("bob", (k) => { k.bob = v })} /><Dial label="Spin" value={t.spin ?? 0} min={-2} max={2} step={1} onChange={(v) => set("spin", (k) => { k.spin = v })} /></Section>
   </>)
 }
@@ -250,7 +290,7 @@ function CameraPanel() {
       <Dial label="Distance" value={c.dist} min={3} max={120} step={0.1} onChange={(v) => set("dist", (k) => { k.dist = v })} />
       <Dial label="Height" value={c.pitch} min={0.01} max={1.5} onChange={(v) => set("pitch", (k) => { k.pitch = v })} />
       <Dial label="Tilt horizon" value={c.roll} min={-45} max={45} step={0.5} unit="°" onChange={(v) => set("roll", (k) => { k.roll = v })} />
-      <div className="flex gap-1.5"><Button variant="glass" size="xs" onClick={() => set("top", (k) => { k.pitch = 1.5; k.dist = Math.max(k.dist, 26) })}>From above</Button><Button variant="glass" size="xs" onClick={() => set("low", (k) => { k.pitch = 0.03 })}>Water level</Button></div>
+      <div className="flex flex-wrap gap-1.5"><Button variant="glass" size="xs" onClick={() => set("top", (k) => { k.pitch = 1.5; k.dist = Math.max(k.dist, 26) })}>From above</Button><Button variant="glass" size="xs" onClick={() => set("front", (k) => { k.yaw = 0; k.pitch = 0.05 })}>Front</Button><Button variant="glass" size="xs" onClick={() => set("side", (k) => { k.yaw = Math.PI / 2; k.pitch = 0.05 })}>Side</Button><Button variant="glass" size="xs" onClick={() => set("back", (k) => { k.yaw = Math.PI; k.pitch = 0.05 })}>Back</Button><Button variant="glass" size="xs" onClick={() => set("low", (k) => { k.pitch = 0.03 })}>Water level</Button></div>
     </Section>
     <Section title="Soft focus">
       <Dial label="Blur" value={c.lens} max={0.6} onChange={(v) => set("lens", (k) => { k.lens = v })} /><Dial label="Sharp at" value={c.focus} min={1} max={80} step={0.1} onChange={(v) => set("focus", (k) => { k.focus = v })} />

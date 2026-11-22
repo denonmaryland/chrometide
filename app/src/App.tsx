@@ -10,11 +10,12 @@ import { CommandBar } from "./ui/CommandBar"
 import { CoverDialog } from "./ui/Cover"
 import { Inspector } from "./ui/Inspector"
 import { LoopDialog } from "./ui/Loop"
+import { Timeline } from "./ui/Timeline"
 import { TopBar } from "./ui/TopBar"
 import { Viewport } from "./ui/Viewport"
 
 export function App() {
-  const sky = useApp((s) => s.world.sky); const [sheet, setSheet] = React.useState(false)
+  const sky = useApp((s) => s.world.sky), timeline = useApp((s) => s.timeline); const [sheet, setSheet] = React.useState(false)
   React.useEffect(() => { void loadFromHash() }, [])
   React.useEffect(() => {
     const key = (e: KeyboardEvent) => {
@@ -43,7 +44,7 @@ export function App() {
         <SidebarInset className="h-dvh min-w-0 overflow-hidden" style={wash}>
           <TopBar onInspector={() => setSheet((v) => !v)} />
           <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-            <Viewport />
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col"><Viewport />{timeline && <Timeline />}</div>
             <div className={cn("shrink-0 p-2 pt-0 md:h-full md:w-[19.5rem] md:pl-0", sheet ? "h-[46dvh]" : "h-0 overflow-hidden p-0 md:overflow-visible md:p-2 md:pt-0")}><Inspector /></div>
           </div>
         </SidebarInset>
