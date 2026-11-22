@@ -1,0 +1,16 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+@import "@fontsource-variable/playfair-display/wght-italic.css";
+@import "./solid-glass.css";
+
+@utility font-mark {
+  font-family: "Playfair Display Variable", Georgia, serif;
+  font-style: italic;
+}
+html, body, #root { height: 100%; }
+body { overscroll-behavior: none; }
+@keyframes tumble { from { transform: rotate(-200deg) scale(.6); } to { transform: rotate(0) scale(1); } }
+input[type="number"]::-webkit-inner-spin-button { display: none; }
