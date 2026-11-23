@@ -40,7 +40,8 @@ try {
     const menu = async (id) => {
       if (await p.locator(`[data-testid="${id}"]:visible`).count()) return tap(`[data-testid="${id}"]:visible`)
       if (id === "embed" && await p.locator('[data-testid="share"]:visible').count()) { await tap('[data-testid="share"]:visible'); await p.waitForTimeout(300); if (await p.locator('[data-testid="embed"]:visible').count()) return tap('[data-testid="embed"]:visible'); await esc() }
-      await tap('[data-testid="more-menu"]:visible'); await p.waitForTimeout(250); await tap(`[data-testid="more-${id.replace(/^open-/, "")}"]:visible`)
+      await tap('[data-testid="more-menu"]:visible'); await p.waitForTimeout(250); if (id === "file-menu") return // File's items are inside More
+      await tap(`[data-testid="more-${id.replace(/^open-/, "")}"]:visible`)
     }
     const mode = async (id) => { await menu("modes-menu"); await p.waitForTimeout(250); await tap(`[data-testid="mode-${id}"]`); await p.waitForTimeout(600) }
 
