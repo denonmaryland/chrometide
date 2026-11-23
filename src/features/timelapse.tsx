@@ -126,7 +126,7 @@ const useOpen = () => React.useSyncExternalStore((f) => { openSubs.add(f); retur
 const useTape = () => React.useSyncExternalStore(subscribe, steps)
 
 function TimelapseDialog() {
-  const isOpen = useOpen(), tape = useTape()
+  const isOpen = useOpen(), tape = useTape(), goRef = React.useRef<HTMLButtonElement>(null)
   const [o, setO] = React.useState<LapseOpts>({ seconds: 20, shape: "wide", detail: "good", caption: true, drift: true })
   const [busy, setBusy] = React.useState<number | null>(null), [video, setVideo] = React.useState<{ url: string; ext: string; broken?: boolean }>(), [note, setNote] = React.useState(""), [info, setInfo] = React.useState("")
   const [thumbs, setThumbs] = React.useState<string[]>([])
@@ -160,7 +160,7 @@ function TimelapseDialog() {
   const span = n > 1 ? tape[n - 1].at - tape[0].since : 0, p = n > 1 ? plan(n, o.seconds) : null
   return (
     <Dialog open={isOpen} onOpenChange={setOpen}>
-      <DialogContent className="max-h-[92dvh] w-[min(900px,96vw)] max-w-none overflow-y-auto sm:max-w-none">
+      <DialogContent className="max-h-[92dvh] w-[min(900px,96vw)] max-w-none overflow-y-auto sm:max-w-none" initialFocus={() => (goRef.current && !goRef.current.disabled ? goRef.current : true)}>
         <DialogHeader><DialogTitle>Time-lapse</DialogTitle><DialogDescription>Watch this world being made, as a short video.</DialogDescription></DialogHeader>
         <div className="grid gap-4 md:grid-cols-[1fr_260px]">
           <div className="flex min-w-0 flex-col gap-2">
@@ -187,7 +187,7 @@ function TimelapseDialog() {
             {info && <p className="text-[12px] text-muted-foreground">{info}</p>}
             <div className="mt-auto flex flex-col gap-2 pt-2">
               {busy !== null && <div className="h-1 overflow-hidden rounded-full bg-muted"><div className="h-full bg-foreground/70 transition-[width]" style={{ width: `${busy * 100}%` }} /></div>}
-              <Button className="glass-primary" onClick={() => void go()} disabled={busy !== null || n < 2} data-testid="lapse-go"><Clapperboard /> {busy !== null ? `Filming ${Math.round(busy * 100)}%` : video ? "Film it again" : "Make the time-lapse"}</Button>
+              <Button ref={goRef} className="glass-primary" onClick={() => void go()} disabled={busy !== null || n < 2} data-testid="lapse-go"><Clapperboard /> {busy !== null ? `Filming ${Math.round(busy * 100)}%` : video ? "Film it again" : "Make the time-lapse"}</Button>
               {video && <a href={video.url} download={`${fileName(get().world.name)}-time-lapse.${video.ext}`} data-testid="lapse-save"><Button variant="glass" className="w-full"><Download /> Save video</Button></a>}
               <Button variant="ghost" size="sm" onClick={() => { clear(); setVideo(undefined) }} disabled={busy !== null} data-testid="lapse-clear"><RotateCcw /> Start recording again from here</Button>
             </div>

@@ -44,7 +44,7 @@ export function Color({ label, value, onChange }: { label: string; value: string
       <span className="text-foreground/80">{label}</span>
       <span className="flex items-center gap-1.5">
         <span className="font-mono text-[11px] text-muted-foreground uppercase">{value}</span>
-        <span className="relative size-6 overflow-hidden rounded-full ring-1 ring-border" style={{ background: value }}>
+        <span className="color-well relative size-6 overflow-hidden rounded-full ring-1 ring-border" style={{ background: value }}>
           <input type="color" value={value} onChange={(e) => onChange(e.target.value)} className="absolute -inset-2 size-12 cursor-pointer opacity-0" aria-label={label} />
         </span>
       </span>
@@ -56,7 +56,7 @@ export function Colors({ items }: { items: { label: string; value: string; onCha
     <div className="flex flex-wrap gap-x-3 gap-y-2">
       {items.map((c) => (
         <label key={c.label} className="flex items-center gap-1.5 text-[12px] text-foreground/80">
-          <span className="relative size-6 overflow-hidden rounded-full ring-1 ring-border" style={{ background: c.value }}>
+          <span className="color-well relative size-6 overflow-hidden rounded-full ring-1 ring-border" style={{ background: c.value }}>
             <input type="color" value={c.value} onChange={(e) => c.onChange(e.target.value)} className="absolute -inset-2 size-12 cursor-pointer opacity-0" aria-label={c.label} />
           </span>
           {c.label}

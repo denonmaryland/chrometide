@@ -19,3 +19,11 @@ html, body, #root { height: 100%; }
 body { overscroll-behavior: none; }
 @keyframes tumble { from { transform: rotate(-200deg) scale(.6); } to { transform: rotate(0) scale(1); } }
 input[type="number"]::-webkit-inner-spin-button { display: none; }
+/* Keyboard users always see where they are. Zero specificity, so a control that draws its own
+   focus ring (outline-none + ring) keeps it; every plain button, tile and link gets this one. */
+:where(button, a, select, summary, [role="radio"], [role="button"], [role="switch"], [tabindex]):focus-visible {
+  outline: 2px solid color-mix(in oklch, var(--ring) 85%, white);
+  outline-offset: 2px;
+}
+/* a colour well is a hidden input over a painted circle: ring the circle */
+.color-well:focus-within { box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring); }

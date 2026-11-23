@@ -2,11 +2,11 @@
 // push the land up and down.
 import * as React from "react"
 import * as THREE from "three"
-import { Box, Boxes, Type, Circle, Cone, Copy, Cylinder, Dices, Diamond, Donut, Droplet, Lock, LockOpen, Mountain, Plus, Scissors, Trash2, TreeDeciduous, TreePine, Triangle, ArrowDownToLine, Disc } from "lucide-react"
+import { Box, Boxes, Type, Circle, Cone, Copy, Cylinder, Dices, Diamond, Donut, Droplet, Hand, Lock, LockOpen, Mountain, Plus, Scissors, SlidersHorizontal, Sparkles, Trash2, TreeDeciduous, TreePine, Triangle, ArrowDownToLine, Disc, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { nowLevels } from "@/audio"
@@ -15,7 +15,10 @@ import { react } from "@/sound"
 import { type Kind, type LockKey, type Vec3, KINDS, KIND_LABEL, mat, thing } from "@/engine/scene"
 import { WordBox } from "@/features/word-world"
 import { SHAPE_BY_ID, SHAPES } from "@/engine/shapes"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { addThing, duplicateThing, edit, editThing, engine, get, patch, removeThing, rollDice, selectedThing, setEngine, toggleLock, useApp } from "@/store"
+
+import { WELCOME_KEY, toggleSheet, useSheet } from "./sheet"
 
 export const KIND_ICON: Record<Kind, React.ComponentType<{ className?: string }>> = {
   sphere: Circle, box: Box, pyramid: Triangle, cylinder: Cylinder, cone: Cone, torus: Donut, disc: Disc, stone: Diamond, blob: Droplet, tree: TreeDeciduous, pine: TreePine, crag: Mountain, model: Boxes, text: Type,
@@ -87,11 +90,12 @@ export function Viewport() {
   React.useEffect(() => { if (engine) { engine.mode = mask; engine.touch() } }, [mask])
 
   // fit the frame inside the space there is
-  const aspect = world.frame.w / world.frame.h
+  const aspect = world.frame.w / world.frame.h, narrow = useIsMobile(), sheet = useSheet()
   React.useEffect(() => {
-    const el = box.current!; const fit = () => { const pw = el.clientWidth - 24, ph = el.clientHeight - 24; const w = Math.max(80, Math.min(pw, ph * aspect)); setCss({ w: Math.round(w), h: Math.round(w / aspect) }) }
+    // on a phone the dock sits in the flow under the picture, so the picture leaves room for it
+    const el = box.current!; const fit = () => { const pw = el.clientWidth - (narrow ? 16 : 24), ph = el.clientHeight - (narrow ? 84 : 24); const w = Math.max(80, Math.min(pw, ph * aspect)); setCss({ w: Math.round(w), h: Math.round(w / aspect) }) }
     fit(); const ro = new ResizeObserver(fit); ro.observe(el); return () => ro.disconnect()
-  }, [aspect])
+  }, [aspect, narrow])
   React.useEffect(() => {
     const dpr = Math.min(window.devicePixelRatio || 1, 1.5); let w = css.w * dpr, h = css.h * dpr; const k = Math.sqrt(1_300_000 / (w * h)); if (k < 1) { w *= k; h *= k }
     engine?.setSize(w, h)
@@ -146,7 +150,7 @@ export function Viewport() {
 
   const pct = status.phase === "done" ? 1 : status.samples / Math.max(1, status.target)
   return (
-    <div ref={box} className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden" data-testid="viewport">
+    <div ref={box} className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-hidden max-md:pb-2" data-testid="viewport">
       <div className="relative shadow-[0_30px_80px_-30px_rgba(0,0,0,.8)] ring-1 ring-white/10" style={{ width: css.w, height: css.h }}>
         <canvas ref={canvas} className={cn("block size-full touch-none rounded-[3px]", sculpt.tool !== "off" && sel.type === "land" ? "cursor-crosshair" : "cursor-grab active:cursor-grabbing")}
           onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onDoubleClick={dbl} onContextMenu={(e) => e.preventDefault()} aria-label="The world. Drag to look around." />
@@ -158,52 +162,92 @@ export function Viewport() {
 
       {/* what you can do to the selected thing, right where it is */}
       {picked && (
-        <div className="glass-panel absolute top-3 left-1/2 flex -translate-x-1/2 items-center gap-0.5 rounded-lg p-1">
-          <span className="px-2 text-[12.5px] font-medium">{picked.name}</span>
-          <Tip label={picked.role === "cut" ? "Cutting: make solid" : "Cut this shape out of its set"}><Button variant={picked.role === "cut" ? "glass" : "ghost"} size="icon-sm" onClick={() => editThing(picked.id, "role", (t) => { t.role = t.role === "cut" ? "solid" : "cut" })}><Scissors /></Button></Tip>
-          <Tip label="Rest it on the ground"><Button variant="ghost" size="icon-sm" onClick={() => { const g = engine?.groundAt(picked.pos[0], picked.pos[2]) ?? 0; editThing(picked.id, "land", (t) => { t.pos[1] = g + t.size[1] }) }}><ArrowDownToLine /></Button></Tip>
-          <Tip label="Duplicate"><Button variant="ghost" size="icon-sm" onClick={() => duplicateThing(picked.id)}><Copy /></Button></Tip>
-          <Tip label="Remove"><Button variant="ghost" size="icon-sm" onClick={() => removeThing(picked.id)}><Trash2 /></Button></Tip>
+        <div className="glass-panel absolute top-3 left-1/2 z-10 flex max-w-[calc(100%-1rem)] -translate-x-1/2 items-center gap-0.5 rounded-lg p-1" role="toolbar" aria-label={`${picked.name}: quick actions`} data-testid="thing-bar">
+          <span className="max-w-40 truncate px-2 text-[12.5px] font-medium">{picked.name}</span>
+          <Tip label={picked.role === "cut" ? "It cuts a hole now: make it solid again" : "Cut a hole with it in what it touches"}><Button variant={picked.role === "cut" ? "glass" : "ghost"} size="icon-sm" aria-pressed={picked.role === "cut"} aria-label="Cut a hole with it" onClick={() => editThing(picked.id, "role", (t) => { t.role = t.role === "cut" ? "solid" : "cut" })}><Scissors /></Button></Tip>
+          <Tip label="Rest it on the ground"><Button variant="ghost" size="icon-sm" aria-label="Rest it on the ground" onClick={() => { const g = engine?.groundAt(picked.pos[0], picked.pos[2]) ?? 0; editThing(picked.id, "land", (t) => { t.pos[1] = g + t.size[1] }) }}><ArrowDownToLine /></Button></Tip>
+          <Tip label="Make a copy (Ctrl D)"><Button variant="ghost" size="icon-sm" aria-label="Make a copy" onClick={() => duplicateThing(picked.id)}><Copy /></Button></Tip>
+          <Tip label="Remove it (Delete)"><Button variant="ghost" size="icon-sm" aria-label="Remove it" onClick={() => removeThing(picked.id)}><Trash2 /></Button></Tip>
         </div>
       )}
 
-      {/* the dock: add a thing, roll the dice */}
-      <div className="glass-panel absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-xl p-1.5">
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="ghost" size="sm" className="h-8" />}><Plus /> Add</DropdownMenuTrigger>
-          <DropdownMenuContent side="top" align="start" className="w-44">
-            {ADDABLE.map((k) => { const I = KIND_ICON[k]; return <DropdownMenuItem key={k} onClick={() => newThing(k)}><I className="size-4" /> {KIND_LABEL[k]}</DropdownMenuItem> })}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <div className="mx-0.5 h-5 w-px bg-border" />
-        <Tip label="Roll a new world (Space). Locked parts stay.">
-          <button onClick={() => rollDice()} aria-label="Roll a new world" data-testid="dice"
-            className="glass-primary grid size-10 place-items-center rounded-lg text-primary-foreground transition-transform active:scale-90">
-            <Dices key={rolls} className="size-5 animate-[tumble_.5s_cubic-bezier(.3,1.5,.5,1)]" />
-          </button>
-        </Tip>
-        <Popover>
-          <PopoverTrigger render={<Button variant="ghost" size="sm" className="h-8" />}>{locks.length ? <Lock /> : <LockOpen />} {locks.length ? `${locks.length} kept` : "Keep"}</PopoverTrigger>
-          <PopoverContent side="top" align="end" className="w-60 p-2">
-            <p className="px-1 pb-2 text-[12px] text-muted-foreground">Lock what you love. The dice rolls the rest.</p>
-            {LOCKS.map((l) => { const on = locks.includes(l.key); return (
-              <div key={l.key} className="flex items-center gap-1 rounded-md px-1 py-0.5 hover:bg-muted/60">
-                <button className="flex flex-1 items-center gap-2 py-1 text-left text-[13px]" onClick={() => toggleLock(l.key)} aria-pressed={on}>
-                  {on ? <Lock className="size-3.5" /> : <LockOpen className="size-3.5 text-muted-foreground" />} {l.label}
-                </button>
-                <Button variant="ghost" size="xs" onClick={() => rollDice(l.key)}><Dices /> Roll</Button>
-              </div>) })}
-            <p className="mt-2 border-t border-border/60 px-1 pt-2 pb-1.5 text-[12px] text-muted-foreground">Or grow a world from a word.</p>
-            <WordBox className="px-1 pb-1" />
-          </PopoverContent>
-        </Popover>
-        <div className="mx-0.5 h-5 w-px bg-border" />
-        <Tip label="Add an island"><Button variant="ghost" size="icon" className="size-8" onClick={() => { edit("land-on", (w) => { w.land.on = !w.land.on }); patch({ sel: { type: "land" } }) }}><Mountain /></Button></Tip>
+      {/* the dock: add a thing, roll the dice. Floats on the picture on a wide screen, sits under it on a phone */}
+      <div className="relative z-10 shrink-0 md:absolute md:bottom-4 md:left-1/2 md:-translate-x-1/2">
+        <Welcome />
+        <div className="glass-panel flex items-center gap-1 rounded-xl p-1.5" role="toolbar" aria-label="Dock">
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button title="Add a shape to the world" variant="ghost" size="sm" className="h-8" data-testid="dock-add" />}><Plus /> Add</DropdownMenuTrigger>
+            <DropdownMenuContent side="top" align="start" className="max-h-[min(30rem,70dvh)] w-48">
+              {ADDABLE.map((k) => { const I = KIND_ICON[k]; return <DropdownMenuItem key={k} onClick={() => newThing(k)}><I className="size-4" /> {KIND_LABEL[k]}</DropdownMenuItem> })}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={toggleIsland}><Mountain className="size-4" /> {world.land.on ? "Island (take it away)" : "An island"}</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <div className="mx-0.5 h-5 w-px bg-border" />
+          <Tip label="Roll a new world (Space). Kept parts stay.">
+            <button onClick={() => { rollDice(); seenWelcome() }} aria-label="Roll a new world" data-testid="dice"
+              className="glass-primary grid size-10 place-items-center rounded-lg text-primary-foreground transition-transform outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-90">
+              <Dices key={rolls} className="size-5 animate-[tumble_.5s_cubic-bezier(.3,1.5,.5,1)]" />
+            </button>
+          </Tip>
+          <Popover>
+            <PopoverTrigger render={<Button title="Choose what the dice leave alone" variant="ghost" size="sm" className="h-8" data-testid="dock-keep" />}>{locks.length ? <Lock /> : <LockOpen />} {locks.length ? `${locks.length} kept` : "Keep"}</PopoverTrigger>
+            <PopoverContent side="top" align="end" className="w-[min(16rem,calc(100vw-1rem))] p-2">
+              <p className="px-1 pb-2 text-[12px] leading-snug text-muted-foreground">Keep the parts you love. The dice roll the rest.</p>
+              {LOCKS.map((l) => { const on = locks.includes(l.key); return (
+                <div key={l.key} className="flex items-center gap-1 rounded-md px-1 py-0.5 hover:bg-muted/60">
+                  <button className="flex flex-1 items-center gap-2 rounded-sm py-1 text-left text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => toggleLock(l.key)} aria-pressed={on} aria-label={on ? `${l.label}: kept` : `Keep the ${l.label.toLowerCase()}`}>
+                    {on ? <Lock className="size-3.5" /> : <LockOpen className="size-3.5 text-muted-foreground" />} {l.label}{on && <span className="text-[11px] text-muted-foreground">kept</span>}
+                  </button>
+                  <Button variant="ghost" size="xs" onClick={() => rollDice(l.key)} aria-label={`Roll only the ${l.label.toLowerCase()}`}><Dices /> Roll</Button>
+                </div>) })}
+              <p className="mt-2 border-t border-border/60 px-1 pt-2 pb-1.5 text-[12px] text-muted-foreground">Or grow a world from a word.</p>
+              <WordBox className="px-1 pb-1" />
+            </PopoverContent>
+          </Popover>
+          <div className="mx-0.5 h-5 w-px bg-border max-md:hidden" />
+          <Tip label={world.land.on ? "The island: show its dials" : "Add an island"}><Button variant="ghost" size="icon" className="size-8 max-md:hidden" aria-label={world.land.on ? "The island" : "Add an island"} onClick={() => { if (!world.land.on) edit("land-on", (w) => { w.land.on = true }); patch({ sel: { type: "land" } }) }}><Mountain /></Button></Tip>
+          {narrow && <>
+            <div className="mx-0.5 h-5 w-px bg-border" />
+            <Button variant={sheet ? "glass" : "ghost"} size="sm" className="h-8" onClick={toggleSheet} aria-pressed={sheet} aria-label="Edit" data-testid="controls"><SlidersHorizontal /> Edit</Button>
+          </>}
+        </div>
       </div>
     </div>
   )
 }
 
+const toggleIsland = () => { edit("land-on", (w) => { w.land.on = !w.land.on }); patch({ sel: { type: get().world.land.on ? "land" : "sky" } }) }
+
+// ---------- the first visit ----------
+const seenWelcome = () => { try { localStorage.setItem(WELCOME_KEY, "1") } catch { /* private window: it shows again next time */ } welcomeSubs.forEach((f) => f()) }
+const welcomeSubs = new Set<() => void>()
+const readSeen = () => { try { return localStorage.getItem(WELCOME_KEY) === "1" } catch { return true } }
+
+/** A small card over the dock on the very first visit: the three things worth knowing. */
+function Welcome() {
+  const seen = React.useSyncExternalStore((f) => { welcomeSubs.add(f); return () => welcomeSubs.delete(f) }, readSeen)
+  if (seen) return null
+  return (
+    <div role="dialog" aria-label="Welcome" data-testid="welcome"
+      className="glass-panel absolute bottom-full left-1/2 mb-3 w-[min(21rem,calc(100vw-1.5rem))] -translate-x-1/2 animate-in rounded-xl p-3.5 pr-3 text-[12.5px] leading-snug fade-in-0 slide-in-from-bottom-2 duration-500">
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <p className="text-[14px] font-medium">Make a picture in a minute</p>
+        <Button variant="ghost" size="icon-xs" className="-mt-0.5" onClick={seenWelcome} aria-label="Close the welcome"><X /></Button>
+      </div>
+      <ul className="flex flex-col gap-1.5 text-foreground/85">
+        <li className="flex gap-2"><Dices className="mt-px size-4 shrink-0" /><span><b className="font-medium text-foreground">Roll the dice</b> below for a whole new world. Press Keep to hold on to the parts you like.</span></li>
+        <li className="flex gap-2"><Hand className="mt-px size-4 shrink-0" /><span><b className="font-medium text-foreground">Drag the picture</b> to look around. Drag a thing to move it, or drag the sun.</span></li>
+        <li className="flex gap-2"><Sparkles className="mt-px size-4 shrink-0" /><span><b className="font-medium text-foreground">Modes</b>, at the top, has a screensaver, 1994 mode, flying and more.</span></li>
+      </ul>
+      <div className="mt-3 flex justify-end"><Button variant="glass" size="sm" onClick={seenWelcome} data-testid="welcome-ok">Got it</Button></div>
+    </div>
+  )
+}
+
+// on a touch screen a tooltip only gets in the way (it stays up after the tap), so there are none
+const touchOnly = typeof matchMedia !== "undefined" && matchMedia("(hover: none)").matches
 export function Tip({ label, children }: { label: string; children: React.ReactElement }) {
+  if (touchOnly) return children
   return <Tooltip><TooltipTrigger render={children} /><TooltipContent>{label}</TooltipContent></Tooltip>
 }

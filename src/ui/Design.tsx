@@ -47,7 +47,7 @@ export function DesignDialog() {
     const v = view.current; v.width = m.width; v.height = m.height; v.getContext("2d")!.drawImage(m, 0, 0) }, [art, o, world.sky.zenith, world.sky.horizon])
   const pick = (p: DesignPreset) => { replaceWorld(worldFor(p), "design"); patch({ design: { ...p.opts } }); setTab("make") }
   const words = k.words as Record<string, string>, field = (key: "title" | "sub" | "line1" | "line2" | "small", testid?: string) => words[key] === undefined ? null :
-    <Input value={o[key]} onChange={(e) => set({ [key]: e.target.value.slice(0, 60) })} placeholder={words[key]} aria-label={words[key]} data-testid={testid} />
+    <label className="flex flex-col gap-1"><span className="text-[11px] text-muted-foreground">{words[key]}</span><Input value={o[key]} onChange={(e) => set({ [key]: e.target.value.slice(0, 60) })} placeholder={words[key]} aria-label={words[key]} data-testid={testid} /></label>
   return (
     <Dialog open={open} onOpenChange={(v) => patch({ dialog: v ? "cover" : null })}>
       <DialogContent className="max-h-[94dvh] w-[min(1000px,96vw)] max-w-none overflow-y-auto sm:max-w-none">
@@ -57,7 +57,7 @@ export function DesignDialog() {
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap gap-1">{(Object.keys(DESIGN_KINDS) as DesignKind[]).map((kd) => <button key={kd} onClick={() => setShelfKind(kd)} aria-pressed={kd === shelfKind} data-testid={`shelf-${kd}`}
               className={cn("h-7 rounded-md px-2.5 text-[12px] text-muted-foreground ring-1 ring-border", kd === shelfKind && "glass-control bg-(--glass-control) text-foreground")}>{DESIGN_KINDS[kd].label}s <span className="font-mono text-[10px]">{DESIGNS.filter((d) => d.kind === kd).length}</span></button>)}</div>
-            <div className={cn("grid gap-3", shelfKind === "banner" || shelfKind === "ticket" ? "grid-cols-2" : shelfKind === "postcard" ? "grid-cols-3" : "grid-cols-4 sm:grid-cols-5")}>
+            <div className={cn("grid gap-3", shelfKind === "banner" || shelfKind === "ticket" ? "grid-cols-2" : shelfKind === "postcard" ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-3 sm:grid-cols-5")}>
               {DESIGNS.filter((d) => d.kind === shelfKind).map((p, i) => <PresetThumb key={p.kind + p.name} p={p} order={i} onPick={() => pick(p)} />)}</div>
             <p className="text-[11.5px] text-muted-foreground">Every name, artist, place and date here is a made-up example. Pick one, then change the words and the world.</p>
           </div>
@@ -68,9 +68,9 @@ export function DesignDialog() {
               {!art && <div className="flex flex-col items-center gap-2 py-24 text-[12.5px] text-muted-foreground"><div className="h-1 w-40 overflow-hidden rounded-full bg-muted"><div className="h-full bg-foreground/70" style={{ width: `${progress * 100}%` }} /></div>Developing the picture…</div>}
             </div>
             <div className="flex flex-col gap-2.5">
-              <Row label="Make a"><select value={o.kind} onChange={(e) => set({ kind: e.target.value as DesignKind, format: "flat" })} aria-label="Kind of design" data-testid="design-kind" className="h-7 rounded-sm bg-muted/60 px-1.5 text-[12.5px] outline-none">{(Object.keys(DESIGN_KINDS) as DesignKind[]).map((kd) => <option key={kd} value={kd}>{DESIGN_KINDS[kd].label}</option>)}</select></Row>
+              <Row label="Make a"><select value={o.kind} title="What to make" onChange={(e) => set({ kind: e.target.value as DesignKind, format: "flat" })} aria-label="Kind of design" data-testid="design-kind" className="h-7 rounded-sm bg-muted/60 px-1.5 text-[12.5px] outline-none focus-visible:ring-2 focus-visible:ring-ring">{(Object.keys(DESIGN_KINDS) as DesignKind[]).map((kd) => <option key={kd} value={kd}>{DESIGN_KINDS[kd].label}</option>)}</select></Row>
               {field("title", "cover-title")}{field("sub")}{field("line1")}{field("line2")}
-              {words.list !== undefined && <textarea value={o.list} onChange={(e) => set({ list: e.target.value.slice(0, 500) })} rows={3} placeholder={words.list} aria-label={words.list} className="w-full resize-none rounded-md bg-muted/60 px-2 py-1.5 text-[12.5px] outline-none focus:ring-1 focus:ring-ring" />}
+              {words.list !== undefined && <label className="flex flex-col gap-1"><span className="text-[11px] text-muted-foreground">{words.list}</span><textarea value={o.list} onChange={(e) => set({ list: e.target.value.slice(0, 500) })} rows={3} placeholder={words.list} aria-label={words.list} className="w-full resize-none rounded-md bg-muted/60 px-2 py-1.5 text-[12.5px] outline-none focus:ring-1 focus:ring-ring" /></label>}
               {field("small")}
               <div><p className="mb-1 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Type</p>
                 <div role="radiogroup" aria-label="Type layout" className="grid grid-cols-4 gap-1">{LAYOUTS.map((l) => <button key={l} role="radio" aria-checked={l === o.layout} onClick={() => set({ layout: l })}
@@ -81,7 +81,7 @@ export function DesignDialog() {
               <Row label="Paper strip down the side"><Switch checked={o.obi} onCheckedChange={(v) => set({ obi: v })} aria-label="Paper strip" data-testid="cover-obi" /></Row>
               {o.obi && <><Input value={o.obiText} onChange={(e) => set({ obiText: e.target.value.slice(0, 34) })} placeholder="Words on the strip" aria-label="Words on the strip" /><Color label="Strip colour" value={o.obiColor} onChange={(v) => set({ obiColor: v })} /></>}
               {o.kind === "cover" && o.format === "tape" && <textarea value={o.tracks} onChange={(e) => set({ tracks: e.target.value.slice(0, 400) })} rows={4} placeholder={"Track names, one per line"} aria-label="Track names" data-testid="cover-tracks" className="w-full resize-none rounded-md bg-muted/60 px-2 py-1.5 text-[12.5px] outline-none focus:ring-1 focus:ring-ring" />}
-              <p className="font-mono text-[11px] text-muted-foreground">{k.w} × {k.h}</p>
+              <p className="font-mono text-[11px] text-muted-foreground" title="Size in pixels">{k.w} × {k.h} pixels</p>
               <Button className="glass-primary mt-auto" disabled={!art} onClick={() => out.current && download(out.current, `${fileName(o.title || world.name)}-${o.kind}${o.kind === "cover" && o.format !== "flat" ? "-" + o.format : ""}.png`)} data-testid="cover-save"><Download /> Save {k.label.toLowerCase()}</Button>
             </div>
           </div>

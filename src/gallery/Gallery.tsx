@@ -69,8 +69,8 @@ export function Gallery() {
             <span className="font-mark text-[17px] leading-none whitespace-nowrap">Untitled Worlds</span>
           </a>
           <div className="ml-auto flex items-center gap-1.5">
-            <a href="./" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "max-[400px]:hidden")}>Open the app</a>
-            <a href={SHARE_FORM} target="_blank" rel="noopener noreferrer" className={cn(buttonVariants({ size: "sm" }), "glass-primary")}><Plus /> Share yours</a>
+            <a href="./" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "max-[400px]:px-2")}>Open the app</a>
+            <a href={SHARE_FORM} target="_blank" rel="noopener noreferrer" className={cn(buttonVariants({ size: "sm" }), "glass-primary")}><Plus /> Share<span className="max-[400px]:hidden"> yours</span></a>
           </div>
         </header>
 
@@ -79,7 +79,7 @@ export function Gallery() {
           <p className="mt-3 max-w-[52ch] text-[15px] leading-relaxed text-muted-foreground">Worlds people made and shared. Open one to look around, change anything, and make it your own.</p>
         </section>
 
-        {tags.length > 0 && <nav aria-label="Filter by tag" className="-mx-4 mb-5 flex gap-1 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0">
+        {tags.length > 0 && <nav aria-label="Filter by tag" className="-mx-4 mb-5 flex gap-1 overflow-x-auto px-4 pb-1 [mask-image:linear-gradient(to_right,black_85%,transparent)] [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0 sm:[mask-image:none]">
           <button className={chip(!tag)} onClick={() => setTag("")} aria-pressed={!tag}>All <span className="ml-0.5 font-mono text-[10.5px] opacity-60">{ENTRIES.length}</span></button>
           {tags.map(([t, n]) => <button key={t} className={chip(tag === t)} onClick={() => setTag(tag === t ? "" : t)} aria-pressed={tag === t} data-testid={`tag-${t}`}>{t} <span className="ml-0.5 font-mono text-[10.5px] opacity-60">{n}</span></button>)}
         </nav>}

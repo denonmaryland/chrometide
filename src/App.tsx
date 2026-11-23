@@ -12,11 +12,12 @@ import { DesignDialog } from "./ui/Design"
 import { Inspector } from "./ui/Inspector"
 import { LoopDialog } from "./ui/Loop"
 import { Timeline } from "./ui/Timeline"
+import { useSheet } from "./ui/sheet"
 import { TopBar } from "./ui/TopBar"
 import { Viewport } from "./ui/Viewport"
 
 export function App() {
-  const sky = useApp((s) => s.world.sky), timeline = useApp((s) => s.timeline); const [sheet, setSheet] = React.useState(false)
+  const sky = useApp((s) => s.world.sky), timeline = useApp((s) => s.timeline); const sheet = useSheet()
   React.useEffect(() => { void loadFromHash(); const q = new URLSearchParams(location.search); for (const f of FEATURES) f.boot?.(q) }, [])
   React.useEffect(() => {
     const key = (e: KeyboardEvent) => {
@@ -43,10 +44,11 @@ export function App() {
       <SidebarProvider style={{ "--sidebar-width": "17rem" } as React.CSSProperties}>
         <AppSidebar />
         <SidebarInset className="h-dvh min-w-0 overflow-hidden" style={wash}>
-          <TopBar onInspector={() => setSheet((v) => !v)} />
+          <TopBar />
           <div className="flex min-h-0 flex-1 flex-col md:flex-row">
             <div className="flex min-h-0 min-w-0 flex-1 flex-col"><Viewport />{timeline && <Timeline />}</div>
-            <div className={cn("shrink-0 p-2 pt-0 md:h-full md:w-[19.5rem] md:pl-0", sheet ? "h-[46dvh]" : "h-0 overflow-hidden p-0 md:overflow-visible md:p-2 md:pt-0")}><Inspector /></div>
+            {/* beside the picture on a wide screen; on a phone, a sheet under it that the dock's Edit button opens */}
+            <div className={cn("shrink-0 p-2 pt-0 md:h-full md:w-[19.5rem] md:pl-0", sheet ? "h-[48dvh]" : "h-0 overflow-hidden p-0 md:overflow-visible md:p-2 md:pt-0")}><Inspector /></div>
           </div>
         </SidebarInset>
       </SidebarProvider>
