@@ -47,7 +47,7 @@ class Crawl {
   }
   private boot(now: number) {
     const x = this.x, t = (now - this.warmAt) / 1000; let y = 26
-    write(x, "UNTITLED WORLDS", 24, y, C.white, 2); write(x, "1994 EDITION", 24 + textWidth("UNTITLED WORLDS ", 2), y + 7, C.amber); y += 30
+    write(x, "CHROMETIDE", 24, y, C.white, 2); write(x, "1994 EDITION", 24 + textWidth("CHROMETIDE ", 2), y + 7, C.amber); y += 30
     write(x, `${SW} X ${SH}   256 COLOURS   1 PICTURE`, 24, y, C.dim); y += 22
     write(x, `SCENE: "${this.name.toUpperCase().slice(0, 60)}"`, 24, y, C.grey); y += 18
     BOOT.forEach((line, i) => { if (t < i * 0.32) return; const ok = t > i * 0.32 + 0.28
