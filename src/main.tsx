@@ -12,6 +12,8 @@ import * as io from "./io"
 import * as sound from "./sound"
 import * as store from "./store"
 import * as text from "./text"
+import { notify } from "./notice"
+import { Notices, Safety, Trouble } from "./ui/Notice"
 
 // a handle for the test scripts
 ;(window as any).__app = store
@@ -28,4 +30,16 @@ void loadFonts().then(() => store.engine?.resetGlyphs())
 if (import.meta.env.PROD && "serviceWorker" in navigator && location.protocol === "https:") void navigator.serviceWorker.register("./sw.js").catch(() => {})
 
 const q = new URLSearchParams(location.search), bare = q.get("test") === "engine"
-createRoot(document.getElementById("root")!).render(q.has("api") ? <Api /> : bare ? <EngineTest /> : <App />)
+// a step that fails out of sight still gets a kind word, so nothing just silently does not happen
+addEventListener("unhandledrejection", (e) => { console.warn("Unfinished:", e.reason); notify("That did not work. Your world is unchanged; try again.") })
+/** Can this browser draw in 3D at all? Asked once, before the app starts, so it can say so plainly. */
+function canDraw() {
+  try { const gl = document.createElement("canvas").getContext("webgl2"); if (!gl) return false; gl.getExtension("WEBGL_lose_context")?.loseContext(); return true } catch { return false }
+}
+const noGraphics = (
+  <Trouble title="This browser cannot draw the worlds" actions={[{ label: "Try again", run: () => location.reload() }]}>
+    <p>Untitled Worlds ray traces its pictures with WebGL2, and this browser or device is not offering it right now.</p>
+    <p className="mt-2">Try a current Chrome, Edge, Firefox or Safari. If you already use one, turn on hardware acceleration (or graphics acceleration) in its settings and restart it, or open the page on another device.</p>
+  </Trouble>
+)
+createRoot(document.getElementById("root")!).render(q.has("api") ? <Api /> : bare ? <EngineTest /> : canDraw() ? <Safety><App /><Notices /></Safety> : noGraphics)

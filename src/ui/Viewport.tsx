@@ -15,7 +15,7 @@ import { react } from "@/sound"
 import { type Kind, type LockKey, type Vec3, KINDS, KIND_LABEL, mat, thing } from "@/engine/scene"
 import { WordBox } from "@/features/word-world"
 import { SHAPE_BY_ID, SHAPES } from "@/engine/shapes"
-import { addThing, duplicateThing, edit, editThing, engine, get, patch, removeThing, rollDice, selectedThing, setEngine, toggleLock, useApp } from "@/store"
+import { addThing, duplicateThing, edit, editThing, engine, get, patch, removeThing, rollDice, selectedThing, setEngine, shareLink, toggleLock, useApp } from "@/store"
 
 export const KIND_ICON: Record<Kind, React.ComponentType<{ className?: string }>> = {
   sphere: Circle, box: Box, pyramid: Triangle, cylinder: Cylinder, cone: Cone, torus: Donut, disc: Disc, stone: Diamond, blob: Droplet, tree: TreeDeciduous, pine: TreePine, crag: Mountain, model: Boxes, text: Type,
@@ -63,12 +63,13 @@ export function Viewport() {
   const locks = useApp((s) => s.locks), rolls = useApp((s) => s.rolls), status = useApp((s) => s.status), sculpt = useApp((s) => s.sculpt)
   const picked = useApp(selectedThing)
   const box = React.useRef<HTMLDivElement>(null), canvas = React.useRef<HTMLCanvasElement>(null)
-  const [css, setCss] = React.useState({ w: 640, h: 480 }); const [err, setErr] = React.useState("")
+  const [css, setCss] = React.useState({ w: 640, h: 480 }); const [err, setErr] = React.useState(""); const [lost, setLost] = React.useState<"" | "lost" | "gone">("")
 
   React.useEffect(() => {
-    const e = new Engine(canvas.current!); setEngine(e); (window as any).__engine = e
-    if (!e.ok) { setErr(e.error); return }
-    e.onStatus = (s) => patch({ status: s }); e.setWorld(get().world)
+    const e = new Engine(canvas.current!); (window as any).__engine = e
+    if (!e.ok) { setErr(e.error); e.dispose(); return }
+    setEngine(e); e.onStatus = (s) => patch({ status: s }); e.setWorld(get().world)
+    e.onContext = (s) => setLost(s === "back" ? "" : s)
     return () => { e.dispose(); setEngine(null) }
   }, [])
   const sounding = useApp((s) => s.sounding)
@@ -153,7 +154,8 @@ export function Viewport() {
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 overflow-hidden rounded-b-[3px]">
           <div className="h-full bg-white/70 transition-[width,opacity] duration-300" style={{ width: `${pct * 100}%`, opacity: status.phase === "done" ? 0 : 1 }} />
         </div>
-        {err && <div className="absolute inset-0 grid place-items-center bg-background p-6 text-center text-sm text-muted-foreground">{err}</div>}
+        {err && <div className="absolute inset-0 grid place-items-center bg-background p-6 text-center text-sm text-muted-foreground" data-testid="engine-error">{err}</div>}
+        {lost && <PictureRest gone={lost === "gone"} />}
       </div>
 
       {/* what you can do to the selected thing, right where it is */}
@@ -202,6 +204,16 @@ export function Viewport() {
       </div>
     </div>
   )
+}
+
+/** Shown over the picture while the browser has taken the 3D graphics away. */
+function PictureRest({ gone }: { gone: boolean }) {
+  const reload = async () => { try { history.replaceState(null, "", await shareLink()) } catch { /* reload as it is */ } location.reload() }
+  return <div className="absolute inset-0 grid place-items-center bg-background/85 p-6 text-center text-sm" data-testid="context-lost">
+    {gone ? <div className="flex max-w-xs flex-col items-center gap-3"><p>The graphics chip stopped drawing and has not come back. Your world is safe: reload to carry on where you were.</p>
+      <Button size="sm" className="glass-primary" onClick={() => void reload()}>Reload the picture</Button></div>
+      : <p className="text-muted-foreground">The graphics chip is taking a break. The picture will be back in a moment…</p>}
+  </div>
 }
 
 export function Tip({ label, children }: { label: string; children: React.ReactElement }) {

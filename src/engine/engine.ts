@@ -88,8 +88,9 @@ export class Engine {
     try {
       this.r = new THREE.WebGLRenderer({ canvas, antialias: false, preserveDrawingBuffer: true, alpha: false, powerPreference: "high-performance" })
     } catch {
-      this.ok = false; this.error = "This browser could not start 3D graphics (WebGL2). Try a current Chrome, Firefox, Edge or Safari."; return
+      this.ok = false; this.error = "This browser could not start 3D graphics (WebGL2). Try a current Chrome, Firefox, Edge or Safari, or turn on hardware acceleration in the browser's settings."; return
     }
+    canvas.addEventListener("webglcontextlost", this.onLost); canvas.addEventListener("webglcontextrestored", this.onRestored)
     const r = this.r; r.setPixelRatio(1); r.autoClear = false; r.outputColorSpace = THREE.LinearSRGBColorSpace
     this.float = !!r.getContext().getExtension("EXT_color_buffer_float")
     const V3 = ["uCamPos", "uCamFw", "uCamRt", "uCamUp", "uZenith", "uHorizon", "uHazeCol", "uSunCol", "uSunDir", "uCloudCol", "uCloud2Col", "uFogCol", "uMoonDir", "uG1", "uG2", "uT1", "uT2", "uT3", "uTitleBox", "uCometDir", "uPRo", "uPRd"]
@@ -128,7 +129,29 @@ export class Engine {
     this.raf = requestAnimationFrame(this.tick)
   }
 
-  dispose() { cancelAnimationFrame(this.raf); this.low?.dispose(); this.acc?.dispose(); this.pickRT?.dispose(); this.r?.dispose() }
+  dispose() {
+    cancelAnimationFrame(this.raf); clearTimeout(this.lostTimer); this.canvas.removeEventListener("webglcontextlost", this.onLost); this.canvas.removeEventListener("webglcontextrestored", this.onRestored)
+    this.low?.dispose(); this.acc?.dispose(); this.pickRT?.dispose(); this.matTex?.dispose(); this.glyphTex?.dispose(); this.sculptTex?.dispose(); this.modelTex?.dispose(); this.letterTex?.dispose()
+    if (this.picTex !== this.u.uPic?.value) (this.u.uPic?.value as THREE.Texture | undefined)?.dispose()
+    for (const l of this.wires.values()) { l.geometry.dispose(); (l.material as THREE.Material).dispose() } this.wires.clear()
+    this.r?.dispose()
+  }
+  // ---------- when the graphics chip lets go ----------
+  // A browser may take the 3D context away (a driver reset, too many tabs, a sleeping laptop). three.js
+  // forgets its textures and targets and makes them again from what it keeps; the picture starts over.
+  /** "lost" while waiting, "back" once drawing again, "gone" if it has not come back after a while. */
+  onContext: (s: "lost" | "back" | "gone") => void = () => {}
+  /** true while there is no 3D context to draw with */
+  lost = false
+  private lostTimer = 0
+  private onLost = (e: Event) => {
+    e.preventDefault(); this.lost = true; this.onContext("lost"); clearTimeout(this.lostTimer)
+    this.lostTimer = window.setTimeout(() => { if (this.lost) this.onContext("gone") }, 5000)
+  }
+  private onRestored = () => {
+    this.lost = false; clearTimeout(this.lostTimer)
+    this.lastStatus = ""; this.touch(); this.onContext("back")
+  }
   pause(p: boolean) { this.paused = p }
   get size() { return { w: this.w, h: this.h } }
 
@@ -221,8 +244,8 @@ export class Engine {
   private pictures(w: World) {
     const pic = w.picture ?? ""
     if (pic !== this.picKey) { this.picKey = pic
-      if (!pic.startsWith("data:image/")) this.u.uPic.value = this.picTex
-      else { const im = new Image(); im.onload = () => { if (this.picKey !== pic) return; const tx = new THREE.Texture(im); tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.minFilter = tx.magFilter = THREE.LinearFilter; tx.generateMipmaps = false; tx.needsUpdate = true; this.u.uPic.value = tx; this.touch() }; im.src = pic } }
+      const was = this.u.uPic.value as THREE.Texture; if (was !== this.picTex) { this.u.uPic.value = this.picTex; was.dispose() } // the last picture's texture is let go
+      if (pic.startsWith("data:image/")) { const im = new Image(); im.onload = () => { if (this.picKey !== pic) return; const tx = new THREE.Texture(im); tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.minFilter = tx.magFilter = THREE.LinearFilter; tx.generateMipmaps = false; tx.needsUpdate = true; this.u.uPic.value = tx; this.touch() }; im.src = pic } }
     const md = w.model, key = md ? `${md.n}:${md.data.length}:${md.data.slice(0, 64)}` : ""
     if (key !== this.modelKey) { this.modelKey = key
       if (md && md.n >= 4 && md.n <= 64) { try { const raw = atob(md.data), n = md.n, d = new Uint8Array(n * n * n).fill(255); for (let i = 0; i < Math.min(raw.length, d.length); i++) d[i] = raw.charCodeAt(i)
@@ -261,12 +284,12 @@ export class Engine {
     const want = new Set<string>()
     for (const t of w.things) { if (t.hidden) continue; if (!(all || t.id === this.selected)) continue; want.add(t.id)
       let l = this.wires.get(t.id)
-      if (!l || l.userData.kind !== t.kind) { if (l) { this.wireScene.remove(l); l.geometry.dispose() }
+      if (!l || l.userData.kind !== t.kind) { if (l) { this.wireScene.remove(l); l.geometry.dispose(); (l.material as THREE.Material).dispose() }
         l = new THREE.LineSegments((WIRE[t.kind] ?? WIRE.sphere)(), new THREE.LineBasicMaterial({ transparent: true, depthTest: false })); l.userData.kind = t.kind; this.wires.set(t.id, l); this.wireScene.add(l) }
       l.position.set(...t.pos); l.scale.set(...t.size); l.rotation.set(THREE.MathUtils.degToRad(t.rot[1]), THREE.MathUtils.degToRad(t.rot[0]), THREE.MathUtils.degToRad(t.rot[2]), "YXZ")
       const mat = l.material as THREE.LineBasicMaterial; const sel = t.id === this.selected
       mat.color.set(sel ? (t.role === "cut" ? 0xff7a5c : 0xffffff) : 0x9fe8ff); mat.opacity = sel ? 0.95 : 0.45; l.visible = true }
-    for (const [id, l] of this.wires) if (!want.has(id)) { l.visible = false; if (!w.things.some((t) => t.id === id)) { this.wireScene.remove(l); l.geometry.dispose(); this.wires.delete(id) } }
+    for (const [id, l] of this.wires) if (!want.has(id)) { l.visible = false; if (!w.things.some((t) => t.id === id)) { this.wireScene.remove(l); l.geometry.dispose(); (l.material as THREE.Material).dispose(); this.wires.delete(id) } }
     if (!want.size) return
     const b = camBasis(w.cam), mn = Math.min(this.w, this.h); b.pos.y = Math.max(b.pos.y, 0.25)
     const c = this.wireCam; c.fov = THREE.MathUtils.radToDeg(2 * Math.atan(this.h / mn / b.focal)); c.aspect = this.w / this.h; c.near = 0.05; c.far = 4000
@@ -282,7 +305,7 @@ export class Engine {
 
   private tick = (now: number) => {
     this.raf = requestAnimationFrame(this.tick)
-    if (!this.ok || !this.world || this.paused) return
+    if (!this.ok || !this.world || this.paused || this.lost) return
     const dt = now - this.lastTick; this.lastTick = now
     const still = now - this.lastChange > 130
     if (this.dirty) {
@@ -385,17 +408,19 @@ export class Engine {
   /** A finished picture at any size, in slices so the page stays alive and can show progress. */
   async still(w: World, width: number, height: number, samples: number, onProgress?: (f: number) => void): Promise<HTMLCanvasElement> {
     const opt = { depthBuffer: false, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, generateMipmaps: false }
+    if (this.lost || !this.ok) throw new Error("The picture cannot be made while the graphics chip is resting. Try again in a moment.")
     const hdr = new THREE.WebGLRenderTarget(width, height, { ...opt, type: this.float ? THREE.HalfFloatType : THREE.UnsignedByteType })
     this.paused = true
-    const strip = Math.max(16, Math.round(120000 / width)); const total = samples * Math.ceil(height / strip); let done = 0
-    for (let s = 0; s < samples; s++) for (let y = 0; y < height; y += strip) {
-      this.upload(w, width, height)
-      this.pass(hdr, width, height, { sample: s, preview: false, ldr: !this.float, blend: 1 / (s + 1), y: Math.max(0, height - y - strip), rows: Math.min(strip, height - y) })
-      if (++done % 6 === 0) { onProgress?.(done / total); await new Promise((ok) => setTimeout(ok)) }
-    }
-    const px = this.develop(hdr, width, height); hdr.dispose()
-    this.paused = false; this.dirty = true; onProgress?.(1)
-    return this.toCanvas(px, width, height)
+    try {
+      const strip = Math.max(16, Math.round(120000 / width)); const total = samples * Math.ceil(height / strip); let done = 0
+      for (let s = 0; s < samples; s++) for (let y = 0; y < height; y += strip) {
+        this.upload(w, width, height)
+        this.pass(hdr, width, height, { sample: s, preview: false, ldr: !this.float, blend: 1 / (s + 1), y: Math.max(0, height - y - strip), rows: Math.min(strip, height - y) })
+        if (++done % 6 === 0) { onProgress?.(done / total); await new Promise((ok) => setTimeout(ok)); if (this.lost) throw new Error("The graphics chip took a break while making the picture. Try again in a moment.") }
+      }
+      const px = this.develop(hdr, width, height); onProgress?.(1)
+      return this.toCanvas(px, width, height)
+    } finally { hdr.dispose(); this.paused = false; this.dirty = true } // whatever happened, the live picture carries on
   }
 }
 
