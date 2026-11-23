@@ -31,7 +31,9 @@ class Crawl {
   pic: ImageData | null = null; name = ""; colours = 0
   phase: "warm" | "crawl" | "done" = "warm"; warmAt = 0; t0 = 0; secs = 30; doneAt = 0
   warm(name: string, now: number) { this.phase = "warm"; this.warmAt = now; this.name = name; this.pic = null }
-  start(now: number, secs: number) { this.phase = "crawl"; this.t0 = now; this.secs = secs }
+  /** A cheap blocky pass of the whole picture, shown dimmed under the slow fill so the framing reads at once. */
+  rough: HTMLCanvasElement | null = null
+  start(now: number, secs: number) { this.phase = "crawl"; this.t0 = now; this.secs = secs; this.rough = this.pic ? roughPass(this.pic) : null }
   progress(now: number) { return this.phase === "done" ? 1 : this.phase === "crawl" ? Math.min(1, (now - this.t0) / 1000 / this.secs) : 0 }
   /** Draw the screen as it is at this moment. `clean` leaves out the status line (for the PNG). */
   compose(now: number, clean = false) {
@@ -39,6 +41,7 @@ class Crawl {
     if (this.phase === "warm" || !this.pic) { this.boot(now); return }
     const p = this.progress(now); if (p >= 1 && this.phase === "crawl") { this.phase = "done"; this.doneAt = now }
     const rows = p * SH, full = Math.floor(rows), col = Math.floor((rows - full) * SW)
+    if (this.rough && p < 1) { x.save(); x.imageSmoothingEnabled = false; x.globalAlpha = 0.55; x.drawImage(this.rough, 0, 0, SW, SH); x.restore() }
     if (full > 0) x.putImageData(this.pic, 0, 0, 0, 0, SW, full)
     if (full < SH && col > 0) x.putImageData(this.pic, 0, 0, 0, full, col, 1)
     if (p < 1) { x.fillStyle = C.white; x.fillRect(col, full, 3, 1) } // the beam, mid-line
@@ -69,6 +72,18 @@ class Crawl {
     write(x, `${String(Math.floor(p * 100)).padStart(3, " ")}%`, left + bw + 8, y + 3, C.white)
     write(x, `${clock(Math.max(0, this.secs * (1 - p))).padStart(5, " ")} LEFT`, right, y + 3, C.grey)
   }
+}
+
+/** Average the picture into 16 x 16 blocks: the quick first look before the line-by-line fill. */
+function roughPass(pic: ImageData, block = 16) {
+  const w = Math.ceil(pic.width / block), h = Math.ceil(pic.height / block)
+  const c = Object.assign(document.createElement("canvas"), { width: w, height: h }), out = c.getContext("2d")!.createImageData(w, h)
+  for (let by = 0; by < h; by++) for (let bx = 0; bx < w; bx++) {
+    let r = 0, g = 0, b = 0, n = 0
+    for (let y = by * block; y < Math.min(pic.height, (by + 1) * block); y += 2) for (let x = bx * block; x < Math.min(pic.width, (bx + 1) * block); x += 2) {
+      const i = (y * pic.width + x) * 4; r += pic.data[i]; g += pic.data[i + 1]; b += pic.data[i + 2]; n++ }
+    const o = (by * w + bx) * 4; out.data[o] = r / n; out.data[o + 1] = g / n; out.data[o + 2] = b / n; out.data[o + 3] = 255 }
+  c.getContext("2d")!.putImageData(out, 0, 0); return c
 }
 
 const pickType = () => ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm", "video/mp4"].find((t) => typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(t))
