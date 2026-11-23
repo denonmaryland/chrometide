@@ -40,7 +40,7 @@ export function DesignDialog() {
   React.useEffect(() => { if (open && !get().design.title) set({ title: get().world.name }) }, [open])
   // develop the picture at the design's own shape whenever the dialog opens, the world changes or the kind changes
   React.useEffect(() => { if (!open || tab !== "make") return; setArt(null); setProgress(0); let live = true
-    const id = setTimeout(async () => { if (!engine) return; const w = get().world, c = await engine.still({ ...w, cam: { ...w.cam, pano: false } }, k.w, k.h, 24, (f) => live && setProgress(f)); if (live) setArt(c) }, 80)
+    const id = setTimeout(async () => { if (!engine) return; const w = get().world, c = await engine.still({ ...w, cam: { ...w.cam, pano: false } }, k.w, k.h, 24, (f) => { if (!live) return false; setProgress(f) }).catch(() => null); if (live && c) setArt(c) }, 80) // a newer picture replaces one still being made
     return () => { live = false; clearTimeout(id) } }, [open, tab, o.kind, world, k.w, k.h])
   React.useEffect(() => { if (!art || !view.current) return
     const front = drawDesign(art, o), m = o.kind === "cover" ? drawMock(front, o, [world.sky.zenith, world.sky.horizon]) : front; out.current = m

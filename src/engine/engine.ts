@@ -134,7 +134,7 @@ export class Engine {
     this.low?.dispose(); this.acc?.dispose(); this.pickRT?.dispose(); this.matTex?.dispose(); this.glyphTex?.dispose(); this.sculptTex?.dispose(); this.modelTex?.dispose(); this.letterTex?.dispose()
     if (this.picTex !== this.u.uPic?.value) (this.u.uPic?.value as THREE.Texture | undefined)?.dispose()
     for (const l of this.wires.values()) { l.geometry.dispose(); (l.material as THREE.Material).dispose() } this.wires.clear()
-    this.r?.dispose()
+    this.r?.dispose(); this.r?.forceContextLoss() // give the context back now: a browser allows only a few, and takes the oldest (the editor's) when there are too many
   }
   // ---------- when the graphics chip lets go ----------
   // A browser may take the 3D context away (a driver reset, too many tabs, a sleeping laptop). three.js
@@ -405,18 +405,28 @@ export class Engine {
   }
   frame(w: World, width: number, height: number, samples = 2, time = 0, into?: HTMLCanvasElement, phase: number | null = null) { return this.toCanvas(this.offscreen(w, width, height, samples, time, false, phase), width, height, into) }
   thumb(w: World, width = 160, height = 120): string { return this.toCanvas(this.offscreen(w, width, height, 2, 0, false), width, height).toDataURL("image/jpeg", 0.82) }
-  /** A finished picture at any size, in slices so the page stays alive and can show progress. */
-  async still(w: World, width: number, height: number, samples: number, onProgress?: (f: number) => void): Promise<HTMLCanvasElement> {
+  /** A finished picture at any size, in slices so the page stays alive and can show progress. onProgress
+   *  may return false to stop early (the promise then rejects with an AbortError). Slices grow or shrink
+   *  so no single one keeps the graphics chip busy for long: a slow chip that is kept busy too long is
+   *  reset by the system, and every picture on the page is lost with it. */
+  async still(w: World, width: number, height: number, samples: number, onProgress?: (f: number) => void | boolean): Promise<HTMLCanvasElement> {
     const opt = { depthBuffer: false, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, generateMipmaps: false }
     if (this.lost || !this.ok) throw new Error("The picture cannot be made while the graphics chip is resting. Try again in a moment.")
     const hdr = new THREE.WebGLRenderTarget(width, height, { ...opt, type: this.float ? THREE.HalfFloatType : THREE.UnsignedByteType })
     this.paused = true
     try {
-      const strip = Math.max(16, Math.round(120000 / width)); const total = samples * Math.ceil(height / strip); let done = 0
-      for (let s = 0; s < samples; s++) for (let y = 0; y < height; y += strip) {
+      let strip = Math.max(8, Math.round(60000 / width)), n = 0, since = performance.now()
+      for (let s = 0; s < samples; s++) for (let y = 0; y < height;) {
+        const rows = Math.min(strip, height - y)
         this.upload(w, width, height)
-        this.pass(hdr, width, height, { sample: s, preview: false, ldr: !this.float, blend: 1 / (s + 1), y: Math.max(0, height - y - strip), rows: Math.min(strip, height - y) })
-        if (++done % 6 === 0) { onProgress?.(done / total); await new Promise((ok) => setTimeout(ok)); if (this.lost) throw new Error("The graphics chip took a break while making the picture. Try again in a moment.") }
+        this.pass(hdr, width, height, { sample: s, preview: false, ldr: !this.float, blend: 1 / (s + 1), y: height - y - rows, rows })
+        y += rows
+        if (++n % 4 === 0) {
+          if (onProgress?.((s + y / height) / samples) === false) { const e = new Error("stopped"); e.name = "AbortError"; throw e }
+          await new Promise((ok) => setTimeout(ok)); if (this.lost) throw new Error("The graphics chip took a break while making the picture. Try again in a moment.")
+          const each = (performance.now() - since) / 4; since = performance.now()
+          if (each > 70) strip = Math.max(4, Math.round(strip * 0.6)); else if (each < 20) strip = Math.min(height, Math.round(strip * 1.3) + 1)
+        }
       }
       const px = this.develop(hdr, width, height); onProgress?.(1)
       return this.toCanvas(px, width, height)

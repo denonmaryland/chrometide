@@ -23,7 +23,7 @@ export function WordBox({ onDone, className, autoFocus }: { onDone?: () => void;
   return (
     <form className={cn("flex items-center gap-1", className)} onSubmit={(e) => { e.preventDefault(); go() }}>
       <input value={word} onChange={(e) => setWord(e.target.value.slice(0, 60))} placeholder={`A word, e.g. ${hint}`} aria-label="A word to grow a world from" spellCheck={false} autoFocus={autoFocus}
-        onKeyDown={(e) => e.stopPropagation()} data-testid="word-input"
+        onKeyDown={(e) => { if (e.key !== "Escape") e.stopPropagation() }} data-testid="word-input"
         className="h-7 min-w-0 flex-1 rounded-md bg-muted/60 px-2 text-[12.5px] outline-none placeholder:text-muted-foreground/70 focus:ring-1 focus:ring-ring" />
       <Button type="submit" variant="glass" size="sm" disabled={!normalWord(word)} data-testid="word-go"><Sprout /> Grow</Button>
     </form>

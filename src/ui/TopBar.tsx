@@ -14,6 +14,7 @@ import { exportGLB, exportHeightmap, exportOBJ, importModel, photoToLand, pickFi
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { StatusGlyph } from "@/components/ui/status-glyph"
 import { QUALITY } from "@/engine/engine"
+import { notify } from "@/notice"
 import { edit, engine, get, patch, redo, shareLink, undo, useApp } from "@/store"
 
 import { Tip } from "./Viewport"
@@ -29,7 +30,8 @@ export function TopBar({ onInspector }: { onInspector: () => void }) {
   const [copied, setCopied] = React.useState(false); const [saving, setSaving] = React.useState<number | null>(null)
   const share = async () => { const url = await shareLink(); try { await navigator.clipboard.writeText(url) } catch { /* clipboard blocked: the link is still in the address bar */ } history.replaceState(null, "", url); setCopied(true); setTimeout(() => setCopied(false), 1800) }
   const save = async () => { if (!engine || saving !== null) return; const w = get().world; setSaving(0)
-    const c = await engine.still(w, w.frame.w, w.frame.h, Math.max(16, QUALITY[get().quality].samples), setSaving); download(c, `${fileName(w.name)}.png`); setSaving(null) }
+    try { const c = await engine.still(w, w.frame.w, w.frame.h, Math.max(16, QUALITY[get().quality].samples), setSaving); download(c, `${fileName(w.name)}.png`) }
+    catch (e) { notify((e as Error)?.message?.endsWith(".") ? (e as Error).message : "The picture could not be saved. Try again, or a smaller picture size.") } finally { setSaving(null) } }
   const label = status.phase === "done" ? "Sharp" : status.phase === "moving" ? "Moving" : status.phase === "blocks" ? "Blocking in" : `Sharpening ${status.samples}/${status.target}`
   return (
     <header className="flex h-12 shrink-0 items-center gap-1.5 px-2">

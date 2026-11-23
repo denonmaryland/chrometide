@@ -106,7 +106,7 @@ function RetroScreen() {
     const id = ++job.current, c = crawl.current!; c.warm(w.name, performance.now()); setPhase("warm")
     await new Promise((ok) => setTimeout(ok, 350)); if (id !== job.current) return
     while (!engine) { await new Promise((ok) => setTimeout(ok, 100)); if (id !== job.current) return }
-    const pic = await engine.still(w, SW, SH, 16); if (id !== job.current) return; engine.pause(true)
+    const pic = await engine.still(w, SW, SH, 16, () => (id === job.current ? undefined : false)).catch(() => null); if (!pic || id !== job.current) return; engine.pause(true)
     const img = dither(pic.getContext("2d")!.getImageData(0, 0, SW, SH)); const wait = 2600 - (performance.now() - c.warmAt)
     if (wait > 0) await new Promise((ok) => setTimeout(ok, wait)); if (id !== job.current) return
     c.pic = img; c.colours = countColours(img); c.start(performance.now(), filming.current ? Math.min(CLIP_SECS, secsRef.current) : secsRef.current); setPhase("crawl")

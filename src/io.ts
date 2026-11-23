@@ -16,6 +16,8 @@ import { fileName } from "./ui/TopBar"
 import { writeGrid } from "./ui/Viewport"
 
 const rad = THREE.MathUtils.degToRad
+/** One shape from several: they must agree on having an index, so none keeps one. */
+const join = (gs: THREE.BufferGeometry[]) => mergeGeometries(gs.map((g) => (g.index ? g.toNonIndexed() : g)))
 function shapeOf(t: Thing): THREE.BufferGeometry | null {
   switch (t.kind) {
     case "sphere": case "blob": return new THREE.SphereGeometry(1, 40, 24)
@@ -26,8 +28,8 @@ function shapeOf(t: Thing): THREE.BufferGeometry | null {
     case "torus": { const tube = Math.min(0.95, Math.max(0.05, t.round)) * 0.5; return new THREE.TorusGeometry(1 - tube, tube, 20, 48).rotateX(Math.PI / 2) }
     case "stone": return new THREE.IcosahedronGeometry(0.82, 2)
     case "crag": return new THREE.ConeGeometry(1, 1.4, 14).rotateX(Math.PI).translate(0, -0.3, 0)
-    case "tree": return mergeGeometries([new THREE.CylinderGeometry(0.1, 0.1, 0.9, 10).translate(0, -0.55, 0), new THREE.IcosahedronGeometry(0.62, 2).translate(0, 0.3, 0)])
-    case "pine": return mergeGeometries([new THREE.CylinderGeometry(0.08, 0.08, 0.6, 10).translate(0, -0.7, 0), ...[0, 1, 2].map((j) => new THREE.ConeGeometry(0.4 + j * 0.2, 0.78, 16).translate(0, 1 - j * 0.36 - 0.39, 0))])
+    case "tree": return join([new THREE.CylinderGeometry(0.1, 0.1, 0.9, 10).translate(0, -0.55, 0), new THREE.IcosahedronGeometry(0.62, 2).translate(0, 0.3, 0)])
+    case "pine": return join([new THREE.CylinderGeometry(0.08, 0.08, 0.6, 10).translate(0, -0.7, 0), ...[0, 1, 2].map((j) => new THREE.ConeGeometry(0.4 + j * 0.2, 0.78, 16).translate(0, 1 - j * 0.36 - 0.39, 0))])
     default: return SHAPE_BY_ID[t.kind]?.mesh?.() ?? null // a shape without a mesh is left out of exports
   }
 }

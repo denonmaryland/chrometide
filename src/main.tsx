@@ -31,7 +31,7 @@ if (import.meta.env.PROD && "serviceWorker" in navigator && location.protocol ==
 
 const q = new URLSearchParams(location.search), bare = q.get("test") === "engine"
 // a step that fails out of sight still gets a kind word, so nothing just silently does not happen
-addEventListener("unhandledrejection", (e) => { console.warn("Unfinished:", e.reason); notify("That did not work. Your world is unchanged; try again.") })
+addEventListener("unhandledrejection", (e) => { console.warn("Unfinished:", e.reason); if ((e.reason as Error)?.name !== "AbortError") notify("That did not work. Your world is unchanged; try again.") })
 /** Can this browser draw in 3D at all? Asked once, before the app starts, so it can say so plainly. */
 function canDraw() {
   try { const gl = document.createElement("canvas").getContext("webgl2"); if (!gl) return false; gl.getExtension("WEBGL_lose_context")?.loseContext(); return true } catch { return false }

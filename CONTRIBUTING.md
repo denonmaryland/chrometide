@@ -94,6 +94,17 @@ npm test           # drives the whole app in a hidden Chrome (needs Chrome or Ch
 
 Look at the pictures. A preset that passes the tests but looks wrong is not done.
 
+If you changed how the app reads links or files, or anything that runs for a long time, also run:
+
+```bash
+node tools/sturdy-test.mjs                        # odd links, odd files, lost graphics, no WebGL2, full storage
+node tools/fuzz-test.mjs --seeds 1,2,3 --minutes 2  # random clicks, drags, typing and keys; fails on any error
+node tools/leak-test.mjs                          # a long session: memory and listeners must not keep growing
+cd mcp && node junk-test.mjs                      # junk sent to every tool of the agent server
+```
+
+A fuzz failure prints its seed and last steps; run that seed again to see it.
+
 ## Rules of the house
 
 - **Original work only.** No names, artwork, icons, presets, file formats or code from Bryce or any
