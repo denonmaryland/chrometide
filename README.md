@@ -1,8 +1,6 @@
 <div align="center">
 
-<img src="docs/images/hero.jpg" alt="Seven glossy red spheres trailing away over a deep blue sea under a pale sky: a picture made with this tool" width="880">
-
-<h1>Chrometide</h1>
+<img src="docs/images/banner.jpg" alt="Chrometide: the name in chrome letters floating over a calm mint-green sea, with chrome spheres and a low sun. Rendered with this tool" width="880">
 
 <p><strong>Chrome spheres over endless water. Hazy two-colour skies. That 2002 ambient-CD look.</strong><br>
 A free, open-source world builder that ray traces in your browser. Open a page, make the picture, save it. No install, no account, no AI.</p>
@@ -34,6 +32,8 @@ A free, open-source world builder that ray traces in your browser. Open a page, 
 <p align="center"><img src="docs/images/worlds.jpg" alt="Twelve worlds made with the tool: a monolith on a rock, a craggy island, chrome shapes on a checkerboard, floating islands, lanterns over a lake at night, a neon sign over pink water, and more" width="880"></p>
 
 ## Why
+
+<p align="center"><img src="docs/images/hero.jpg" alt="Seven glossy red spheres trailing away over a deep blue sea under a pale sky: a picture made with this tool" width="720"></p>
 
 In 1994 a program called Bryce let anyone make surreal 3D landscapes, and a generation of album covers,
 screensavers and magazine ads came out of it. It no longer runs on current computers. People keep asking

@@ -1,0 +1,77 @@
+[
+ {
+  "id": "mint2",
+  "base": "Monolith Row",
+  "seaFrom": "Lantern Lake",
+  "sky": {
+   "zenith": "#24125a",
+   "horizon": "#9ef0d0",
+   "haze": "#c8ffe8",
+   "hazeAmt": 0.08,
+   "cloud": 0.35,
+   "streak": 0.6,
+   "sunGlow": 0.5
+  },
+  "sea": {
+   "c1": "#0a1830",
+   "c2": "#2a5060",
+   "reflect": 0.65,
+   "wave": 0.08
+  },
+  "sun": {
+   "az": 2.75,
+   "el": 0.2
+  },
+  "font": "sans",
+  "spec": {
+   "edge": "chisel",
+   "bevel": 0.06
+  },
+  "h": 6.8,
+  "depth": 0.6,
+  "pos": [
+   0,
+   4.0,
+   0
+  ],
+  "rot": [
+   7,
+   18,
+   0
+  ],
+  "balls": [
+   [
+    -24,
+    10.5,
+    -9,
+    3,
+    "chrome"
+   ],
+   [
+    23,
+    11,
+    -10,
+    1.8,
+    "chrome"
+   ],
+   [
+    -38,
+    17,
+    -44,
+    1.4,
+    "chrome"
+   ]
+  ],
+  "cam": {
+   "yaw": 0.1,
+   "pitch": -0.02,
+   "dist": 31,
+   "fov": 34,
+   "target": [
+    0,
+    5.4,
+    0
+   ]
+  }
+ }
+]
