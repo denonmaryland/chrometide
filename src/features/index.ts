@@ -16,6 +16,9 @@ export interface Feature {
   boot?: (params: URLSearchParams) => void
 }
 
+import { githubIsland } from "./github-island"
+
 // ---- one line per feature below this ----
 export const FEATURES: Feature[] = [
+  githubIsland,
 ]
