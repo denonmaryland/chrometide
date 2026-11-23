@@ -2,6 +2,7 @@
 import * as React from "react"
 
 import type { Engine, Status } from "./engine/engine"
+import { type DesignOpts, designOpts } from "./design/layouts"
 import { at, keyAt, newAnim, pose } from "./engine/anim"
 import { type LockKey, type Thing, type World, STARTERS, clone, decodeWorld, encodeWorld, newId, roll } from "./engine/scene"
 
@@ -13,6 +14,8 @@ export interface State {
   wires: boolean; mask: number; dialog: null | "cover" | "loop" | "find" | "gallery"; rolls: number
   playhead: number; playing: boolean; timeline: boolean; phase: number | null
   /** the music: what is loaded, whether it is sounding, and whether the picture is following it */
+  /** the words and layout of the design being made (cover, flyer, …) */
+  design: DesignOpts
   song: { name: string; duration: number; bpm: number; beats: number } | null; sounding: boolean; mic: boolean
 }
 const KEY = "untitled-worlds:saved"
@@ -21,7 +24,7 @@ const loadSaved = (): Saved[] => { try { return JSON.parse(localStorage.getItem(
 let state: State = {
   world: STARTERS[0](), sel: { type: "sky" }, locks: [], past: [], future: [], quality: 1,
   status: { phase: "blocks", samples: 0, target: 16 }, saved: loadSaved(), sculpt: { tool: "off", size: 0.12 },
-  wires: true, mask: 0, dialog: null, rolls: 0, playhead: 0, playing: false, timeline: false, phase: null, song: null, sounding: false, mic: false,
+  wires: true, mask: 0, dialog: null, rolls: 0, playhead: 0, playing: false, timeline: false, phase: null, song: null, sounding: false, mic: false, design: designOpts({ format: "cd" }),
 }
 const subs = new Set<() => void>()
 const emit = () => subs.forEach((f) => f())

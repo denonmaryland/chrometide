@@ -21,7 +21,7 @@ export function CommandBar() {
           <CommandItem onSelect={run(() => rollDice("things"))}>Roll only the things</CommandItem>
           <CommandItem onSelect={run(() => edit("dusk", (w) => { const l = SKIES[2]; Object.assign(w.sky, { zenith: l.zenith, horizon: l.horizon, haze: l.haze, sunColor: l.sunColor, cloudColor: l.cloudColor, stars: 0 }); w.sky.sun.el = 0.13 }))}>Make it dusk</CommandItem>
           <CommandItem onSelect={run(() => edit("noon", (w) => { w.sky.sun.el = 1.1 }))}>Make it noon</CommandItem>
-          <CommandItem onSelect={run(() => patch({ dialog: "cover" }))}>Make an album cover</CommandItem>
+          <CommandItem onSelect={run(() => patch({ dialog: "cover" }))}>Make a cover, flyer, poster or postcard</CommandItem>
           <CommandItem onSelect={run(() => patch({ dialog: "loop" }))}>Make a looping video</CommandItem>
           <CommandItem onSelect={run(() => void saveToShelf())}>Keep this world in My worlds</CommandItem>
           <CommandItem onSelect={run(undo)}>Undo</CommandItem>

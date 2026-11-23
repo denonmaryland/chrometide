@@ -58,7 +58,7 @@ export function TopBar({ onInspector }: { onInspector: () => void }) {
         </span>
         <Button variant="glass" size="sm" className="hidden text-muted-foreground md:inline-flex" onClick={() => patch({ dialog: "find" })}><Search /> Find anything <Kbd>/</Kbd></Button>
         <Tip label="Copy a link to this world"><Button variant="ghost" size="sm" onClick={() => void share()} data-testid="share">{copied ? <Check /> : <Link />}<span className="hidden sm:inline">{copied ? "Copied" : "Share"}</span></Button></Tip>
-        <Tip label="Make an album cover"><Button variant="ghost" size="sm" onClick={() => patch({ dialog: "cover" })} data-testid="open-cover"><Disc3 /><span className="hidden sm:inline">Cover</span></Button></Tip>
+        <Tip label="Make a cover, flyer, poster, postcard…"><Button variant="ghost" size="sm" onClick={() => patch({ dialog: "cover" })} data-testid="open-cover"><Disc3 /><span className="hidden sm:inline">Design</span></Button></Tip>
         <Tip label="Make a looping video"><Button variant="ghost" size="sm" onClick={() => patch({ dialog: "loop" })} data-testid="open-loop"><Clapperboard /><span className="hidden sm:inline">Loop</span></Button></Tip>
         <Button size="sm" className="glass-primary" onClick={() => void save()} data-testid="save"><Download />{saving === null ? "Save" : `${Math.round(saving * 100)}%`}</Button>
         <Button variant="ghost" size="icon-sm" className="md:hidden" onClick={onInspector} aria-label="Controls"><SlidersHorizontal /></Button>

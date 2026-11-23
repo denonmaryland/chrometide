@@ -6,6 +6,8 @@ import { App } from "./App"
 import { loadFonts } from "./engine/lettering"
 import { EngineTest } from "./EngineTest"
 import * as audio from "./audio"
+import * as layouts from "./design/layouts"
+import * as presets from "./design/presets"
 import * as io from "./io"
 import * as sound from "./sound"
 import * as store from "./store"
@@ -17,6 +19,7 @@ import * as text from "./text"
 ;(window as any).__text = text
 ;(window as any).__audio = audio
 ;(window as any).__sound = sound
+;(window as any).__designs = { ...layouts, ...presets }
 
 // letters are drawn with real fonts: once they have arrived, draw them again
 void loadFonts().then(() => store.engine?.resetGlyphs())

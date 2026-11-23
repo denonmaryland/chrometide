@@ -7,7 +7,7 @@ import { duplicateThing, edit, editThing, get, loadFromHash, patch, redo, remove
 
 import { AppSidebar } from "./ui/AppSidebar"
 import { CommandBar } from "./ui/CommandBar"
-import { CoverDialog } from "./ui/Cover"
+import { DesignDialog } from "./ui/Design"
 import { Inspector } from "./ui/Inspector"
 import { LoopDialog } from "./ui/Loop"
 import { Timeline } from "./ui/Timeline"
@@ -49,7 +49,7 @@ export function App() {
           </div>
         </SidebarInset>
       </SidebarProvider>
-      <CommandBar /><CoverDialog /><LoopDialog />
+      <CommandBar /><DesignDialog /><LoopDialog />
     </TooltipProvider>
   )
 }
