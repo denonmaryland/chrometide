@@ -48,7 +48,7 @@ for (const [name, c] of Object.entries(LINKS)) {
   if (name === "truncated" || name === "oldFormat") { await p.waitForSelector('[data-testid="notice"]', { timeout: 10000 }).catch(() => {}); await shot(p, `sturdy-link-${name}.png`) }
   const finished = await done(p); await p.waitForTimeout(400)
   const n = await notices(p), sp = await spread(p), ms = Date.now() - t0
-  const injected = await p.evaluate(() => !!document.querySelector('img[src="x"], script:not([src]):not([type]), svg[onload], b')) // nothing from the link may become an element
+  const injected = await p.evaluate(() => !!document.querySelector('img[src="x"], script:not([src]):not([type]), svg[onload]') || [...document.querySelectorAll("b")].some((b) => b.textContent === "x")) // nothing from the link may become an element (the app's own bold words are fine)
   const w = await p.evaluate(() => { const w = window.__app.get().world; return { name: w.name.length, things: w.things.length, polluted: ({}).polluted === 1 } })
   res[`link_${name}`] = { ms, notice: n[0]?.slice(0, 70) ?? "", spread: sp, things: w.things }
   check(`link_${name}_calm`, finished && sp > 8 && !log.length && !injected && !w.polluted && w.name <= 60 && ms < 20000, JSON.stringify({ finished, sp, log, injected, w, ms }))

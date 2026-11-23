@@ -229,6 +229,7 @@ const readSeen = () => { try { return localStorage.getItem(WELCOME_KEY) === "1" 
 /** A small card over the dock on the very first visit: the three things worth knowing. */
 function Welcome() {
   const seen = React.useSyncExternalStore((f) => { welcomeSubs.add(f); return () => welcomeSubs.delete(f) }, readSeen)
+  React.useEffect(() => { if (seen) return; const esc = (e: KeyboardEvent) => { if (e.key === "Escape") seenWelcome() }; addEventListener("keydown", esc); return () => removeEventListener("keydown", esc) }, [seen])
   if (seen) return null
   return (
     <div role="dialog" aria-label="Welcome" data-testid="welcome"
