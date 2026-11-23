@@ -6,6 +6,8 @@
 //     start itself from a link such as ?screensaver or ?seed=moon.
 import type * as React from "react"
 
+import { WALK } from "./walk"
+
 export interface Feature {
   id: string
   label: string // short, plain words: "Screensaver", "1994 mode"
@@ -18,4 +20,5 @@ export interface Feature {
 
 // ---- one line per feature below this ----
 export const FEATURES: Feature[] = [
+  ...WALK,
 ]
