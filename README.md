@@ -2,7 +2,8 @@
 
 <img src="docs/images/banner.jpg" alt="Chrometide: the name in chrome letters floating over a calm mint-green sea, with chrome spheres and a low sun. Rendered with this tool" width="880">
 
-<p><strong>A remake of the kind of pictures people made with Bryce in the 90s, running in your browser.</strong><br>
+<p><strong>A remake of the kind of pictures people made with Bryce in the 90s, brought up to date and running in your browser.</strong><br>
+A cleaner interface and a lot more to do, with the same old-school feel.<br>
 Free and open source. Built with Fable 5.2. No install, no account.</p>
 
 <h3><a href="https://denonmaryland.github.io/chrometide/">▶ Try it now in your browser</a></h3>
@@ -44,6 +45,17 @@ for it back.
 Chrometide is a new tool written from scratch with Fable 5.2 that makes that same kind of picture in a
 browser tab. It is not a copy and uses nothing from the original. A picture that took twenty minutes to
 render back then takes seconds now, and there is no program to install.
+
+It also goes further than a remake:
+
+- **A modern interface.** One sidebar for the world and its things, dials on the right, the picture in
+  the middle. Drag the sun or a shape right in the picture. Undo everything. It works on a phone.
+- **Things the original never had.** 3D lettering, album cover and flyer layouts, a music visualizer,
+  video loops, worlds you share as a link, fly-through mode, and a server so AI agents can build worlds.
+- **Much more to start from.** 46 ready-made worlds, 45 skies and 70 cover and flyer designs.
+
+The old feel stays on purpose: chrome spheres, hazy two-colour skies, endless water, and a 1994 mode
+that draws the picture line by line on a glowing 640×480 screen.
 
 ## What it does
 
