@@ -47,6 +47,7 @@ export function SoundPanel() {
   const change = (label: string, fn: (k: SoundSet) => void) => edit("sound:" + label, (w) => { w.sound = w.sound ?? soundSet(); fn(w.sound) })
   const d = (label: string, key: keyof SoundSet) => <Dial label={label} value={set[key] as number} onChange={(v) => change(key, (k) => { (k as any)[key] = v })} />
   const stop = () => { audioEl()?.pause(); patch({ sounding: micOn() }) }
+  React.useEffect(() => () => { if (out) URL.revokeObjectURL(out.url) }, [out]) // a film let go when replaced or closed
   const choose = async (file?: Blob, name?: string) => { const f = file ?? (await pickFile("audio/*,.mp3,.wav,.m4a,.ogg,.flac")); if (!f) return; setBusy("Listening to the whole song…"); setOut(null)
     try { stopMic(); const sg = await loadSong(f, name ?? (f as File).name ?? "song"); const a = audioEl()!; a.onended = () => patch({ sounding: false }); patch({ song: { name: sg.name.replace(/\.[^.]+$/, ""), duration: sg.score.duration, bpm: sg.score.bpm, beats: sg.score.beatTimes.length }, mic: false, sounding: false })
       setFilm((x) => ({ ...x, start: 0, seconds: Math.min(30, Math.floor(sg.score.duration)) })); if (!get().world.sound) change("init", () => {}); setBusy("") } catch { setBusy("That file could not be read as sound.") } }
