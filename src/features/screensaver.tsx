@@ -69,8 +69,9 @@ function SaverScreen() {
     const advance = async () => {
       busy = true
       try {
-        const w = await prepare(next()), m = motion(), size = e.size, keep = e.time
-        e.time = 0; const pic = await e.still(drift(w, 0, m), size.w, size.h, 6); e.time = keep; if (!alive) return
+        // traced a few strips per frame, so the world on screen keeps moving meanwhile
+        const w = await prepare(next()), m = motion(), size = e.size
+        const pic = await e.stillBetweenFrames(drift(w, 0, m), size.w, size.h, 6, { time: 0, alive: () => alive }); if (!alive || !pic) return
         overlay.width = pic.width; overlay.height = pic.height; ox.drawImage(pic, 0, 0)
         await fadeTo(0, 1, FADE_IN); if (!alive) return
         show(w); cur.m = m; await fadeTo(1, 0, FADE_OUT)

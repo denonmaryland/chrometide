@@ -367,12 +367,16 @@ export class Engine {
   }
   /** Tone-map an averaged picture into plain pixels. */
   private develop(hdr: THREE.WebGLRenderTarget, width: number, height: number): Uint8Array {
+    const out = this.developTo(hdr, width, height), px = new Uint8Array(width * height * 4)
+    this.r.readRenderTargetPixels(out, 0, 0, width, height, px); out.dispose()
+    return px
+  }
+  private developTo(hdr: THREE.WebGLRenderTarget, width: number, height: number) {
     const out = new THREE.WebGLRenderTarget(width, height, { depthBuffer: false, generateMipmaps: false }), m = this.showMat.uniforms
     m.tAcc.value = hdr.texture; m.uRes.value.set(width, height); m.uHave.value = 2
     this.r.setRenderTarget(out); this.r.setViewport(0, 0, width, height); this.r.render(this.showScene, this.cam)
-    const px = new Uint8Array(width * height * 4); this.r.readRenderTargetPixels(out, 0, 0, width, height, px)
-    m.tAcc.value = this.acc.texture; this.r.setRenderTarget(null); out.dispose()
-    return px
+    m.tAcc.value = this.acc.texture; this.r.setRenderTarget(null)
+    return out
   }
   private toCanvas(px: Uint8Array, width: number, height: number, into?: HTMLCanvasElement) {
     const c = into ?? document.createElement("canvas"); c.width = width; c.height = height
@@ -396,6 +400,29 @@ export class Engine {
     const px = this.develop(hdr, width, height); hdr.dispose()
     this.paused = false; this.dirty = true; onProgress?.(1)
     return this.toCanvas(px, width, height)
+  }
+  /** A finished picture made a few strips per frame while the screen keeps moving (the screensaver's next
+   *  world): each frame traces only as many rows as keep it smooth. Resolves to null if `alive` turns false. */
+  async stillBetweenFrames(w: World, width: number, height: number, samples: number, o: { time?: number; alive?: () => boolean } = {}): Promise<HTMLCanvasElement | null> {
+    const hdr = new THREE.WebGLRenderTarget(width, height, { depthBuffer: false, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, generateMipmaps: false, type: this.float ? THREE.HalfFloatType : THREE.UnsignedByteType })
+    let budget = width * 16, last = performance.now() // pixels traced per frame, grown or shrunk by how long frames take
+    try {
+      for (let s = 0; s < samples; s++) for (let y = 0; y < height;) {
+        const now = await new Promise<number>((ok) => requestAnimationFrame(ok))
+        if (o.alive && !o.alive()) return null
+        const dt = now - last; last = now
+        if (dt > 22) budget = Math.max(width * 4, Math.round(budget * 0.6)); else if (dt < 19) budget = Math.min(width * height, Math.round(budget * 1.15))
+        const rows = Math.min(height - y, Math.max(4, Math.round(budget / width)))
+        this.upload(w, width, height, o.time ?? 0, null)
+        this.pass(hdr, width, height, { sample: s, preview: false, ldr: !this.float, blend: 1 / (s + 1), y: height - y - rows, rows })
+        y += rows
+        if (this.world) this.upload(this.world, this.w, this.h) // the screen's own world back in the uniforms
+      }
+      // read back without waiting on the graphics chip, so this frame is not held up either
+      const out = this.developTo(hdr, width, height), px = new Uint8Array(width * height * 4)
+      try { await this.r.readRenderTargetPixelsAsync(out, 0, 0, width, height, px) } finally { out.dispose() }
+      return o.alive && !o.alive() ? null : this.toCanvas(px, width, height)
+    } finally { hdr.dispose() }
   }
 }
 
