@@ -4,8 +4,7 @@
 import * as React from "react"
 import { Check, Clapperboard, Code2, Copy, Disc3, Download, Ellipsis, FolderOpen, GanttChart, LayoutGrid, Link, Redo2, Search, Share2, Sparkles, Undo2 } from "lucide-react"
 
-import { FEATURES } from "@/features"
-import { openEmbed } from "@/features/share"
+import { FEATURES, openEmbed } from "@/features"
 import { pickPhoto } from "@/features/photo-world"
 
 import { Button } from "@/components/ui/button"

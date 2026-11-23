@@ -1,25 +1,30 @@
+import * as React from "react"
 import { createRoot } from "react-dom/client"
 
 import "./index.css"
-import { Api } from "./Api"
 import { App } from "./App"
 import { loadFonts } from "./engine/lettering"
-import { EngineTest } from "./EngineTest"
 import * as audio from "./audio"
-import * as layouts from "./design/layouts"
-import * as presets from "./design/presets"
 import * as io from "./io"
 import * as sound from "./sound"
 import * as store from "./store"
 import * as text from "./text"
 
-// a handle for the test scripts
+// the agent page and the bare engine page are separate, and load only when asked for
+const Api = React.lazy(() => import("./Api").then((m) => ({ default: m.Api })))
+const EngineTest = React.lazy(() => import("./EngineTest").then((m) => ({ default: m.EngineTest })))
+
+// a handle for the test scripts; the parts that load later join it once they are here
 ;(window as any).__app = store
-;(window as any).__io = io
+;(window as any).__io = { ...io }
 ;(window as any).__text = text
 ;(window as any).__audio = audio
 ;(window as any).__sound = sound
-;(window as any).__designs = { ...layouts, ...presets }
+const handles = () => Promise.all([import("./io-3d"), import("./design/layouts"), import("./design/presets"), import("./features/island")]).then(([io3, layouts, presets, island]) => {
+  Object.assign((window as any).__io, io3); (window as any).__designs = { ...layouts, ...presets }
+  ;(window as any).__islandLib = { parse: island.parseCalendar, stats: island.stats, build: island.islandWorld }
+})
+if ("requestIdleCallback" in window) requestIdleCallback(() => void handles(), { timeout: 3000 }); else setTimeout(() => void handles(), 1500)
 
 // letters are drawn with real fonts: once they have arrived, draw them again
 void loadFonts().then(() => store.engine?.resetGlyphs())
@@ -28,4 +33,4 @@ void loadFonts().then(() => store.engine?.resetGlyphs())
 if (import.meta.env.PROD && "serviceWorker" in navigator && location.protocol === "https:") void navigator.serviceWorker.register("./sw.js").catch(() => {})
 
 const q = new URLSearchParams(location.search), bare = q.get("test") === "engine"
-createRoot(document.getElementById("root")!).render(q.has("api") ? <Api /> : bare ? <EngineTest /> : <App />)
+createRoot(document.getElementById("root")!).render(q.has("api") ? <React.Suspense fallback={null}><Api /></React.Suspense> : bare ? <React.Suspense fallback={null}><EngineTest /></React.Suspense> : <App />)

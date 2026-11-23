@@ -65,7 +65,7 @@ const VERT = `varying vec3 vDir; void main() { vDir = position; gl_Position = pr
 const FRAG = `uniform sampler2D tPic; uniform float uHeading; varying vec3 vDir;
 void main() {
   vec3 d = normalize(vDir);
-  float x = (atan(d.x, d.z) - uHeading) / 6.2831853 + 0.5;
+  float x = 0.5 - (atan(d.x, d.z) - uHeading) / 6.2831853;
   float u1 = fract(x), u2 = fract(x + 0.5) - 0.5, u = fwidth(u1) <= fwidth(u2) + 1e-5 ? u1 : u2;
   float v = asin(clamp(d.y, -1.0, 1.0)) / 3.14159265 + 0.5;
   gl_FragColor = vec4(texture2D(tPic, vec2(u, v)).rgb, 1.0);
@@ -146,9 +146,8 @@ function Viewer({ pic, heading }: { pic: HTMLCanvasElement; heading: number }) {
     } catch { setNote("VR could not start here. Drag to look instead.") }
   }
   const save = () => {
-    // turned the usual way round for 360° players (east to the right)
-    const c = document.createElement("canvas"); c.width = pic.width; c.height = pic.height; const x = c.getContext("2d")!; x.translate(c.width, 0); x.scale(-1, 1); x.drawImage(pic, 0, 0)
-    c.toBlob((b) => { if (!b) return; const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = `${fileName(get().world.name)}-360.png`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000) }, "image/png")
+    // the engine paints it the usual way round for 360° players (turning right runs left to right)
+    pic.toBlob((b) => { if (!b) return; const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = `${fileName(get().world.name)}-360.png`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000) }, "image/png")
   }
 
   // drag (or one finger) to look, wheel or two fingers to zoom, arrows to turn

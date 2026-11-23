@@ -17,12 +17,12 @@ export interface Shape {
    * that is too small only costs speed, one that is too big makes holes.
    */
   glsl: string
-  /** Outline drawn round the shape when it is selected, in the same -1 to 1 box. */
-  wire: () => THREE.BufferGeometry
+  /** Outline drawn round the shape when it is selected, in the same -1 to 1 box. r is the dial value. */
+  wire: (r: number) => THREE.BufferGeometry
   /** A lucide icon for the menus. */
   icon: React.ComponentType<{ className?: string }>
   /** A mesh for 3D export (.glb, .obj). Without one the shape is left out of exports. */
-  mesh?: () => THREE.BufferGeometry
+  mesh?: (r: number) => THREE.BufferGeometry
   /** Extra GLSL functions the body uses. Name them after the shape so they do not clash. */
   helpers?: string
   /** Half-sizes a new one starts with (default 1.2 on every side). */

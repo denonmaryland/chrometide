@@ -4,7 +4,6 @@
 // With a song playing or the microphone on, the worlds move to the music. Any key, click or
 // mouse move goes back.
 import * as React from "react"
-import { MonitorPlay } from "lucide-react"
 
 import { micOn, nowLevels } from "@/audio"
 import { Engine } from "@/engine/engine"
@@ -14,7 +13,7 @@ import { react } from "@/sound"
 import { engine as mainEngine, get } from "@/store"
 import { prepare } from "@/text"
 
-import type { Feature } from "./index"
+import type { FeatureCode } from "./lazy"
 import { wordWorld } from "./words"
 
 let isOpen = false; const subs = new Set<() => void>()
@@ -69,8 +68,9 @@ function SaverScreen() {
     const advance = async () => {
       busy = true
       try {
-        const w = await prepare(next()), m = motion(), size = e.size, keep = e.time
-        e.time = 0; const pic = await e.still(drift(w, 0, m), size.w, size.h, 6); e.time = keep; if (!alive) return
+        // traced a few strips per frame, so the world on screen keeps moving meanwhile
+        const w = await prepare(next()), m = motion(), size = e.size
+        const pic = await e.stillBetweenFrames(drift(w, 0, m), size.w, size.h, 6, { time: 0, alive: () => alive }); if (!alive || !pic) return
         overlay.width = pic.width; overlay.height = pic.height; ox.drawImage(pic, 0, 0)
         await fadeTo(0, 1, FADE_IN); if (!alive) return
         show(w); cur.m = m; await fadeTo(1, 0, FADE_OUT)
@@ -121,8 +121,7 @@ function SaverScreen() {
   )
 }
 
-export const screensaverFeature: Feature = {
-  id: "screensaver", label: "Screensaver", about: "Drift slowly through worlds, full screen. Any key brings you back.", icon: MonitorPlay,
+export const screensaverFeature: FeatureCode = {
   run: start, Overlay: Saver,
   boot: (q) => { if (q.has("screensaver")) setOpen(true) },
 }

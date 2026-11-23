@@ -96,8 +96,13 @@ export async function readPhoto(file: Blob, camYaw: number): Promise<Look> {
 
   // sea: the two main colours of the bottom band, a deep one and a shallow one
   const [s1, s2] = palette(rows(hz + (1 - hz) * 0.15, 1), 2).map((p) => p.color).sort((a, b) => lum(a) - lum(b))
-  const deep = tame(s1, [0.05, 0.3], [0, 0.95], 1.15), shallowRaw = tame(s2, [0.28, 0.62], [0, 0.95], 1.1)
-  const shallow = toHsl(shallowRaw)[2] - toHsl(deep)[2] < 0.15 ? tame(shallowRaw, [Math.min(0.62, toHsl(deep)[2] + 0.18), 0.66]) : shallowRaw
+  // water mirrors about half of the sky low down, so a strongly coloured sea needs a brighter, richer body to still show its colour
+  const seaSat = toHsl(mean(rows(hz + (1 - hz) * 0.15, 1)))[1], rich = !night && seaSat > 0.3
+  const deepRaw = rich ? tame(s1, [0.2, 0.4], [0.5, 1], 1.4) : tame(s1, [0.05, 0.3], [0, 0.95], 1.15), shallowRaw = tame(s2, [0.28, 0.62], [0, 0.95], 1.1)
+  const shallowSet = toHsl(shallowRaw)[2] - toHsl(deepRaw)[2] < 0.15 ? tame(shallowRaw, [Math.min(0.62, toHsl(deepRaw)[2] + 0.18), 0.66]) : shallowRaw
+  // the water is lit by the sky and the sun, so under a warm sunset a purple sea would come out
+  // salmon: take the light's colour back out, and the rendered sea keeps the photo's colour
+  const light = lightOf(zenith, horizon, sunColor, sun.el, night ? 0.4 : 0.5), deep = unlit(deepRaw, light), shallow = unlit(shallowSet, light)
 
   // the photo's five colours, and the land's from them: light shore, middle slopes, dark rock
   const all: RGB[] = []; for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) all.push(at(i, j))
@@ -108,10 +113,20 @@ export async function readPhoto(file: Blob, camYaw: number): Promise<Look> {
 
   return {
     sky: { zenith: toHex(zenith), horizon: toHex(horizon), haze: toHex(haze), sunColor: toHex(sunColor), cloudColor: toHex(night ? mix(horizon, zenith, 0.4) : mix(horizon, WHITE, 0.62)), fogColor: toHex(haze),
-      sun, hazeAmt: night ? 0.35 : 0.55, cloud: night ? 0.12 : clamp(busy * 3.2, 0.1, 0.6), streak: 0.5, cloud2: 0, cloud2Color: "#ffffff", fog: 0, stars: night ? 1.2 : 0, moon: 0, rainbow: 0, halo: 0, rays: 0, comet: 0, ambient: night ? 0.4 : 0.5, sunGlow: 1 },
+      sun, hazeAmt: night ? 0.35 : 0.42, cloud: night ? 0.12 : clamp(busy * 3.2, 0.1, 0.6), streak: 0.5, cloud2: 0, cloud2Color: "#ffffff", fog: 0, stars: night ? 1.2 : 0, moon: 0, rainbow: 0, halo: 0, rays: 0, comet: 0, ambient: night ? 0.4 : 0.5, sunGlow: 1 },
     sea: { c1: toHex(deep), c2: toHex(shallow) }, land, colors, night,
   }
 }
+
+/** The colour of the light that falls on the sea (as the ray tracer works it out), scaled to a grey of 1. Linear. */
+const lin = (c: RGB): RGB => c.map((v) => Math.pow(clamp(v, 0, 1), 2.2)) as RGB, srgb = (c: RGB): RGB => c.map((v) => Math.pow(clamp(v, 0, 1), 1 / 2.2)) as RGB
+function lightOf(zenith: RGB, horizon: RGB, sun: RGB, el: number, ambient: number): RGB {
+  const z = lin(zenith), h = lin(horizon), s = lin(sun), k = 0.55 * Math.max(Math.sin(el), 0)
+  const l = [0, 1, 2].map((i) => ((h[i] + z[i]) * 0.5 * 0.55 + 0.12) * ambient * 2 + s[i] * k) as RGB, g = Math.max(1e-3, lum(l))
+  return l.map((v) => v / g) as RGB
+}
+/** A colour that, once lit by `light`, looks like `c` again . */
+const unlit = (c: RGB, light: RGB): RGB => { const v = lin(c); return srgb(v.map((x, i) => x / Math.max(0.2, light[i])) as RGB) }
 
 export const LAND_RADIUS = 9, LAND_HEIGHT = 4
 /** Light is high, dark is low, but always one island, a little way behind the middle of the view, that

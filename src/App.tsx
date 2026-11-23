@@ -5,19 +5,35 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import { duplicateThing, edit, editThing, get, loadFromHash, patch, redo, removeThing, rollDice, undo, useApp } from "@/store"
 
-import { FEATURES } from "./features"
+import { FEATURES, preloadFeatures } from "./features"
 import { AppSidebar } from "./ui/AppSidebar"
-import { CommandBar } from "./ui/CommandBar"
-import { DesignDialog } from "./ui/Design"
 import { Inspector } from "./ui/Inspector"
-import { LoopDialog } from "./ui/Loop"
-import { Timeline } from "./ui/Timeline"
 import { useSheet } from "./ui/sheet"
 import { TopBar } from "./ui/TopBar"
 import { Viewport } from "./ui/Viewport"
 
+// not needed for the first picture: these load when first opened, or quietly once the page is up
+const later = {
+  find: () => import("./ui/CommandBar"), cover: () => import("./ui/Design"), loop: () => import("./ui/Loop"), timeline: () => import("./ui/Timeline"),
+}
+const CommandBar = React.lazy(() => later.find().then((m) => ({ default: m.CommandBar })))
+const DesignDialog = React.lazy(() => later.cover().then((m) => ({ default: m.DesignDialog })))
+const LoopDialog = React.lazy(() => later.loop().then((m) => ({ default: m.LoopDialog })))
+const Timeline = React.lazy(() => later.timeline().then((m) => ({ default: m.Timeline })))
+/** Mounted from the first time it is wanted (or once its code has quietly arrived), and kept mounted
+ *  after, so a dialog opens at once and can animate shut. */
+function Later({ when, children }: { when: boolean; children: React.ReactNode }) {
+  const [seen, setSeen] = React.useState(when); if (when && !seen) setSeen(true)
+  return seen ? <React.Suspense fallback={null}>{children}</React.Suspense> : null
+}
+
 export function App() {
-  const sky = useApp((s) => s.world.sky), timeline = useApp((s) => s.timeline); const sheet = useSheet()
+  const sky = useApp((s) => s.world.sky), timeline = useApp((s) => s.timeline), dialog = useApp((s) => s.dialog); const sheet = useSheet(), [warm, setWarm] = React.useState(false)
+  React.useEffect(() => { // once the page is up and quiet, fetch the rest so nothing waits later
+    const go = () => { void preloadFeatures(); void Promise.all(Object.values(later).map((f) => f())).then(() => setWarm(true), () => {}) }
+    const id = "requestIdleCallback" in window ? requestIdleCallback(go, { timeout: 4000 }) : setTimeout(go, 2500)
+    return () => { if ("cancelIdleCallback" in window) cancelIdleCallback(id as number); else clearTimeout(id as number) }
+  }, [])
   React.useEffect(() => { void loadFromHash(); const q = new URLSearchParams(location.search); for (const f of FEATURES) f.boot?.(q) }, [])
   React.useEffect(() => {
     const key = (e: KeyboardEvent) => {
@@ -46,13 +62,13 @@ export function App() {
         <SidebarInset className="h-dvh min-w-0 overflow-hidden" style={wash}>
           <TopBar />
           <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col"><Viewport />{timeline && <Timeline />}</div>
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col"><Viewport />{timeline && <React.Suspense fallback={null}><Timeline /></React.Suspense>}</div>
             {/* beside the picture on a wide screen; on a phone, a sheet under it that the dock's Edit button opens */}
             <div className={cn("shrink-0 p-2 pt-0 md:h-full md:w-[19.5rem] md:pl-0", sheet ? "h-[48dvh]" : "h-0 overflow-hidden p-0 md:overflow-visible md:p-2 md:pt-0")}><Inspector /></div>
           </div>
         </SidebarInset>
       </SidebarProvider>
-      <CommandBar /><DesignDialog /><LoopDialog />
+      <Later when={warm || dialog === "find"}><CommandBar /></Later><Later when={warm || dialog === "cover"}><DesignDialog /></Later><Later when={warm || dialog === "loop"}><LoopDialog /></Later>
       {FEATURES.map((f) => (f.Overlay ? <f.Overlay key={f.id} /> : null))}
     </TooltipProvider>
   )

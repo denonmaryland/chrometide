@@ -2,7 +2,7 @@
 // the video dissolves from each to the next while the view drifts slowly, and ends by resting on
 // the world as it is now. Written with WebCodecs where the browser has it, MediaRecorder if not.
 import * as React from "react"
-import { Clapperboard, Download, History, RotateCcw } from "lucide-react"
+import { Clapperboard, Download, RotateCcw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -12,7 +12,7 @@ import { engine, get } from "@/store"
 import { Dial, Row, Segmented } from "@/ui/fields"
 import { fileName } from "@/ui/TopBar"
 
-import type { Feature } from "./index"
+import type { FeatureCode } from "./lazy"
 import { type Step, clear, steps, subscribe } from "./tape"
 
 export interface LapseOpts { seconds: number; shape: "small" | "wide" | "square" | "tall"; detail: "quick" | "good" | "fine"; caption: boolean; drift: boolean }
@@ -198,4 +198,4 @@ function TimelapseDialog() {
   )
 }
 
-export const TIMELAPSE: Feature = { id: "timelapse", label: "Time-lapse", about: "Watch how this world was made, as a short video.", icon: History, run: () => setOpen(true), Overlay: TimelapseDialog }
+export const TIMELAPSE: FeatureCode = { run: () => setOpen(true), Overlay: TimelapseDialog }

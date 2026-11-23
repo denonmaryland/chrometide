@@ -2,7 +2,7 @@
 // frame that works anywhere, and a tag for pages that allow scripts — both pointing at embed.html,
 // the light viewer that ships next to the app.
 import * as React from "react"
-import { Check, Code2, Copy } from "lucide-react"
+import { Check, Copy } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -11,7 +11,7 @@ import { encodeWorld } from "@/engine/scene"
 import { engine, get, useApp } from "@/store"
 import { Row, Segmented } from "@/ui/fields"
 
-import type { Feature } from "./index"
+import type { FeatureCode } from "./lazy"
 
 // the dialog keeps its own little switch, so the app's store does not need to know about it
 let open = false; const subs = new Set<() => void>()
@@ -94,4 +94,4 @@ function EmbedDialog() {
   )
 }
 
-export const embed: Feature = { id: "embed", label: "Embed on a page", about: "Put this world, live, on your own website.", icon: Code2, Overlay: EmbedDialog }
+export const embed: FeatureCode = { Overlay: EmbedDialog }

@@ -26,6 +26,6 @@ export default {
   float h = clamp(dot(w, e) / dot(e, e), 0., 1.);
   float edge = length(w - e * h) * (e.x * w.y - e.y * w.x > 0. ? -1. : 1.);
   return max(edge, (abs(p.z) + edge * ${SLOPE.toFixed(2)} - ${RIM.toFixed(2)}) * .67);`,
-  wire: () => new THREE.EdgesGeometry(starMesh(), 1),
-  mesh: () => starMesh(),
+  wire: (r) => new THREE.EdgesGeometry(starMesh(r), 1),
+  mesh: (r) => starMesh(r),
 } satisfies Shape

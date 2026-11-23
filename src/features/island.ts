@@ -1,6 +1,6 @@
 // A year of GitHub contributions as an island. Weeks run left to right, the days of the week run
 // from the back (Sunday) to the front (Saturday), busy days rise as peaks with snow on the busiest,
-// and quiet days are sea. The person's name stands in chrome letters; the sky is picked from how
+// and quiet days are sea. The person's name stands in chrome letters on a dark plate; the sky is picked from how
 // busy the year was. Pure data in, a world out: the app, the agent page (?api=1) and the command
 // line all build it the same way.
 import { textAspect } from "@/engine/lettering"
@@ -50,23 +50,25 @@ export function stats(c: Calendar): Stats {
 }
 
 /** How the year felt, from quiet to blazing. Each has its own sky, sea, land and letters. */
-export interface Mood { min: number; name: string; sky: Partial<Sky> & { zenith: string; horizon: string; haze: string; sunColor: string; cloudColor: string }; sea: string; land: { c1: string; c2: string; c3: string }; letters: string; glow: string }
+export interface Mood { min: number; name: string; sky: Partial<Sky> & { zenith: string; horizon: string; haze: string; sunColor: string; cloudColor: string }; sea: string; land: { c1: string; c2: string; c3: string }; plate: string; glow: string }
 export const MOODS: Mood[] = [
-  { min: 0, name: "A quiet year", sea: "Ink", letters: "Chrome", glow: "#9fc4ff", land: { c1: "#cfc8b8", c2: "#55657e", c3: "#343a50" },
+  { min: 0, name: "A quiet year", sea: "Ink", plate: "#060a1c", glow: "#9fc4ff", land: { c1: "#cfc8b8", c2: "#55657e", c3: "#343a50" },
     sky: { zenith: "#040822", horizon: "#2a3f86", haze: "#3a5096", sunColor: "#c8d8ff", cloudColor: "#1c2a5a", stars: 1.5, moon: 1, moonAz: 2.5, moonEl: 0.42, moonSize: 0.1, moonPhase: 0.5, ambient: 0.5, sun: { az: 2.78, el: 0.35 } } },
-  { min: 100, name: "A gentle year", sea: "Mirror", letters: "Ink", glow: "#ff8ad0", land: { c1: "#f4e0c4", c2: "#8a9f72", c3: "#6a5f80" },
+  { min: 100, name: "A gentle year", sea: "Mirror", plate: "#120a22", glow: "#ff8ad0", land: { c1: "#f4e0c4", c2: "#8a9f72", c3: "#6a5f80" },
     sky: { zenith: "#5a46c8", horizon: "#ffc6e4", haze: "#ffd8ee", sunColor: "#fff2f6", cloudColor: "#fbe6ff", cloud: 0.35, streak: 0.7, sun: { az: 2.78, el: 0.2 } } },
-  { min: 500, name: "A steady year", sea: "Ocean", letters: "Ink", glow: "#ffb050", land: { c1: "#f2dca6", c2: "#4c9a4a", c3: "#5e554a" },
+  { min: 500, name: "A steady year", sea: "Ocean", plate: "#0a1022", glow: "#ffb050", land: { c1: "#f2dca6", c2: "#4c9a4a", c3: "#5e554a" },
     sky: { zenith: "#2c4fb0", horizon: "#ffb860", haze: "#ffd496", sunColor: "#ffdcaa", cloudColor: "#ffd8b8", cloud: 0.4, streak: 0.8, sun: { az: 2.78, el: 0.16 } } },
-  { min: 1500, name: "A busy year", sea: "Lagoon", letters: "Ink", glow: "#ff5fa8", land: { c1: "#fff0cc", c2: "#2ea84a", c3: "#2a5a5a" },
+  { min: 1500, name: "A busy year", sea: "Lagoon", plate: "#061614", glow: "#ff5fa8", land: { c1: "#fff0cc", c2: "#2ea84a", c3: "#2a5a5a" },
     sky: { zenith: "#00b874", horizon: "#ff96c0", haze: "#ffb0cc", sunColor: "#fff2e2", cloudColor: "#8a90c0", cloud: 0.45, streak: 0.85, sun: { az: 2.78, el: 0.15 } } },
-  { min: 4000, name: "A blazing year", sea: "Ink", letters: "Ink", glow: "#ff6a9a", land: { c1: "#ffcf9a", c2: "#8a2f6a", c3: "#24183a" },
+  { min: 4000, name: "A blazing year", sea: "Ink", plate: "#12040c", glow: "#ff6a9a", land: { c1: "#ffcf9a", c2: "#8a2f6a", c3: "#24183a" },
     sky: { zenith: "#170840", horizon: "#ff6a38", haze: "#ff9466", sunColor: "#ffc690", cloudColor: "#7a2a5a", stars: 0.6, cloud: 0.35, streak: 0.9, sun: { az: 2.78, el: 0.12 } } },
 ]
 export const moodOf = (total: number) => [...MOODS].reverse().find((m) => total >= m.min)!
 
-/** Letters that stand out against their sky: bright skies get dark glossy letters, dark skies chrome or gold. */
-const letters = (name: string): Material => name === "Ink" ? { ...mat("Black pearl"), reflect: 0.16 } : mat(name)
+/** The plate behind the letters: near black with a little of the mood's own colour, glossy like lacquer. */
+const backing = (m: Mood): Material => ({ ...mat("Black pearl"), color: m.plate, reflect: 0.05, shine: 0.6, gloss: 0.7 })
+/** Chrome letters, or under a night sky (where chrome only mirrors the dark) letters lit from inside. */
+const letters = (m: Mood): Material => m.sky.stars && m.sky.stars > 1 ? { ...mat("Lamp"), color: m.glow, glow: 1.1 } : mat("Chrome")
 const hash = (s: string) => { let h = 2166136261; for (const ch of s) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return (h >>> 0) / 4294967296 }
 const N = 128 // the sculpt grid (engine GRID)
 const toB64 = (d: Uint8Array) => { let s = ""; for (let i = 0; i < d.length; i += 0x4000) s += String.fromCharCode(...d.subarray(i, i + 0x4000)); return btoa(s) }
@@ -100,9 +102,14 @@ export function islandWorld(c: Calendar, o: IslandOpts = {}): World {
   const nameH = Math.min(wide ? 4.8 : 5.6, (span * (wide ? 0.55 : 0.62)) / Math.max(1, textAspect(name, "poster")))
   // squarer pictures look from a little to the right, so the letters turn to face that way too
   const yaw = wide ? 0 : 0.32, turn: Vec3 = [(yaw * 180) / Math.PI, 0, 0], along = (d: number): [number, number] => [Math.sin(yaw) * d, d]
-  const [nx, nzz] = along(front + 1.2); things.push(word(name, nameH, [nx, (wide ? 4.4 : 5.6) + nameH / 2, nzz], { font: "poster" }, letters(mood.letters), turn))
+  // chrome letters on a dark glossy plate: they read on the brightest sky and the darkest night alike
+  const plate = (t: Thing, padX: number, padY: number) => { const d = t.size[2] + 0.16, back: Vec3 = [t.pos[0] - Math.sin(yaw) * d, t.pos[1], t.pos[2] - Math.cos(yaw) * d]
+    return thing("box", back, [t.size[0] + padX, t.size[1] + padY, 0.1], backing(mood), { name: `${t.name} plate`, round: 0.06, rot: turn }) }
+  const [nx, nzz] = along(front + 1.2), title = word(name, nameH, [nx, (wide ? 4.4 : 5.6) + nameH / 2, nzz], { font: "poster" }, letters(mood), turn)
+  things.push(title, plate(title, nameH * 0.32, nameH * 0.2))
   const sub = `${st.total} CONTRIBUTIONS`, subH = 1.2
-  const [sx, sz] = along(front + 5); things.push(word(sub, subH, [sx, subH / 2 + 0.12, sz], { font: "sans" }, mat("Chrome"), turn))
+  const [sx, sz] = along(front + 5), count = word(sub, subH, [sx, subH / 2 + 0.3, sz], { font: "sans" }, letters(mood), turn)
+  things.push(count, plate(count, subH * 0.45, subH * 0.22))
   const best: typeof peaks = [] // the three busiest days, at least a fortnight apart so their moons do not touch
   for (const p of peaks.filter((p) => p.on).sort((a, b) => b.d.count - a.d.count)) if (best.length < 3 && best.every((q) => Math.abs(q.x - p.x) > cw * 2.5)) best.push(p)
   best.forEach((p, i) => {
