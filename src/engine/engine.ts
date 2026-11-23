@@ -6,7 +6,7 @@ import * as THREE from "three"
 import { LH, LW, glyphLayer, titleField } from "./lettering"
 import { type Camera, type Material, type Thing, type World, KINDS, ROLES, SEA_KINDS, TEXTURES } from "./scene"
 import { DISPLAY_FRAG, MAT_COLS, MAXO, TRACE_FRAG, VERT } from "./shader"
-import { SHAPES } from "./shapes"
+import { SHAPES, SHAPE_BY_ID } from "./shapes"
 
 export type Phase = "moving" | "blocks" | "refining" | "done"
 export interface Status { phase: Phase; samples: number; target: number }
@@ -35,7 +35,7 @@ export function camBasis(c: Camera, aspectMin = 1) {
   return { pos, fw, rt, up, focal }
 }
 
-const WIRE: Record<string, () => THREE.BufferGeometry> = {
+const WIRE: Record<string, (r: number) => THREE.BufferGeometry> = {
   sphere: () => new THREE.WireframeGeometry(new THREE.SphereGeometry(1, 12, 8)),
   box: () => new THREE.EdgesGeometry(new THREE.BoxGeometry(2, 2, 2)),
   pyramid: () => new THREE.EdgesGeometry(new THREE.ConeGeometry(Math.SQRT2, 2, 4).rotateY(Math.PI / 4)),
@@ -260,9 +260,9 @@ export class Engine {
     const all = this.showWires && this.stage < 3 && this.sample === 0 && this.moving
     const want = new Set<string>()
     for (const t of w.things) { if (t.hidden) continue; if (!(all || t.id === this.selected)) continue; want.add(t.id)
-      let l = this.wires.get(t.id)
-      if (!l || l.userData.kind !== t.kind) { if (l) { this.wireScene.remove(l); l.geometry.dispose() }
-        l = new THREE.LineSegments((WIRE[t.kind] ?? WIRE.sphere)(), new THREE.LineBasicMaterial({ transparent: true, depthTest: false })); l.userData.kind = t.kind; this.wires.set(t.id, l); this.wireScene.add(l) }
+      let l = this.wires.get(t.id); const dial = SHAPE_BY_ID[t.kind]?.dial ? Math.round(num(t.round, 0.5, 0, 1) * 50) / 50 : 0, key = `${t.kind}:${dial}` // a shape with a dial is outlined as dialled
+      if (!l || l.userData.key !== key) { if (l) { this.wireScene.remove(l); l.geometry.dispose(); (l.material as THREE.Material).dispose() }
+        l = new THREE.LineSegments((WIRE[t.kind] ?? WIRE.sphere)(dial), new THREE.LineBasicMaterial({ transparent: true, depthTest: false })); l.userData.key = key; this.wires.set(t.id, l); this.wireScene.add(l) }
       l.position.set(...t.pos); l.scale.set(...t.size); l.rotation.set(THREE.MathUtils.degToRad(t.rot[1]), THREE.MathUtils.degToRad(t.rot[0]), THREE.MathUtils.degToRad(t.rot[2]), "YXZ")
       const mat = l.material as THREE.LineBasicMaterial; const sel = t.id === this.selected
       mat.color.set(sel ? (t.role === "cut" ? 0xff7a5c : 0xffffff) : 0x9fe8ff); mat.opacity = sel ? 0.95 : 0.45; l.visible = true }
