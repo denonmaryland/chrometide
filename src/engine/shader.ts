@@ -487,7 +487,7 @@ void main(){
   if (uMode == 9) uv = uPickUV;
   if (uMode == 11) { vec2 g = (fc / uRes - .5) * 2. * uGridHalf; float h = 0.; if (uTerrOn > .5) { float tt = marchTerr(vec3(g.x, 200., g.y), vec3(0., -1., 0.), 400.); if (tt > 0.) h = 200. - tt; } outCol = vec4(max(h, 0.), 0., 0., 1.); return; }
   vec3 ro = uCamPos, rd;
-  if (uProj == 1) { vec2 a = (floor(fc) + jit) / uRes; float lon = (a.x - .5) * 6.2831853 + uPanoYaw, lat = (a.y - .5) * 3.14159265;
+  if (uProj == 1) { vec2 a = (floor(fc) + jit) / uRes; float lon = uPanoYaw - (a.x - .5) * 6.2831853, lat = (a.y - .5) * 3.14159265;
     rd = vec3(cos(lat) * sin(lon), sin(lat), cos(lat) * cos(lon)); }
   else {
     rd = normalize(uCamFw * uFocal + uCamRt * uv.x + uCamUp * uv.y);
