@@ -39,7 +39,7 @@ export function AppSidebar() {
       <SidebarHeader>
         <div className="flex h-8 items-center gap-2 px-1.5">
           <span className="grid size-6 shrink-0 place-items-center rounded-md" style={{ background: `linear-gradient(${sky.zenith}, ${sky.horizon})` }}><Aperture className="size-3.5 text-white mix-blend-overlay" /></span>
-          <span className="font-mark truncate text-[17px] leading-none group-data-[collapsible=icon]:hidden">Untitled Worlds</span>
+          <span className="font-mark truncate text-[17px] leading-none group-data-[collapsible=icon]:hidden">Chrometide</span>
         </div>
       </SidebarHeader>
       <SidebarContent>

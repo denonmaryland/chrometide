@@ -20,7 +20,7 @@ export interface State {
   design: DesignOpts
   song: { name: string; duration: number; bpm: number; beats: number } | null; sounding: boolean; mic: boolean
 }
-const KEY = "untitled-worlds:saved"
+const KEY = "chrometide:saved"
 const loadSaved = (): Saved[] => {
   try { const v = recall<unknown>(KEY, []); return Array.isArray(v) ? v.filter((s): s is Saved => !!s && typeof s.id === "string" && typeof s.name === "string" && typeof s.code === "string").map((s) => ({ ...s, thumb: typeof s.thumb === "string" && s.thumb.startsWith("data:image/") ? s.thumb : "", at: +s.at || 0 })).slice(0, 40) : [] }
   catch { return [] } // storage blocked (a private window) or spoiled: start with an empty shelf

@@ -58,7 +58,7 @@ class Crawl {
   private bar(now: number, p: number, line: number) {
     const x = this.x, y = SH - 13
     x.fillStyle = C.bar; x.fillRect(0, y, SW, 13); x.fillStyle = C.barHi; x.fillRect(0, y, SW, 1)
-    write(x, "UW/94", 6, y + 3, C.amber)
+    write(x, "CT/94", 6, y + 3, C.amber)
     if (this.phase === "done") {
       write(x, `DONE IN ${clock(this.secs)}   ${this.colours} COLOURS   ${SW} X ${SH}`, 48, y + 3, C.white); return
     }
@@ -146,7 +146,7 @@ function RetroScreen() {
           <canvas ref={view} width={SW * 2} height={SH * 2} className="block aspect-[4/3] w-full" aria-label="The picture, as a 1994 computer draws it" data-testid="retro-canvas" />
         </div>
         <div className="absolute inset-x-[4%] bottom-[1.1%] flex items-center justify-between text-[10px] font-medium tracking-[0.25em] text-white/25 uppercase max-sm:text-[8px]">
-          <span>Untitled Worlds · 94</span>
+          <span>Chrometide · 94</span>
           <span className="flex items-center gap-1.5"><span className={cn("size-1.5 rounded-full", busy ? "bg-amber-400 shadow-[0_0_6px_#fbbf24]" : phase === "crawl" ? "animate-pulse bg-amber-300 shadow-[0_0_6px_#fcd34d]" : "bg-emerald-400 shadow-[0_0_6px_#34d399]")} />power</span>
         </div>
       </div>

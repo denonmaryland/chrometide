@@ -1,6 +1,6 @@
 {
-  "name": "Untitled Worlds",
-  "short_name": "Worlds",
+  "name": "Chrometide",
+  "short_name": "Chrometide",
   "description": "Make surreal ray-traced worlds: chrome spheres, hazy skies, endless seas.",
   "start_url": "./",
   "scope": "./",

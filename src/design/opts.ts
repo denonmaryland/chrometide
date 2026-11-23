@@ -22,4 +22,4 @@ export interface DesignOpts {
   format: "flat" | "cd" | "tape" | "vinyl"; tracks: string
   obi: boolean; obiText: string; obiColor: string
 }
-export const designOpts = (o: Partial<DesignOpts> = {}): DesignOpts => ({ kind: "cover", layout: "wide", title: "", sub: "Untitled Worlds", line1: "", line2: "", list: "", small: "", ink: "#ffffff", paper: "#f3efe6", format: "flat", tracks: "", obi: false, obiText: "", obiColor: "#f3efe6", ...o })
+export const designOpts = (o: Partial<DesignOpts> = {}): DesignOpts => ({ kind: "cover", layout: "wide", title: "", sub: "Chrometide", line1: "", line2: "", list: "", small: "", ink: "#ffffff", paper: "#f3efe6", format: "flat", tracks: "", obi: false, obiText: "", obiColor: "#f3efe6", ...o })

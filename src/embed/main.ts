@@ -29,9 +29,9 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, parent: 
 
 /** The corner link back to the full app, with this world in it. */
 function openLink(sky?: World["sky"]) {
-  const a = el("a", "uw-open"); a.href = appUrl; a.target = "_blank"; a.rel = "noopener"; a.title = "Open this world in Untitled Worlds, where you can change it"
+  const a = el("a", "uw-open"); a.href = appUrl; a.target = "_blank"; a.rel = "noopener"; a.title = "Open this world in Chrometide, where you can change it"
   const dot = el("span", "uw-dot", a); if (sky) dot.style.background = `linear-gradient(${sky.zenith}, ${sky.horizon})`
-  el("span", "uw-long", a).textContent = "Open in Untitled Worlds"; el("span", "uw-short", a).textContent = "Open"
+  el("span", "uw-long", a).textContent = "Open in Chrometide"; el("span", "uw-short", a).textContent = "Open"
   return a
 }
 function message(text: string) {
@@ -42,7 +42,7 @@ async function start() {
   const got = code ? await readCode(code) : null, world = got?.world
   if (!world) { message(got && "why" in got ? got.why : "No world here yet. Add #w= and a share code to the address."); return }
   const home = clone(world.cam)
-  document.title = `${world.name || "A world"} · Untitled Worlds`
+  document.title = `${world.name || "A world"} · Chrometide`
   document.body.style.background = `linear-gradient(${world.sky.zenith}, ${world.sky.horizon})`
 
   const canvas = el("canvas", "uw-canvas"); canvas.tabIndex = 0

@@ -17,5 +17,5 @@ The first version.
 - Installable, and opens offline once visited.
 - Modes: 1994 mode, a world from any word, GitHub year island (with a profile banner Action), photo to world,
   screensaver, fly, look around (360°, phone tilt, VR), time-lapse.
-- Embed anywhere (iframe or `<untitled-world>` tag), community gallery, render from the terminal.
+- Embed anywhere (iframe or `<chrometide-world>` tag), community gallery, render from the terminal.
 - Pluggable shapes, with four new ones: capsule, gem, star, twisted column.

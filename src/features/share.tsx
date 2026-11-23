@@ -27,11 +27,11 @@ const attr = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").rep
 export function snippets(code: string, o: { size: Size; turn: boolean; name: string }, base = location.href) {
   const page = new URL("embed.html", base), script = new URL("embed.js", base)
   page.search = o.turn ? "?autorotate" : ""; page.hash = `w=${code}`
-  const [w, h] = SIZES[o.size], title = attr(`${o.name || "A world"}, made with Untitled Worlds`)
+  const [w, h] = SIZES[o.size], title = attr(`${o.name || "A world"}, made with Chrometide`)
   const box = o.size === "fill" ? ` style="width:100%;aspect-ratio:8/5;border:0;border-radius:10px"` : ` width="${w}" height="${h}" style="border:0;border-radius:10px;max-width:100%"`
   const frame = `<iframe src="${attr(page.href)}"${box} allow="fullscreen" loading="lazy" title="${title}"></iframe>`
   const size = o.size === "fill" ? "" : ` width="${w}" height="${h}"`
-  const tag = `<script src="${attr(script.href)}" async></script>\n<untitled-world code="${attr(code)}"${size}${o.turn ? " autorotate" : ""} name="${title}"></untitled-world>`
+  const tag = `<script src="${attr(script.href)}" async></script>\n<chrometide-world code="${attr(code)}"${size}${o.turn ? " autorotate" : ""} name="${title}"></chrometide-world>`
   return { frame, tag, page: page.href }
 }
 
@@ -74,7 +74,7 @@ function EmbedDialog() {
         <div className="grid gap-4 sm:grid-cols-[200px_1fr]">
           <div className="relative aspect-[8/5] overflow-hidden rounded-lg bg-black/40 ring-1 ring-border">
             {thumb && <img src={thumb} alt="" className="size-full object-cover" />}
-            <span className="absolute right-1.5 bottom-1.5 rounded-full bg-black/45 px-2 py-0.5 text-[9.5px] text-white/90 backdrop-blur">Open in Untitled Worlds</span>
+            <span className="absolute right-1.5 bottom-1.5 rounded-full bg-black/45 px-2 py-0.5 text-[9.5px] text-white/90 backdrop-blur">Open in Chrometide</span>
           </div>
           <div className="flex flex-col gap-2.5">
             <div className="flex flex-col gap-1.5 text-[12.5px]"><span className="text-foreground/80">Size</span>

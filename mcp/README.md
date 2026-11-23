@@ -1,6 +1,6 @@
-# Untitled Worlds MCP
+# Chrometide MCP
 
-Lets an AI agent make pictures with Untitled Worlds: start from a ready-made world or a blank one,
+Lets an AI agent make pictures with Chrometide: start from a ready-made world or a blank one,
 change the sky, sea, land and things, add 3D lettering, roll the dice, and get the ray-traced
 picture back to look at. Works with any agent that speaks MCP (Claude Code, Claude Desktop, Cursor,
 Codex and others).
@@ -18,7 +18,7 @@ In this folder: `npm install`
 Then tell your agent about it. For Claude Code:
 
 ```bash
-claude mcp add untitled-worlds -- node /full/path/to/mcp/server.mjs
+claude mcp add chrometide -- node /full/path/to/mcp/server.mjs
 ```
 
 For apps that use a settings file (Claude Desktop, Cursor and others):
@@ -26,7 +26,7 @@ For apps that use a settings file (Claude Desktop, Cursor and others):
 ```json
 {
   "mcpServers": {
-    "untitled-worlds": { "command": "node", "args": ["/full/path/to/mcp/server.mjs"] }
+    "chrometide": { "command": "node", "args": ["/full/path/to/mcp/server.mjs"] }
   }
 }
 ```
@@ -83,7 +83,7 @@ A calendar file can be the JSON from the free contributions service
 (`contributionsCollection { contributionCalendar { weeks { contributionDays { date contributionCount } } } }`),
 or a plain list of `{ "date": "2026-03-14", "count": 7 }`.
 
-Installed with `npm install -g` (or `npm link`) in this folder, the command is `untitled-worlds`.
+Installed with `npm install -g` (or `npm link`) in this folder, the command is `chrometide`.
 It reads the same `WORLDS_APP` and `WORLDS_CHROME` settings as the server, and says plainly what
 is missing if the app is not built or no Chrome is found. It exits with 0 when the picture is
 saved, 1 when something went wrong, 2 when the command was mistyped.

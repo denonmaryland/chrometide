@@ -1,4 +1,4 @@
-// Drives the share features in headless Chromium: the light viewer (embed.html), the <untitled-world>
+// Drives the share features in headless Chromium: the light viewer (embed.html), the <chrometide-world>
 // tag and the frame snippet in a plain page on another address, the Embed dialog in the app, and
 // the community gallery. Pictures go to shots/.  Run after a build:  node tools/share-test.mjs
 import fs from "fs"; import path from "path"; import { serve, browser, root } from "./serve.mjs"
@@ -68,9 +68,9 @@ ${tagSnip.replace(/ width="\d+" height="\d+"/, "").replace(" autorotate", "")}
 await p.setViewportSize({ width: 1000, height: 1100 })
 await p.goto(`${host.url}host-test.html`); await p.waitForTimeout(800)
 const frames = () => p.frames().filter((f) => f.url().includes("embed.html"))
-await p.waitForFunction(() => document.querySelector("untitled-world")?.shadowRoot?.querySelector("iframe")?.src, null, { timeout: 10000 }).catch(() => logs.push("tag made no frame"))
-res.tagFrameSrc = await p.evaluate(() => document.querySelector("untitled-world").shadowRoot.querySelector("iframe").src.split("#")[0])
-res.tagSize = await p.evaluate(() => { const r = document.querySelector("untitled-world").getBoundingClientRect(); return `${Math.round(r.width)}x${Math.round(r.height)}` })
+await p.waitForFunction(() => document.querySelector("chrometide-world")?.shadowRoot?.querySelector("iframe")?.src, null, { timeout: 10000 }).catch(() => logs.push("tag made no frame"))
+res.tagFrameSrc = await p.evaluate(() => document.querySelector("chrometide-world").shadowRoot.querySelector("iframe").src.split("#")[0])
+res.tagSize = await p.evaluate(() => { const r = document.querySelector("chrometide-world").getBoundingClientRect(); return `${Math.round(r.width)}x${Math.round(r.height)}` })
 for (let i = 0; i < 60 && frames().length < 2; i++) await p.waitForTimeout(250)
 res.framesOnHostPage = frames().length
 for (const f of frames()) { await f.waitForFunction(() => window.__engine && (window.__engine.done || window.__engine.live), null, { timeout: 90000 }).catch(() => logs.push("frame not done " + f.url().slice(0, 60))) }

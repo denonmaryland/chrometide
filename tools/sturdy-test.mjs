@@ -136,7 +136,7 @@ const FILES = {
   await p.goto(s.url); const ok = await done(p); await p.evaluate(() => window.__app.saveToShelf()); await p.waitForTimeout(300)
   const n = await notices(p), kept = await p.evaluate(() => window.__app.get().saved.length)
   check("storage_blocked", ok && kept === 1 && n.some((x) => /this visit only/.test(x)) && !log.length, JSON.stringify({ ok, n, kept, log })); await shot(p, "sturdy-storage-blocked.png"); await close() }
-{ const { p, log, close } = await page(() => { localStorage.setItem("untitled-worlds:saved", "{\"not\":\"a list\"}"); Storage.prototype.setItem = function () { throw new DOMException("full", "QuotaExceededError") } })
+{ const { p, log, close } = await page(() => { localStorage.setItem("chrometide:saved", "{\"not\":\"a list\"}"); Storage.prototype.setItem = function () { throw new DOMException("full", "QuotaExceededError") } })
   await p.goto(s.url); const ok = await done(p); await p.evaluate(() => window.__app.saveToShelf()); await p.waitForTimeout(300)
   const n = await notices(p); check("storage_full_and_spoiled", ok && n.some((x) => /this visit only/.test(x)) && !log.length, JSON.stringify({ ok, n, log })); await close() }
 

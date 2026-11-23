@@ -29,7 +29,7 @@ your profile.
        runs-on: ubuntu-latest
        steps:
          - uses: actions/checkout@v4
-         - uses: denonmaryland/untitled-worlds/.github/actions/profile-island@main
+         - uses: denonmaryland/chrometide/.github/actions/profile-island@main
            with:
              path: images/island.png
    ```
@@ -59,7 +59,7 @@ No secrets to add. The Action reads your public contributions with the workflow'
 
 ## What it does, step by step
 
-1. Sets up Node, then builds Untitled Worlds and its renderer from the Action's own copy of this
+1. Sets up Node, then builds Chrometide and its renderer from the Action's own copy of this
    project (about a minute; nothing is downloaded from anywhere else but npm).
 2. Asks GitHub's GraphQL API for `contributionsCollection.contributionCalendar` of the user: the
    date and count of each day of the last year. Nothing else is read.

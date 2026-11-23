@@ -43,7 +43,7 @@ function canDraw() {
 }
 const noGraphics = (
   <Trouble title="This browser cannot draw the worlds" actions={[{ label: "Try again", run: () => location.reload() }]}>
-    <p>Untitled Worlds ray traces its pictures with WebGL2, and this browser or device is not offering it right now.</p>
+    <p>Chrometide ray traces its pictures with WebGL2, and this browser or device is not offering it right now.</p>
     <p className="mt-2">Try a current Chrome, Edge, Firefox or Safari. If you already use one, turn on hardware acceleration (or graphics acceleration) in its settings and restart it, or open the page on another device.</p>
   </Trouble>
 )

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Profile island: reads a GitHub user's last year of contributions with the Action's own token
-// (GitHub's GraphQL API), turns it into an island world and renders it with the Untitled Worlds
+// (GitHub's GraphQL API), turns it into an island world and renders it with the Chrometide
 // command line (mcp/cli.mjs). Optionally commits the picture.
 //
 // Settings (environment; action.yml fills them from its inputs):
@@ -33,7 +33,7 @@ export function fromGraphQL(json) {
 
 export async function readYear(user, token, api = "https://api.github.com/graphql") {
   if (!token) throw new Error("No token. In a workflow, the Action's own GITHUB_TOKEN is used; it is passed in by default.")
-  const r = await fetch(api, { method: "POST", headers: { authorization: `bearer ${token}`, "content-type": "application/json", "user-agent": "untitled-worlds-profile-island" }, body: JSON.stringify({ query: QUERY, variables: { login: user } }) })
+  const r = await fetch(api, { method: "POST", headers: { authorization: `bearer ${token}`, "content-type": "application/json", "user-agent": "chrometide-profile-island" }, body: JSON.stringify({ query: QUERY, variables: { login: user } }) })
   if (!r.ok) throw new Error(`GitHub answered ${r.status} ${r.statusText}.`)
   return fromGraphQL(await r.json())
 }

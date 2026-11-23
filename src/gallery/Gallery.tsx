@@ -13,7 +13,7 @@ import { thumb } from "./thumbs"
 
 export interface Entry { name: string; author: string; github?: string; code: string; date: string; tags: string[] }
 const ENTRIES = (raw as Entry[]).filter((e) => e && typeof e.code === "string" && typeof e.name === "string").sort((a, b) => b.date.localeCompare(a.date) || a.name.localeCompare(b.name))
-const SHARE_FORM = "https://github.com/denonmaryland/untitled-worlds/issues/new?template=share_a_world.yml"
+const SHARE_FORM = "https://github.com/denonmaryland/chrometide/issues/new?template=share_a_world.yml"
 const appLink = (code: string) => `./#w=${code}`
 const when = (d: string) => { const t = new Date(`${d}T12:00:00`); return isNaN(+t) ? "" : t.toLocaleDateString("en", { month: "short", year: "numeric" }) }
 /** Until its picture arrives, a card shows its world's own sky over its own sea. */
@@ -66,7 +66,7 @@ export function Gallery() {
         <header className="flex h-14 items-center gap-2">
           <a href="./" className="flex items-center gap-2 rounded-md pr-2 outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <span className="grid size-6 place-items-center rounded-md" style={{ background: lead ? `linear-gradient(${lead.sky.zenith}, ${lead.sky.horizon})` : "linear-gradient(#6a8ad8, #f4c7a1)" }}><Aperture className="size-3.5 text-white mix-blend-overlay" /></span>
-            <span className="font-mark text-[17px] leading-none whitespace-nowrap">Untitled Worlds</span>
+            <span className="font-mark text-[17px] leading-none whitespace-nowrap">Chrometide</span>
           </a>
           <div className="ml-auto flex items-center gap-1.5">
             <a href="./" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "max-[400px]:px-2")}>Open the app</a>

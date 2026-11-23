@@ -1,10 +1,10 @@
 {
-  "name": "untitled-worlds-mcp",
+  "name": "chrometide-mcp",
   "version": "0.1.0",
   "description": "Lets an AI agent build surreal ray-traced worlds and get the pictures back.",
   "type": "module",
   "license": "MIT",
-  "bin": { "untitled-worlds-mcp": "server.mjs", "untitled-worlds": "cli.mjs" },
+  "bin": { "chrometide-mcp": "server.mjs", "chrometide": "cli.mjs" },
   "scripts": { "start": "node server.mjs", "render": "node cli.mjs", "test": "node test.mjs" },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",

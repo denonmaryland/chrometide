@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// An MCP server for Untitled Worlds. An agent connected to it can start from a ready-made world or
+// An MCP server for Chrometide. An agent connected to it can start from a ready-made world or
 // a blank one, change the sky, sea, land and things, add 3D lettering, roll the dice, and get the
 // ray-traced picture back. The renderer is the web app itself, run in a hidden browser.
 //
@@ -38,7 +38,7 @@ const MORE_SHAPES = fs.existsSync(SHAPES_DIR) ? fs.readdirSync(SHAPES_DIR).filte
   .map((f) => { const src = fs.readFileSync(path.join(SHAPES_DIR, f), "utf8"); return { id: /\bid:\s*"([a-z][a-z0-9]*)"/.exec(src)?.[1], label: /\blabel:\s*"([^"]+)"/.exec(src)?.[1] } }).filter((s) => s.id) : []
 const SHAPE_KINDS = ["sphere", "box", "pyramid", "cylinder", "cone", "torus", "disc", "stone", "blob", "tree", "pine", "crag", ...MORE_SHAPES.map((s) => s.id)]
 
-const GUIDE = `Untitled Worlds makes surreal ray-traced pictures: chrome spheres over endless seas, hazy two-colour skies, craggy islands, 3D lettering.
+const GUIDE = `Chrometide makes surreal ray-traced pictures: chrome spheres over endless seas, hazy two-colour skies, craggy islands, 3D lettering.
 
 HOW TO WORK
 1. start_world from a ready-made world (see list_presets) or "blank".
@@ -66,7 +66,7 @@ PICTURE: frame {w, h}; bloom (0 to 1.2: bright things spill light).
 TASTE
 The look comes from few, simple shapes, strong reflections, an unnatural sky and a low camera. Put the sun low for long shadows and a path of light on the water. One accent colour reads better than five.`
 
-const server = new McpServer({ name: "untitled-worlds", version: "0.1.0" }, { instructions: GUIDE.split("\n\nSPACE")[0] + "\n\nCall get_guide once for the coordinate system and every field." })
+const server = new McpServer({ name: "chrometide", version: "0.1.0" }, { instructions: GUIDE.split("\n\nSPACE")[0] + "\n\nCall get_guide once for the coordinate system and every field." })
 const tool = (name, description, shape, fn) => server.registerTool(name, { description, inputSchema: shape }, async (args) => { try { return await fn(args) } catch (e) { return fail(String(e?.message ?? e)) } })
 const vec = z.union([z.number(), z.array(z.number()).length(3)])
 
@@ -111,6 +111,6 @@ tool("render", "Ray trace the world and return the picture. Look at it, then adj
     const url = await call("render", await need(), width, height, { draft: 4, good: 16, fine: 48 }[quality]), data = url.slice(url.indexOf(",") + 1), out = [{ type: "image", data, mimeType: "image/png" }]
     if (save_as) { const f = path.resolve(OUT, path.basename(save_as).replace(/\.png$/i, "") + ".png"); fs.mkdirSync(OUT, { recursive: true }); fs.writeFileSync(f, Buffer.from(data, "base64")); out.push({ type: "text", text: `Saved ${f}` }) }
     return { content: out } })
-tool("share_code", "Get a code that opens this exact world in the Untitled Worlds web app: add it to the app's address as #w=<code>. Imported pictures and fonts are not included.", {}, async () => { const code = await call("encode", await need()); return text({ code, how: "Open the web app and add #w=" + code.slice(0, 12) + "… (the whole code) to its address." }) })
+tool("share_code", "Get a code that opens this exact world in the Chrometide web app: add it to the app's address as #w=<code>. Imported pictures and fonts are not included.", {}, async () => { const code = await call("encode", await need()); return text({ code, how: "Open the web app and add #w=" + code.slice(0, 12) + "… (the whole code) to its address." }) })
 
 await server.connect(new StdioServerTransport())

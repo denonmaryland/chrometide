@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Untitled Worlds from the terminal: ray trace a world to a PNG without opening the app.
+// Chrometide from the terminal: ray trace a world to a PNG without opening the app.
 //
 //   node cli.mjs render "Red Moons" -o red-moons.png --size 1200x1200 --quality fine
 //   node cli.mjs render w2.xxxxx -o shared.png            (a share code, or a whole #w= link)
@@ -14,12 +14,12 @@ import fs from "node:fs"; import path from "node:path"
 
 import { QUALITY, createRenderer, missing } from "./renderer.mjs"
 
-const HELP = `Untitled Worlds: ray trace a world to a picture.
+const HELP = `Chrometide: ray trace a world to a picture.
 
 Usage
-  untitled-worlds render <world> -o out.png [--size 1200x1200] [--quality draft|good|fine]
-  untitled-worlds list
-  untitled-worlds code <world>
+  chrometide render <world> -o out.png [--size 1200x1200] [--quality draft|good|fine]
+  chrometide list
+  chrometide code <world>
 
 <world> is one of
   "World Name"     a ready-made world (see: list), or "blank"

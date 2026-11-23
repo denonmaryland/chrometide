@@ -2,7 +2,7 @@
 
 <img src="docs/images/hero.jpg" alt="Seven glossy red spheres trailing away over a deep blue sea under a pale sky: a picture made with this tool" width="880">
 
-<h1>Untitled Worlds</h1>
+<h1>Chrometide</h1>
 
 <p><strong>Chrome spheres over endless water. Hazy two-colour skies. That 2002 ambient-CD look.</strong><br>
 A free, open-source world builder that ray traces in your browser. Open a page, make the picture, save it. No install, no account, no AI.</p>
@@ -96,7 +96,7 @@ never leaves your computer.
 
 ### Share it anywhere
 
-- **Embed.** One line puts a live, draggable world on any web page: an iframe, or an `<untitled-world>` tag.
+- **Embed.** One line puts a live, draggable world on any web page: an iframe, or a `<chrometide-world>` tag.
 - **Community gallery.** A page of worlds people made. Offer yours with the "Share a world" form.
 - **Render from the terminal.** `node mcp/cli.mjs render "Red Moons" -o moons.png` turns any world or share code
   into a picture without opening the app.
@@ -111,8 +111,8 @@ improve it: 16 tools, running on your own machine.
 Needs [Node](https://nodejs.org) 22 or newer.
 
 ```bash
-git clone https://github.com/denonmaryland/untitled-worlds
-cd untitled-worlds
+git clone https://github.com/denonmaryland/chrometide
+cd chrometide
 npm install
 npm run dev        # then open the address it prints
 ```
