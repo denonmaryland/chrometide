@@ -7,6 +7,7 @@
 import type * as React from "react"
 
 import { retroFeature } from "./retro"
+import { screensaverFeature } from "./screensaver"
 import { wordWorldFeature } from "./word-world"
 
 export interface Feature {
@@ -23,4 +24,5 @@ export interface Feature {
 export const FEATURES: Feature[] = [
   wordWorldFeature,
   retroFeature,
+  screensaverFeature,
 ]
