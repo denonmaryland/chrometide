@@ -61,6 +61,7 @@ export function LoopDialog() {
   React.useEffect(() => { if (!open || busy !== null || url) return; let raf = 0, tries = 0
     const draw = () => { if (!engine || !view.current) { if (tries++ < 60) raf = requestAnimationFrame(draw); return } const [W, H] = SIZES[o.size]; engine.frame(get().world, W, H, 3, 0, view.current) }
     raf = requestAnimationFrame(draw); return () => cancelAnimationFrame(raf) }, [open, o.size, busy, url])
+  React.useEffect(() => () => { if (url) URL.revokeObjectURL(url) }, [url]) // a film let go when replaced or closed
   const set = (p: Partial<LoopOpts>) => { setO((x) => ({ ...x, ...p })); setUrl(undefined) }
   const go = async () => { const id = ++run.current; setBusy(0); setUrl(undefined); setNote("")
     const blob = await recordLoop(get().world, o, (f, frame) => { if (run.current !== id) return; setBusy(f); const v = view.current; if (v) { v.width = frame.width; v.height = frame.height; v.getContext("2d")!.drawImage(frame, 0, 0) } }, () => run.current === id)

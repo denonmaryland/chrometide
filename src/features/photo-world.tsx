@@ -8,7 +8,7 @@ import { ImagePlus } from "lucide-react"
 import type { Feature } from "."
 import { GRID } from "@/engine/engine"
 import type { Material, World } from "@/engine/scene"
-import { pickFile } from "@/io"
+import { Said, openFile, pickFile, readImage } from "@/io"
 import { edit, get } from "@/store"
 import { writeGrid } from "@/ui/Viewport"
 
@@ -50,7 +50,6 @@ export function palette(px: RGB[], k = 5): { color: RGB; share: number }[] {
 }
 
 // ---------- reading the photo ----------
-const readImage = (file: Blob) => new Promise<HTMLImageElement>((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => no(new Error("not a picture")); im.src = URL.createObjectURL(file) })
 interface Look { sky: Partial<World["sky"]>; sea: Pick<World["sea"], "c1" | "c2">; land: { c1: string; c2: string; c3: string; grid: Uint8Array }; colors: RGB[]; night: boolean }
 
 export async function readPhoto(file: Blob, camYaw: number): Promise<Look> {
@@ -195,9 +194,9 @@ export async function photoToWorld(file: Blob, name?: string) {
 let say: ((s: string) => void) | null = null
 export async function takePhoto(file: File | null) {
   if (!file) return
-  if (!file.type.startsWith("image/")) { say?.("That file is not a photo. Try a JPG or PNG."); return }
+  if (!file.type.startsWith("image/")) { if (/\.(png|jpe?g|gif|webp|avif|bmp)$/i.test(file.name)) say?.("That file is not a photo this browser can read. Try a JPG or PNG."); else await openFile(file); return }
   try { await photoToWorld(file, file.name); say?.("Your photo is now the world. Undo to go back.") }
-  catch { say?.("That photo could not be read. Try another one.") }
+  catch (e) { say?.(e instanceof Said ? e.message : "That photo could not be read. Try another one.") }
 }
 export const pickPhoto = async () => takePhoto(await pickFile("image/*"))
 

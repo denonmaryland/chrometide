@@ -68,8 +68,8 @@ export function writeOnLand(str: string, font: string, mode: "raise" | "carve") 
 
 /** A font file of your own. It stays with the world on this device and is not sent in share links. */
 export async function loadCustomFont(file: File): Promise<boolean> {
-  if (file.size > 3_000_000) return false
-  const url = await new Promise<string>((ok) => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.readAsDataURL(file) })
+  if (!file.size || file.size > 3_000_000) return false
+  const url = await new Promise<string>((ok) => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.onerror = () => ok(""); r.readAsDataURL(file) })
   if (!(await useCustomFont(url))) return false
   edit("custom-font", (w) => { w.customFont = url }); engine?.resetGlyphs(); return true
 }

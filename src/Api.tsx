@@ -6,7 +6,7 @@ import { Engine } from "./engine/engine"
 import { FONTS, loadFonts, textAspect } from "./engine/lettering"
 import {
   type Kind, type LockKey, type Material, type Thing, type Vec3, type World,
-  FRAMES, KINDS, LANDS, MATERIALS, SEAS, SKIES, TEXTURES, applySky, blankWorld, clone, decodeWorld, encodeWorld, landFrom, mat, newId, roll, seaFrom, textSpec, thing,
+  FRAMES, KINDS, LANDS, MATERIALS, SEAS, SKIES, TEXTURES, applySky, blankWorld, clone, encodeWorld, landFrom, mat, newId, readCode, roll, seaFrom, textSpec, thing, tidyWorld,
 } from "./engine/scene"
 import { WORLDS } from "./engine/worlds"
 import { islandWorld, parseCalendar } from "./features/island"
@@ -29,9 +29,7 @@ function makeThing(o: any): Thing {
 }
 /** Keep a world inside what the renderer can draw, whatever was sent. */
 function tidy(w: World): World {
-  const base = blankWorld(), out = { ...base, ...w, v: 2 as const }
-  out.sky = { ...base.sky, ...w.sky, sun: { ...base.sky.sun, ...w.sky?.sun } }; out.sea = { ...base.sea, ...w.sea }; out.land = { ...base.land, ...w.land }; out.cam = { ...base.cam, ...w.cam }; out.frame = { ...base.frame, ...w.frame }
-  out.things = (Array.isArray(w.things) ? w.things : []).filter((t) => t && KINDS.includes(t.kind)).slice(0, 20).map((t) => ({ ...makeThing({ kind: t.kind }), ...t, mat: { ...mat("Chrome"), ...t.mat }, id: t.id || newId() }))
+  const out = tidyWorld(w)
   out.things.forEach((t) => { if (t.kind === "text" && t.text) t.size[0] = t.size[1] * textAspect(t.text.str, t.text.font) })
   return out
 }
@@ -46,7 +44,9 @@ export function Api() {
         shapes: KINDS.filter((k) => k !== "model"), patterns: [...TEXTURES], fonts: FONTS.filter((f) => f.id !== "custom").map((f) => f.id), frames: FRAMES.map((f) => `${f.name}`) }),
       starter: (name: string) => { const w = WORLDS.find((x) => x.name.toLowerCase() === String(name).toLowerCase()); return w ? w.make() : null },
       blank: () => blankWorld(), tidy,
-      decode: async (code: string) => { const w = await decodeWorld(code.replace(/^.*#w=/, "")); return w ? tidy(w) : null },
+      decode: async (code: string) => { const r = await readCode(String(code)); return r.world ? tidy(r.world) : null },
+      /** why a code cannot be opened, in words, or "" if it can */
+      why: async (code: string) => { const r = await readCode(String(code)); return r.world ? "" : r.why },
       encode: (w: World) => encodeWorld(tidy(w)),
       sky: (w: World, look: string, over: object) => { const n = clone(tidy(w)), l = SKIES.find((s) => s.name.toLowerCase() === String(look).toLowerCase()); if (!l) return null; applySky(n.sky, l); Object.assign(n.sky, over ?? {}); return n },
       sea: (w: World, look: string, over: object) => { const n = clone(tidy(w)), l = SEAS.find((s) => s.name.toLowerCase() === String(look).toLowerCase()); if (!l) return null; n.sea = { ...seaFrom(l, { wave: n.sea.wave, grain: n.sea.grain, scale: n.sea.scale }), ...(over ?? {}) }; return n },
@@ -54,7 +54,12 @@ export function Api() {
       thing: makeThing, material,
       roll: (w: World, keep: LockKey[]) => roll(tidy(w), new Set(keep ?? [])),
       island: (data: unknown, o: { user?: string; aspect?: number } = {}) => { const c = parseCalendar(data, o.user); return c ? tidy(islandWorld(c, { aspect: o.aspect })) : null },
-      render: async (w: World, width: number, height: number, samples: number) => (await e.still(tidy(w), width, height, samples)).toDataURL("image/png"),
+      render: async (w: World, width: number, height: number, samples: number) => {
+        if (!e.ok) throw new Error(e.error || "The renderer could not start in this browser.")
+        const side = (n: unknown, d: number) => Math.round(typeof n === "number" && isFinite(n) ? Math.min(4096, Math.max(16, n)) : d)
+        const n = Math.round(typeof samples === "number" && isFinite(samples) ? Math.min(256, Math.max(1, samples)) : 16)
+        return (await e.still(tidy(w), side(width, 960), side(height, 720), n)).toDataURL("image/png")
+      },
     }
     void loadFonts().then(() => { (window as any).__api = api })
     return () => e.dispose()

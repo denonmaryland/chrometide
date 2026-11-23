@@ -7,7 +7,7 @@ import "./embed.css"
 
 import { Engine, QUALITY } from "@/engine/engine"
 import { loadFonts, useCustomFont } from "@/engine/lettering"
-import { type World, clone, decodeWorld } from "@/engine/scene"
+import { type World, clone, readCode } from "@/engine/scene"
 
 const q = new URLSearchParams(location.search)
 const NAMES = ["draft", "good", "fine", "premium"]
@@ -39,8 +39,8 @@ function message(text: string) {
 }
 
 async function start() {
-  const world = code ? await decodeWorld(code) : null
-  if (!world) { message(code ? "This world could not be read. The code may have been cut short." : "No world here yet. Add #w= and a share code to the address."); return }
+  const got = code ? await readCode(code) : null, world = got?.world
+  if (!world) { message(got && "why" in got ? got.why : "No world here yet. Add #w= and a share code to the address."); return }
   const home = clone(world.cam)
   document.title = `${world.name || "A world"} · Untitled Worlds`
   document.body.style.background = `linear-gradient(${world.sky.zenith}, ${world.sky.horizon})`
@@ -50,6 +50,7 @@ async function start() {
   const engine = new Engine(canvas); (window as any).__engine = engine; (window as any).__world = world
   if (!engine.ok) { canvas.remove(); message(engine.error); return }
   engine.setWires(false); engine.setQuality(QUALITY[quality].samples)
+  engine.onContext = (s) => { if (s === "gone") { canvas.remove(); message("The graphics chip stopped drawing. Reload the page to see this world again.") } }
 
   const bar = el("div", "uw-bar"), fill = el("i", "", bar)
   engine.onStatus = (s) => { const k = s.phase === "done" ? 1 : s.samples / Math.max(1, s.target); fill.style.width = `${k * 100}%`; bar.classList.toggle("uw-gone", s.phase === "done") }

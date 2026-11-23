@@ -15,6 +15,7 @@ import { exportGLB, exportHeightmap, exportOBJ, importModel, photoToLand, pickFi
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { StatusGlyph } from "@/components/ui/status-glyph"
 import { QUALITY } from "@/engine/engine"
+import { notify } from "@/notice"
 import { edit, engine, get, patch, redo, shareLink, undo, useApp } from "@/store"
 
 import { Tip } from "./Viewport"
@@ -69,7 +70,8 @@ export function TopBar() {
   const timeline = useApp((s) => s.timeline); const [note, setNote] = React.useState("")
   const [saving, setSaving] = React.useState<number | null>(null)
   const save = async () => { if (!engine || saving !== null) return; const w = get().world; setSaving(0)
-    const c = await engine.still(w, w.frame.w, w.frame.h, Math.max(16, QUALITY[get().quality].samples), setSaving); download(c, `${fileName(w.name)}.png`); setSaving(null) }
+    try { const c = await engine.still(w, w.frame.w, w.frame.h, Math.max(16, QUALITY[get().quality].samples), setSaving); download(c, `${fileName(w.name)}.png`) }
+    catch (e) { notify((e as Error)?.message?.endsWith(".") ? (e as Error).message : "The picture could not be saved. Try again, or a smaller picture size.") } finally { setSaving(null) } }
   const label = status.phase === "done" ? "Sharp" : status.phase === "moving" ? "Moving" : status.phase === "blocks" ? "Blocking in" : `Sharpening ${status.samples}/${status.target}`
   const toggleTimeline = () => patch({ timeline: !timeline, playing: false })
   // the widths, measured on the bar itself: <560 a phone, 560–900 icons, 900+ words, 1150+ everything

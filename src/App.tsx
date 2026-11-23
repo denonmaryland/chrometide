@@ -34,7 +34,8 @@ export function App() {
     const id = "requestIdleCallback" in window ? requestIdleCallback(go, { timeout: 4000 }) : setTimeout(go, 2500)
     return () => { if ("cancelIdleCallback" in window) cancelIdleCallback(id as number); else clearTimeout(id as number) }
   }, [])
-  React.useEffect(() => { void loadFromHash(); const q = new URLSearchParams(location.search); for (const f of FEATURES) f.boot?.(q) }, [])
+  React.useEffect(() => { void loadFromHash(); const q = new URLSearchParams(location.search); for (const f of FEATURES) f.boot?.(q)
+    const hash = () => void loadFromHash(); addEventListener("hashchange", hash); return () => removeEventListener("hashchange", hash) }, []) // a link pasted into the address bar opens too
   React.useEffect(() => {
     const key = (e: KeyboardEvent) => {
       const el = document.activeElement as HTMLElement | null; const typing = !!el && (/INPUT|TEXTAREA|SELECT/.test(el.tagName) || el.isContentEditable)
