@@ -5,6 +5,8 @@
 <p><strong>Chrome spheres over endless water. Hazy two-colour skies. That 2002 ambient-CD look.</strong><br>
 A free, open-source world builder that ray traces in your browser. Open a page, make the picture, save it. No install, no account, no AI.</p>
 
+<h3><a href="https://denonmaryland.github.io/chrometide/">▶ Try it now in your browser</a></h3>
+
 <p>
 <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-ff6a4a?style=flat-square&labelColor=14141a"></a>
 <img alt="Runs in the browser" src="https://img.shields.io/badge/runs%20in-the%20browser-39d0c6?style=flat-square&labelColor=14141a">
