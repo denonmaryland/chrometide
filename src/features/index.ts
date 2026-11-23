@@ -12,6 +12,9 @@ import { retroFeature } from "./retro"
 import { screensaverFeature } from "./screensaver"
 import { wordWorldFeature } from "./word-world"
 
+import { TIMELAPSE } from "./timelapse"
+import { WALK } from "./walk"
+
 export interface Feature {
   id: string
   label: string // short, plain words: "Screensaver", "1994 mode"
@@ -32,4 +35,6 @@ export const FEATURES: Feature[] = [
   embed,
   photoWorld,
   githubIsland,
+  ...WALK,
+  TIMELAPSE,
 ]

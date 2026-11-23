@@ -38,6 +38,9 @@ export let engine: Engine | null = null
 export const setEngine = (e: Engine | null) => { engine = e }
 
 let lastLabel = "", lastAt = 0
+/** Told of every change to the world, with its label (the time-lapse keeps a record this way). */
+export const worldTaps = new Set<(w: World, label: string) => void>()
+const tap = (label: string) => worldTaps.forEach((f) => f(state.world, label))
 /** Change the world. Changes with the same label within a moment count as one step of undo. */
 export function edit(label: string, fn: (w: World) => void) {
   const now = Date.now(), fresh = label !== lastLabel || now - lastAt > 700
@@ -45,11 +48,11 @@ export function edit(label: string, fn: (w: World) => void) {
   // editing while the playhead sits on a key changes that key
   const ki = keyAt(next.anim, state.playhead); if (ki >= 0 && !label.startsWith("anim")) next.anim!.keys[ki].pose = pose(next)
   state = { ...state, world: next, past: fresh ? [...state.past.slice(-80), state.world] : state.past, future: [] }
-  lastLabel = label; lastAt = now; emit()
+  lastLabel = label; lastAt = now; emit(); tap(label)
 }
-export function replaceWorld(w: World, label = "replace") { lastLabel = label; lastAt = 0; state = { ...state, world: w, past: [...state.past.slice(-80), state.world], future: [], sel: { type: "sky" } }; emit() }
-export function undo() { const p = state.past.at(-1); if (!p) return; lastAt = 0; state = { ...state, world: p, past: state.past.slice(0, -1), future: [state.world, ...state.future] }; emit() }
-export function redo() { const f = state.future[0]; if (!f) return; lastAt = 0; state = { ...state, world: f, past: [...state.past, state.world], future: state.future.slice(1) }; emit() }
+export function replaceWorld(w: World, label = "replace") { lastLabel = label; lastAt = 0; state = { ...state, world: w, past: [...state.past.slice(-80), state.world], future: [], sel: { type: "sky" } }; emit(); tap(label) }
+export function undo() { const p = state.past.at(-1); if (!p) return; lastAt = 0; state = { ...state, world: p, past: state.past.slice(0, -1), future: [state.world, ...state.future] }; emit(); tap("undo") }
+export function redo() { const f = state.future[0]; if (!f) return; lastAt = 0; state = { ...state, world: f, past: [...state.past, state.world], future: state.future.slice(1) }; emit(); tap("redo") }
 
 export const selectedThing = (s: State): Thing | undefined => (s.sel.type === "thing" ? s.world.things.find((t) => t.id === (s.sel as { id: string }).id) : undefined)
 export function editThing(id: string, label: string, fn: (t: Thing) => void) { edit(`${label}:${id}`, (w) => { const t = w.things.find((x) => x.id === id); if (t) fn(t) }) }
@@ -63,7 +66,7 @@ export function duplicateThing(id: string) {
 export function toggleLock(k: LockKey) { patch({ locks: state.locks.includes(k) ? state.locks.filter((x) => x !== k) : [...state.locks, k] }) }
 export function rollDice(only?: LockKey) {
   const w = roll(state.world, new Set(state.locks), only); lastAt = 0
-  state = { ...state, world: w, past: [...state.past.slice(-80), state.world], future: [], rolls: state.rolls + 1, sel: state.sel.type === "thing" ? { type: "sky" } : state.sel }; emit()
+  state = { ...state, world: w, past: [...state.past.slice(-80), state.world], future: [], rolls: state.rolls + 1, sel: state.sel.type === "thing" ? { type: "sky" } : state.sel }; emit(); tap("dice")
 }
 
 // ---------- links and the shelf of saved worlds ----------
@@ -72,7 +75,7 @@ export async function loadFromHash(): Promise<boolean> {
   const m = /^#w=(.+)$/.exec(location.hash); if (!m) return false
   const w0 = await decodeWorld(m[1]); if (!w0) return false
   const w = await (await import("./text")).prepare(w0)
-  w.remixOf = w.remixOf ?? w.name; state = { ...state, world: w, past: [], future: [] }; emit(); history.replaceState(null, "", location.pathname + location.search); return true
+  w.remixOf = w.remixOf ?? w.name; state = { ...state, world: w, past: [], future: [] }; emit(); tap("open"); history.replaceState(null, "", location.pathname + location.search); return true
 }
 // ---------- the timeline ----------
 export function seek(t: number) { t = Math.min(1, Math.max(0, t)); const w = state.world; state = { ...state, playhead: t, world: w.anim && w.anim.keys.length ? at(w, t) : w }; emit() }
