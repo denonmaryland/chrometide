@@ -35,8 +35,13 @@ try {
     // a click that works on a phone too: menus open on pointer events, so a real tap
     const tap = async (sel) => { const l = p.locator(sel).first(); await l.scrollIntoViewIfNeeded().catch(() => {}); if (phone) await l.tap(); else await l.click() }
     // on a phone the sidebar is a sheet; open it, pick, close it
-    const part = async (type) => { if (phone) { await tap('[data-sidebar="trigger"]'); await p.waitForTimeout(350) } await tap(`[data-testid="part-${type}"]`); if (phone) { await esc(); await tap('[data-testid="controls"], [aria-label="Controls"]').catch(() => {}) } await settle(4000) }
-    const menu = async (id) => { const direct = p.locator(`[data-testid="${id}"]:visible`); if (await direct.count()) return tap(`[data-testid="${id}"]:visible`); await tap('[data-testid="more-menu"]:visible'); await p.waitForTimeout(200); await tap(`[data-testid="${id}"]:visible`) }
+    const part = async (type) => { if (phone) { await tap('[data-sidebar="trigger"]'); await p.waitForTimeout(350) } await tap(`[data-testid="part-${type}"]`); await p.waitForTimeout(300); if (phone && !(await p.locator('[data-testid="inspector"]:visible').count())) await tap('[data-testid="controls"]').catch(() => {}); await settle(4000) }
+    // a top-bar control: on the bar itself, or folded into More (phone), or inside Share (embed)
+    const menu = async (id) => {
+      if (await p.locator(`[data-testid="${id}"]:visible`).count()) return tap(`[data-testid="${id}"]:visible`)
+      if (id === "embed" && await p.locator('[data-testid="share"]:visible').count()) { await tap('[data-testid="share"]:visible'); await p.waitForTimeout(300); if (await p.locator('[data-testid="embed"]:visible').count()) return tap('[data-testid="embed"]:visible'); await esc() }
+      await tap('[data-testid="more-menu"]:visible'); await p.waitForTimeout(250); await tap(`[data-testid="more-${id.replace(/^open-/, "")}"]:visible`)
+    }
     const mode = async (id) => { await menu("modes-menu"); await p.waitForTimeout(250); await tap(`[data-testid="mode-${id}"]`); await p.waitForTimeout(600) }
 
     // ---- first look, as a new visitor sees it ----
@@ -44,12 +49,12 @@ try {
     await fresh()
     await step("home", async () => {})
     if (phone) await step("sidebar-sheet", async () => { await tap('[data-sidebar="trigger"]'); await p.waitForTimeout(500) }, esc)
-    for (const t of ["sky", "sea", "land", "title", "camera", "picture", "sound"]) await step(`part-${t}`, () => part(t), async () => { if (phone) await tap('[aria-label="Controls"]').catch(() => {}) })
+    for (const t of ["sky", "sea", "land", "title", "camera", "picture", "sound"]) await step(`part-${t}`, () => part(t), async () => { if (phone) await tap('[data-testid="controls"]').catch(() => {}) })
     if (!phone) await step("part-sky-scrolled", async () => { await part("sky"); await p.locator('[data-testid="inspector"]').hover(); await p.mouse.wheel(0, 2000); await p.waitForTimeout(300) })
     await step("thing-selected", async () => {
       await p.evaluate(() => { const s = window.__app.get(), t = s.world.things[0]; if (t) window.__app.patch({ sel: { type: "thing", id: t.id } }) }); await settle(4000)
-      if (phone) await tap('[aria-label="Controls"]').catch(() => {})
-    }, async () => { if (phone) await tap('[aria-label="Controls"]').catch(() => {}); await p.evaluate(() => window.__app.patch({ sel: { type: "sky" } })) })
+      if (phone) await tap('[data-testid="controls"]').catch(() => {})
+    }, async () => { if (phone) await tap('[data-testid="controls"]').catch(() => {}); await p.evaluate(() => window.__app.patch({ sel: { type: "sky" } })) })
     await step("dock-add", async () => { await tap('[data-testid="dock-add"], [data-testid="viewport"] button:has-text("Add")'); await p.waitForTimeout(350) }, esc)
     await step("dock-keep", async () => { await tap('[data-testid="dock-keep"], [data-testid="viewport"] button:has-text("Keep")'); await p.waitForTimeout(350) }, esc)
     await step("file-menu", async () => { await menu("file-menu"); await p.waitForTimeout(350) }, async () => { await esc(); await esc() })

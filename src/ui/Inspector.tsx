@@ -1,6 +1,6 @@
 // The right-hand panel: every dial for whatever is selected.
 import * as React from "react"
-import { Dices, Eraser, Link2, RotateCcw, Trash2 } from "lucide-react"
+import { Dices, Eraser, Link2, RotateCcw, Trash2, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -18,7 +18,9 @@ import { exportHeightmap, photoToLand, pickFile, setPicture } from "@/io"
 import { FONTS, addCarved, addNeon, addRing, addWord, floatApart, loadCustomFont, refit, setMotion, splitLetters, writeOnLand } from "@/text"
 
 import { Color, Colors, Dial, Looks, Row, Section, Segmented } from "./fields"
+import { setSheet } from "./sheet"
 import { SoundPanel } from "./SoundPanel"
+import { Tip } from "./Viewport"
 
 /** Put every thing in a row, a ring, or at one height. */
 function arrangeAll(how: "row" | "ring" | "level") {
@@ -38,16 +40,21 @@ const grad = (a: string, b: string) => `linear-gradient(${a}, ${b})`
 const TITLES = { sky: "Sky", sea: "Sea & floor", land: "Land", title: "Lettering", camera: "Camera", picture: "Picture", thing: "Thing", sound: "Sound" }
 
 export function Inspector() {
-  const sel = useApp((s) => s.sel)
+  const sel = useApp((s) => s.sel), thingName = useApp((s) => selectedThing(s)?.name)
+  const title = sel.type === "thing" ? thingName || "Thing" : TITLES[sel.type]
   return (
     <aside className="glass-panel flex h-full min-h-0 w-full flex-col overflow-hidden rounded-lg" aria-label="Inspector" data-testid="inspector">
-      <header className="flex h-10 shrink-0 items-center justify-between border-b border-border/60 px-3">
-        <h2 className="text-[13px] font-medium">{TITLES[sel.type]}</h2>
-        {sel.type !== "thing" && sel.type !== "picture" && sel.type !== "title" && sel.type !== "sound" && (
-          <Button variant="ghost" size="xs" onClick={() => rollDice(sel.type as LockKey)}><Dices /> Roll this</Button>
-        )}
+      <header className="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3">
+        <h2 className="truncate text-[13px] font-medium">{title}</h2>
+        <div className="flex shrink-0 items-center gap-0.5">
+          {sel.type !== "thing" && sel.type !== "picture" && sel.type !== "title" && sel.type !== "sound" && (
+            <Tip label={`A new ${TITLES[sel.type].toLowerCase()}, the rest stays`}><Button variant="ghost" size="xs" onClick={() => rollDice(sel.type as LockKey)}><Dices /> Roll this</Button></Tip>
+          )}
+          <Button variant="ghost" size="icon-xs" className="md:hidden" onClick={() => setSheet(false)} aria-label="Close the dials"><X /></Button>
+        </div>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      {/* a new selection starts at the top of its dials */}
+      <div key={sel.type === "thing" ? sel.id : sel.type} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {sel.type === "sky" && <SkyPanel />}
         {sel.type === "sea" && <SeaPanel />}
         {sel.type === "land" && <LandPanel />}
@@ -73,7 +80,7 @@ function DayArc() {
       onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); set(e) }} onPointerMove={(e) => e.buttons && set(e)}>
       <div className="pointer-events-none absolute size-5 -translate-x-1/2 translate-y-1/2 rounded-full bg-[radial-gradient(circle_at_35%_30%,#fff,#ffe9a0_45%,#f0a020)] shadow-[0_0_14px_4px_rgba(255,240,170,.8)]"
         style={{ left: `${(sun.az / (Math.PI * 2) + 0.5) * 100}%`, bottom: `${t * 100}%` }} />
-      <span className="pointer-events-none absolute bottom-1 left-1.5 text-[10px] font-medium text-white/80">drag the sun · or drag it in the picture</span>
+      <span className="pointer-events-none absolute bottom-1 left-1.5 text-[10px] font-medium text-white/80">Drag the sun here, or in the picture</span>
     </div>
   )
 }

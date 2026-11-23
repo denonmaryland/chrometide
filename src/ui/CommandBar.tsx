@@ -2,7 +2,8 @@
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { KIND_LABEL, LANDS, MATERIALS, SEAS, SKIES, applySky, clone, seaFrom } from "@/engine/scene"
 import { WORLDS } from "@/engine/worlds"
-import { edit, editThing, get, patch, redo, replaceWorld, rollDice, saveToShelf, undo, useApp } from "@/store"
+import { edit, editThing, get, patch, redo, replaceWorld, rollDice, saveToShelf, shareLink, undo, useApp } from "@/store"
+import { openEmbed } from "@/features/share"
 
 import { FEATURES } from "@/features"
 
@@ -25,8 +26,11 @@ export function CommandBar() {
           <CommandItem onSelect={run(() => edit("dusk", (w) => { const l = SKIES[2]; Object.assign(w.sky, { zenith: l.zenith, horizon: l.horizon, haze: l.haze, sunColor: l.sunColor, cloudColor: l.cloudColor, stars: 0 }); w.sky.sun.el = 0.13 }))}>Make it dusk</CommandItem>
           <CommandItem onSelect={run(() => edit("noon", (w) => { w.sky.sun.el = 1.1 }))}>Make it noon</CommandItem>
           <CommandItem onSelect={run(() => patch({ dialog: "cover" }))}>Make a cover, flyer, poster or postcard</CommandItem>
-          <CommandItem onSelect={run(() => patch({ dialog: "loop" }))}>Make a looping video</CommandItem>
-          <CommandItem onSelect={run(() => void saveToShelf())}>Keep this world in My worlds</CommandItem>
+          <CommandItem onSelect={run(() => patch({ dialog: "loop" }))}>Make a loop video</CommandItem>
+          <CommandItem onSelect={run(() => patch({ timeline: true }))}>Animate on a timeline</CommandItem>
+          <CommandItem onSelect={run(() => void saveToShelf())}>Add this world to My worlds</CommandItem>
+          <CommandItem onSelect={run(() => void shareLink().then((u) => { history.replaceState(null, "", u); return navigator.clipboard.writeText(u) }).catch(() => {}))}>Copy a link to this world</CommandItem>
+          <CommandItem onSelect={run(openEmbed)}>Put this world on a web page</CommandItem>
           <CommandItem onSelect={run(undo)}>Undo</CommandItem>
           <CommandItem onSelect={run(redo)}>Redo</CommandItem>
         </CommandGroup>

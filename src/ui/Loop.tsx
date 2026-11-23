@@ -57,7 +57,10 @@ export function LoopDialog() {
   const [busy, setBusy] = React.useState<number | null>(null); const [url, setUrl] = React.useState<string>(); const [note, setNote] = React.useState("")
   const view = React.useRef<HTMLCanvasElement>(null); const run = React.useRef(0)
   React.useEffect(() => { if (!open) { run.current++; setBusy(null) } }, [open])
-  React.useEffect(() => { if (!open || busy !== null || url || !engine || !view.current) return; const [W, H] = SIZES[o.size]; engine.frame(get().world, W, H, 3, 0, view.current) }, [open, o.size, busy, url])
+  // the first frame, as a still, until the loop is filmed. The dialog's canvas arrives a moment after it opens, so wait for it
+  React.useEffect(() => { if (!open || busy !== null || url) return; let raf = 0, tries = 0
+    const draw = () => { if (!engine || !view.current) { if (tries++ < 60) raf = requestAnimationFrame(draw); return } const [W, H] = SIZES[o.size]; engine.frame(get().world, W, H, 3, 0, view.current) }
+    raf = requestAnimationFrame(draw); return () => cancelAnimationFrame(raf) }, [open, o.size, busy, url])
   const set = (p: Partial<LoopOpts>) => { setO((x) => ({ ...x, ...p })); setUrl(undefined) }
   const go = async () => { const id = ++run.current; setBusy(0); setUrl(undefined); setNote("")
     const blob = await recordLoop(get().world, o, (f, frame) => { if (run.current !== id) return; setBusy(f); const v = view.current; if (v) { v.width = frame.width; v.height = frame.height; v.getContext("2d")!.drawImage(frame, 0, 0) } }, () => run.current === id)
@@ -67,10 +70,10 @@ export function LoopDialog() {
   return (
     <Dialog open={open} onOpenChange={(v) => patch({ dialog: v ? "loop" : null })}>
       <DialogContent className="max-h-[92dvh] w-[min(860px,96vw)] max-w-none overflow-y-auto sm:max-w-none">
-        <DialogHeader><DialogTitle>Loop</DialogTitle><DialogDescription>A few seconds of this world moving, ending where it began.</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>Loop video</DialogTitle><DialogDescription>A few seconds of this world moving, ending where it began, so it plays round and round.</DialogDescription></DialogHeader>
         <div className="grid gap-4 md:grid-cols-[1fr_260px]">
-          <div className="grid min-h-64 place-items-center overflow-hidden rounded-lg bg-black/40 ring-1 ring-border">
-            {url ? <video src={url} autoPlay loop muted playsInline controls className="max-h-[62dvh] w-full object-contain" data-testid="loop-video" /> : <canvas ref={view} className="max-h-[62dvh] w-full object-contain" />}
+          <div className="grid min-h-48 place-items-center overflow-hidden rounded-lg bg-black/40 ring-1 ring-border md:min-h-64">
+            {url ? <video src={url} autoPlay loop muted playsInline controls className="max-h-[62dvh] w-full object-contain" data-testid="loop-video" /> : <canvas ref={view} className="max-h-[40dvh] w-full object-contain md:max-h-[62dvh]" />}
           </div>
           <div className="flex flex-col gap-2.5">
             {hasKeys && <Row label="Play my timeline"><Switch checked={!!o.timeline} onCheckedChange={(v) => set({ timeline: v })} aria-label="Timeline" /></Row>}
