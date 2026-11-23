@@ -9,6 +9,7 @@ import { MeshBVH } from "three-mesh-bvh"
 
 import { GRID } from "./engine/engine"
 import { type Thing, type World, mat, thing } from "./engine/scene"
+import { SHAPE_BY_ID } from "./engine/shapes"
 import { addThing, edit, engine, get } from "./store"
 import { fileName } from "./ui/TopBar"
 import { writeGrid } from "./ui/Viewport"
@@ -26,7 +27,7 @@ function shapeOf(t: Thing): THREE.BufferGeometry | null {
     case "crag": return new THREE.ConeGeometry(1, 1.4, 14).rotateX(Math.PI).translate(0, -0.3, 0)
     case "tree": return mergeGeometries([new THREE.CylinderGeometry(0.1, 0.1, 0.9, 10).translate(0, -0.55, 0), new THREE.IcosahedronGeometry(0.62, 2).translate(0, 0.3, 0)])
     case "pine": return mergeGeometries([new THREE.CylinderGeometry(0.08, 0.08, 0.6, 10).translate(0, -0.7, 0), ...[0, 1, 2].map((j) => new THREE.ConeGeometry(0.4 + j * 0.2, 0.78, 16).translate(0, 1 - j * 0.36 - 0.39, 0))])
-    default: return null
+    default: return SHAPE_BY_ID[t.kind]?.mesh?.() ?? null // a shape without a mesh is left out of exports
   }
 }
 /** The world as ordinary meshes: every solid thing, the land and the sea level. Cut shapes are left out. */

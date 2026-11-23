@@ -13,18 +13,20 @@ import { nowLevels } from "@/audio"
 import { Engine, GRID, QUALITY } from "@/engine/engine"
 import { react } from "@/sound"
 import { type Kind, type LockKey, type Vec3, KINDS, KIND_LABEL, mat, thing } from "@/engine/scene"
+import { SHAPE_BY_ID, SHAPES } from "@/engine/shapes"
 import { addThing, duplicateThing, edit, editThing, engine, get, patch, removeThing, rollDice, selectedThing, setEngine, toggleLock, useApp } from "@/store"
 
 export const KIND_ICON: Record<Kind, React.ComponentType<{ className?: string }>> = {
   sphere: Circle, box: Box, pyramid: Triangle, cylinder: Cylinder, cone: Cone, torus: Donut, disc: Disc, stone: Diamond, blob: Droplet, tree: TreeDeciduous, pine: TreePine, crag: Mountain, model: Boxes, text: Type,
+  ...Object.fromEntries(SHAPES.map((s) => [s.id, s.icon])),
 }
 export const ADDABLE = KINDS.filter((k) => k !== "model" && k !== "text")
 const LOCKS: { key: LockKey; label: string }[] = [{ key: "sky", label: "Sky" }, { key: "sea", label: "Sea" }, { key: "land", label: "Land" }, { key: "things", label: "Things" }, { key: "camera", label: "Camera" }]
 
 export function newThing(kind: Kind) {
   const w = get().world, c = w.cam.target
-  const size: Vec3 = kind === "disc" ? [1.6, 0.08, 1.6] : kind === "crag" ? [3, 2.2, 3] : kind === "tree" || kind === "pine" ? [1.4, 1.8, 1.4] : [1.2, 1.2, 1.2]
-  const m = kind === "tree" || kind === "pine" ? mat("Leaf") : kind === "stone" || kind === "crag" ? mat("Stone") : mat("Chrome")
+  const size: Vec3 = SHAPE_BY_ID[kind]?.size ?? (kind === "disc" ? [1.6, 0.08, 1.6] : kind === "crag" ? [3, 2.2, 3] : kind === "tree" || kind === "pine" ? [1.4, 1.8, 1.4] : [1.2, 1.2, 1.2])
+  const m = SHAPE_BY_ID[kind]?.material ? mat(SHAPE_BY_ID[kind]!.material!) : kind === "tree" || kind === "pine" ? mat("Leaf") : kind === "stone" || kind === "crag" ? mat("Stone") : mat("Chrome")
   addThing(thing(kind, [c[0] + (Math.random() - 0.5) * 3, Math.max(size[1] + 0.2, c[1]), c[2] + (Math.random() - 0.5) * 3], size, m, { name: KIND_LABEL[kind] }))
 }
 

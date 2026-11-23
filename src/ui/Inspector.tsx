@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { QUALITY } from "@/engine/engine"
+import { SHAPE_BY_ID } from "@/engine/shapes"
 import {
   type Camera, type Kind, type LockKey, type Material, type Thing, type Vec3, type World, FRAMES, KINDS, KIND_LABEL, LANDS, MATERIALS, SEAS, SEA_KINDS, SKIES, TEXTURES,
   applySky, camFrom, clone, mat, newId, seaFrom, skyFrom, thing,
@@ -223,6 +224,7 @@ function ThingPanel() {
       <Input value={t.name} onChange={(e) => set("name", (k) => { k.name = e.target.value.slice(0, 40) })} className="h-7 text-[12.5px]" aria-label="Name" />
       {t.kind !== "text" && t.kind !== "model" && <Row label="Kind"><select value={t.kind} onChange={(e) => set("kind", (k) => { k.kind = e.target.value as Kind })} className="h-6 rounded-sm bg-muted/60 px-1.5 text-[12px] outline-none">{KINDS.filter((k) => k !== "text" && k !== "model").map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}</select></Row>}
       {(t.kind === "box" || t.kind === "torus" || t.kind === "stone") && <Dial label={t.kind === "box" ? "Round edges" : t.kind === "torus" ? "Thickness" : "Shape"} value={t.round} min={t.kind === "box" ? 0 : 0.05} max={t.kind === "box" ? 0.5 : 1} onChange={(v) => set("round", (k) => { k.round = v })} />}
+      {SHAPE_BY_ID[t.kind]?.dial && <Dial label={SHAPE_BY_ID[t.kind]!.dial!.label} value={t.round} onChange={(v) => set("round", (k) => { k.round = v })} />}
     </Section>
     <Section title="Place" action={<Button variant={linked ? "glass" : "ghost"} size="xs" onClick={() => setLinked(!linked)} aria-pressed={linked}><Link2 /> Even size</Button>}>
       <Vec label="Position" value={t.pos} onChange={(v) => set("pos", (k) => { k.pos = v })} />

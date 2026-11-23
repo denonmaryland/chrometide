@@ -1,13 +1,18 @@
 // The world as plain data. Everything the picture shows is in one of these objects, so a world can
 // be saved, shared as a link, undone, randomized and animated by changing numbers.
 
+import { SHAPE_BY_ID, SHAPES } from "./shapes"
+
 export type Vec3 = [number, number, number]
 
-export const KINDS = ["sphere", "box", "pyramid", "cylinder", "cone", "torus", "disc", "stone", "blob", "tree", "pine", "crag", "model", "text"] as const
-export type Kind = (typeof KINDS)[number]
+const BUILT_IN_KINDS = ["sphere", "box", "pyramid", "cylinder", "cone", "torus", "disc", "stone", "blob", "tree", "pine", "crag", "model", "text"] as const
+// the shapes in src/engine/shapes come after the built-in kinds, so the built-in numbers never move
+export type Kind = (typeof BUILT_IN_KINDS)[number] | (string & {})
+export const KINDS: readonly Kind[] = [...BUILT_IN_KINDS, ...SHAPES.map((s) => s.id)]
 export const KIND_LABEL: Record<Kind, string> = {
   sphere: "Sphere", box: "Box", pyramid: "Pyramid", cylinder: "Cylinder", cone: "Cone", torus: "Ring",
   disc: "Disc", stone: "Stone", blob: "Blob", tree: "Tree", pine: "Pine", crag: "Floating rock", model: "Imported model", text: "Lettering",
+  ...Object.fromEntries(SHAPES.map((s) => [s.id, s.label])),
 }
 export const ROLES = ["solid", "cut", "keep"] as const
 export type Role = (typeof ROLES)[number]
@@ -237,7 +242,7 @@ export const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x))
 
 export function thing(kind: Kind, pos: Vec3, size: number | Vec3, m: Material, o: Partial<Thing> = {}): Thing {
   const s: Vec3 = typeof size === "number" ? [size, size, size] : size
-  return { id: newId(), name: KIND_LABEL[kind], kind, pos, size: s, rot: [0, 0, 0], round: kind === "torus" ? 0.5 : kind === "box" ? 0.04 : Math.random(), role: "solid", group: 0, mat: { ...m }, ...o }
+  return { id: newId(), name: KIND_LABEL[kind], kind, pos, size: s, rot: [0, 0, 0], round: kind === "torus" ? 0.5 : kind === "box" ? 0.04 : SHAPE_BY_ID[kind]?.dial?.value ?? Math.random(), role: "solid", group: 0, mat: { ...m }, ...o }
 }
 export function skyFrom(look: SkyLook, o: Partial<Sky> = {}): Sky {
   return {
