@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client"
 
 import "./index.css"
+import { Api } from "./Api"
 import { App } from "./App"
 import { loadFonts } from "./engine/lettering"
 import { EngineTest } from "./EngineTest"
@@ -20,5 +21,5 @@ import * as text from "./text"
 // letters are drawn with real fonts: once they have arrived, draw them again
 void loadFonts().then(() => store.engine?.resetGlyphs())
 
-const bare = new URLSearchParams(location.search).get("test") === "engine"
-createRoot(document.getElementById("root")!).render(bare ? <EngineTest /> : <App />)
+const q = new URLSearchParams(location.search), bare = q.get("test") === "engine"
+createRoot(document.getElementById("root")!).render(q.has("api") ? <Api /> : bare ? <EngineTest /> : <App />)
