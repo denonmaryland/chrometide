@@ -114,7 +114,46 @@ export const MATERIALS: Material[] = [
 export const mat = (name: string): Material => ({ ...(MATERIALS.find((m) => m.name === name) ?? MATERIALS[0]) })
 
 // ---------- palettes (all original) ----------
-export interface SkyLook { name: string; zenith: string; horizon: string; haze: string; sunColor: string; cloudColor: string; stars?: number }
+export interface SkyLook { name: string; zenith: string; horizon: string; haze: string; sunColor: string; cloudColor: string; stars?: number; extra?: Partial<Sky> }
+type SkyRow = [string, string, string, string, string, string, Partial<Sky>?]
+// name, top, horizon, haze, sun, cloud, and any weather that comes with the look
+const MORE_SKIES: SkyRow[] = [
+  ["Morning", "#3f8fe0", "#ffe9c7", "#fff3dc", "#fff1d0", "#ffffff"],
+  ["Noon haze", "#2a6fd6", "#cfe6ff", "#eef6ff", "#ffffff", "#ffffff", { hazeAmt: 0.7 }],
+  ["Golden hour", "#3b5bb5", "#ffb45a", "#ffd08a", "#ffd9a0", "#ffd6b0"],
+  ["Ember dusk", "#2a1245", "#ff5a2a", "#ff8a4a", "#ffc080", "#7a2a4a"],
+  ["Blue hour", "#0b1a4a", "#5a6fd0", "#7a86d8", "#dfe6ff", "#3a4a8a", { stars: 0.5 }],
+  ["Moonlit", "#050a24", "#243a7a", "#30488a", "#cfe0ff", "#2a3a6a", { stars: 1.2, moon: 1, ambient: 0.35 }],
+  ["Aurora", "#021a1a", "#1fd6a0", "#3fe0b0", "#d0fff0", "#0f5a4a", { stars: 1.3, cloud2: 0.6, cloud2Color: "#5fffd0" }],
+  ["Storm", "#2a2f3a", "#7a8088", "#9aa0a8", "#e8e8f0", "#3a3f48", { cloud: 0.85, fog: 0.3 }],
+  ["Overcast", "#8a93a0", "#cfd4da", "#e0e3e8", "#ffffff", "#b8bec8", { cloud: 0.9, cloud2: 0.5 }],
+  ["Seafoam", "#1fae9a", "#d8fff0", "#eafff6", "#ffffff", "#ffffff"],
+  ["Bubblegum", "#ff7ac0", "#ffe0f0", "#fff0f8", "#fff6fa", "#ffffff"],
+  ["Cotton candy", "#7ac8ff", "#ffb8e0", "#ffd0ea", "#fff6fa", "#fff0fa"],
+  ["Grape", "#3a0f6a", "#c05fe0", "#d88af0", "#ffe0ff", "#8a4ab0"],
+  ["Lemon", "#f0d030", "#fff8c0", "#fffbe0", "#ffffff", "#ffffff"],
+  ["Tangerine", "#ff7a1a", "#ffd08a", "#ffe0b0", "#fff0d0", "#ffe8c8"],
+  ["Rosewater", "#e08aa0", "#ffe6e0", "#fff0ec", "#fff8f0", "#ffffff"],
+  ["Mint", "#5fe0b0", "#f0fff0", "#f6fff6", "#ffffff", "#ffffff"],
+  ["Vapor", "#ff4fa8", "#4fe0ff", "#9af0ff", "#ffffff", "#ffd0f0"],
+  ["Synth", "#1a0540", "#ff2a8a", "#ff6ab0", "#ffd0a0", "#5a1a7a", { stars: 0.6 }],
+  ["Toxic", "#0a2a0a", "#a0ff2a", "#c8ff6a", "#f0ffd0", "#2a5a1a"],
+  ["Blood moon", "#1a0205", "#8a1a1a", "#a02a20", "#ffb090", "#3a0a0a", { stars: 0.8, moon: 1.2 }],
+  ["Sandstorm", "#b08a4a", "#e8c890", "#f0d8a8", "#fff0d0", "#c9a870", { hazeAmt: 0.85, fog: 0.5 }],
+  ["Arctic", "#5a8ab0", "#f0f8ff", "#ffffff", "#ffffff", "#ffffff", { halo: 0.8 }],
+  ["Monsoon", "#1a3a4a", "#5a8a8a", "#7aa0a0", "#e0f0f0", "#2a4a55", { cloud: 0.8, rainbow: 0.9 }],
+  ["Rainbow day", "#1c58c8", "#a8d8f8", "#dcf0fc", "#fff3d6", "#ffffff", { rainbow: 1 }],
+  ["Cathedral", "#2a3a6a", "#ffd9a0", "#ffe6c0", "#fff0d0", "#fff0e0", { rays: 1, cloud: 0.6 }],
+  ["Comet night", "#02030f", "#101a4a", "#1a2a6a", "#dfe8ff", "#141c40", { stars: 1.6, comet: 1.2 }],
+  ["Eclipse", "#05050a", "#3a2a1a", "#5a4020", "#fff0d0", "#1a1410", { stars: 1, halo: 1, sunGlow: 2.5 }],
+  ["Nebula", "#0a0220", "#5a1a8a", "#8a2ab0", "#ffd0ff", "#b04ad0", { stars: 1.8, cloud: 0.5, cloud2: 0.5, cloud2Color: "#ff7ad0" }],
+  ["Paper", "#e8e2d4", "#f6f1e6", "#fbf8f0", "#ffffff", "#ffffff", { cloud: 0, hazeAmt: 0.2 }],
+  ["Ink wash", "#2a2a30", "#c8c8c8", "#dcdcdc", "#ffffff", "#55555c"],
+  ["Chrome sky", "#5a6a80", "#e8eef6", "#f4f8fc", "#ffffff", "#ffffff"],
+  ["Deep teal", "#022a3a", "#2ab0b0", "#5fd0c8", "#e0fff8", "#0f5a66"],
+  ["Coral", "#ff6a5a", "#ffd0b8", "#ffe2d0", "#fff4ea", "#fff0e6"],
+  ["Lavender mist", "#8a7ad0", "#e6dcff", "#f2ecff", "#ffffff", "#ffffff", { hazeAmt: 0.75, fog: 0.4 }],
+]
 export const SKIES: SkyLook[] = [
   { name: "Postcard", zenith: "#1648b8", horizon: "#9fd0f5", haze: "#d8ecfb", sunColor: "#fff3d6", cloudColor: "#ffffff" },
   { name: "Sherbet", zenith: "#00d27a", horizon: "#f58cb8", haze: "#f9a8c6", sunColor: "#fff0e0", cloudColor: "#7f86b0" },
@@ -126,7 +165,13 @@ export const SKIES: SkyLook[] = [
   { name: "Ice", zenith: "#0f6f8f", horizon: "#d8fbff", haze: "#eaffff", sunColor: "#ffffff", cloudColor: "#e8fbff" },
   { name: "Peach", zenith: "#ff7a6a", horizon: "#ffe2a0", haze: "#fff0c8", sunColor: "#fff6e0", cloudColor: "#fff4ea" },
   { name: "Deep space", zenith: "#000004", horizon: "#16062e", haze: "#2a0f4a", sunColor: "#e8e0ff", cloudColor: "#241040", stars: 2 },
+  ...MORE_SKIES.map(([name, zenith, horizon, haze, sunColor, cloudColor, extra]) => ({ name, zenith, horizon, haze, sunColor, cloudColor, stars: extra?.stars, extra })),
 ]
+/** Put a look on a sky: its colours, and whatever weather belongs to it. The sun stays where it is. */
+export function applySky(sky: Sky, l: SkyLook) {
+  Object.assign(sky, { zenith: l.zenith, horizon: l.horizon, haze: l.haze, sunColor: l.sunColor, cloudColor: l.cloudColor, fogColor: l.haze, cloud2Color: "#ffffff",
+    stars: l.stars ?? 0, moon: 0, rainbow: 0, halo: 0, rays: 0, comet: 0, cloud2: 0, fog: 0, sunGlow: 1, ambient: 0.5, hazeAmt: Math.min(sky.hazeAmt, 0.6), ...l.extra })
+}
 export interface SeaLook { name: string; kind: SeaKind; c1: string; c2: string; reflect: number }
 export const SEAS: SeaLook[] = [
   { name: "Ocean", kind: "water", c1: "#06257a", c2: "#1f6fd0", reflect: 0 },
@@ -233,10 +278,10 @@ export function arrange(style: Arrangement, count: number, seed: number, m: Mate
 }
 
 // ---------- the starting worlds ----------
-const world = (name: string, sky: Sky, sea: Sea, land: Land, things: Thing[], cam: Camera, o: Partial<World> = {}): World => ({
+export const world = (name: string, sky: Sky, sea: Sea, land: Land, things: Thing[], cam: Camera, o: Partial<World> = {}): World => ({
   v: 2, name, sky, sea, land, things, cam, views: [null, null, null, null, null, null, null], frame: FRAMES[1], ...o,
 })
-const off = (o: Partial<Land> = {}) => landFrom(LANDS[0], { on: false, height: 4, ...o })
+export const off = (o: Partial<Land> = {}) => landFrom(LANDS[0], { on: false, height: 4, ...o })
 export const STARTERS: (() => World)[] = [
   () => world("Red Moons", skyFrom(SKIES[0], { sun: { az: -1.1, el: 0.95 }, hazeAmt: 0.42, cloud: 0.5, streak: 0.15, seed: 3.1 }), seaFrom(SEAS[0], { wave: 0.45, grain: 0.08 }), off(),
     arrange("trail", 7, 11, mat("Red gloss")), camFrom({ yaw: 0.3, pitch: 0.19, dist: 15.5, target: [0, 3.1, 0] })),
@@ -271,7 +316,7 @@ export function roll(w: World, locks: Set<LockKey>, only?: LockKey): World {
   const out = clone(w); const does = (k: LockKey) => (only ? only === k : !locks.has(k))
   if (does("sky")) {
     const look = pick(SKIES)
-    out.sky = skyFrom(look, { sun: { az: r() * 6.283 - 3.14, el: 0.12 + r() * 1.05 }, hazeAmt: 0.2 + r() * 0.6, cloud: r() * 0.8, streak: r(), seed: r() * 40, cloudScale: 0.7 + r() * 0.8,
+    out.sky = skyFrom(look, { ...look.extra, sun: { az: r() * 6.283 - 3.14, el: 0.12 + r() * 1.05 }, hazeAmt: 0.2 + r() * 0.6, cloud: r() * 0.8, streak: r(), seed: r() * 40, cloudScale: 0.7 + r() * 0.8,
       cloud2: r() < 0.35 ? 0.3 + r() * 0.5 : 0, moon: look.stars || r() < 0.15 ? 1 : 0, moonAz: r() * 6.28, moonEl: 0.25 + r() * 0.7, moonPhase: 0.2 + r() * 0.6, moonSize: 0.04 + r() * 0.07,
       fog: r() < 0.25 ? 0.3 + r() * 0.6 : 0, halo: r() < 0.15 ? 0.8 : 0, rainbow: r() < 0.12 ? 0.9 : 0 })
   }

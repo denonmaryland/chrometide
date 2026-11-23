@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch"
 import { QUALITY } from "@/engine/engine"
 import {
   type Camera, type Kind, type LockKey, type Material, type Thing, type Vec3, type World, FRAMES, KINDS, KIND_LABEL, LANDS, MATERIALS, SEAS, SEA_KINDS, SKIES, TEXTURES,
-  camFrom, clone, mat, newId, seaFrom, skyFrom, thing,
+  applySky, camFrom, clone, mat, newId, seaFrom, skyFrom, thing,
 } from "@/engine/scene"
 import { edit, editThing, engine, get, patch, previewMoves, removeThing, rollDice, selectedThing, useApp } from "@/store"
 
@@ -79,7 +79,8 @@ function SkyPanel() {
   const d = (label: string, key: keyof World["sky"], o: { min?: number; max?: number; step?: number } = {}) => <Dial label={label} value={s[key] as number} {...o} onChange={(v) => set(key, (k) => { (k as any)[key] = v })} />
   const look = SKIES.find((l) => l.zenith === s.zenith && l.horizon === s.horizon)?.name
   return (<>
-    <Section title="Look"><Looks items={SKIES} active={look} paint={(l) => grad(l.zenith, l.horizon)} onPick={(l) => set("look", (k) => Object.assign(k, { zenith: l.zenith, horizon: l.horizon, haze: l.haze, sunColor: l.sunColor, cloudColor: l.cloudColor, fogColor: l.haze, stars: l.stars ?? 0 }))} /></Section>
+    <Section title="Look"><Looks items={SKIES} active={look} paint={(l) => grad(l.zenith, l.horizon)} onPick={(l) => set("look", (k) => applySky(k, l))} />
+      <p className="text-[11.5px] text-muted-foreground">{look ?? "Your own colours"}</p></Section>
     <Section title="Sun"><DayArc />{d("Size", "sunSize", { min: 0.008, max: 0.2, step: 0.001 })}{d("Glow", "sunGlow", { max: 3 })}{d("Soft shadows", "sunSoft", { max: 0.12, step: 0.002 })}{d("Fill light", "ambient", { max: 1.2 })}</Section>
     <Section title="Colours"><Colors items={[{ label: "Top", value: s.zenith, onChange: (v) => set("c1", (k) => { k.zenith = v }) }, { label: "Horizon", value: s.horizon, onChange: (v) => set("c2", (k) => { k.horizon = v }) }, { label: "Haze", value: s.haze, onChange: (v) => set("c3", (k) => { k.haze = v }) }, { label: "Sun", value: s.sunColor, onChange: (v) => set("c4", (k) => { k.sunColor = v }) }]} />{d("Haze", "hazeAmt")}</Section>
     <Section title="Clouds" action={<Button variant="ghost" size="xs" onClick={() => set("seed", (k) => { k.seed = Math.random() * 40 })}><Dices /> Reshape</Button>}>

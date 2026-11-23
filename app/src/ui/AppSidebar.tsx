@@ -7,7 +7,8 @@ import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupAction, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuAction,
   SidebarMenuButton, SidebarMenuItem, SidebarRail,
 } from "@/components/ui/sidebar"
-import { type LockKey, type World, KIND_LABEL, STARTERS } from "@/engine/scene"
+import { type LockKey, KIND_LABEL } from "@/engine/scene"
+import { type Starter, WORLDS, WORLD_GROUPS } from "@/engine/worlds"
 import { type Sel, dropFromShelf, editThing, engine, openSaved, patch, replaceWorld, saveToShelf, toggleLock, useApp } from "@/store"
 
 import { ADDABLE, KIND_ICON, newThing } from "./Viewport"
@@ -16,11 +17,12 @@ const PARTS: { type: Exclude<Sel["type"], "thing">; label: string; icon: React.C
   { type: "sky", label: "Sky", icon: Sun, lock: "sky" }, { type: "sea", label: "Sea & floor", icon: Waves, lock: "sea" }, { type: "land", label: "Land", icon: Mountain, lock: "land" },
   { type: "title", label: "Lettering", icon: Type }, { type: "camera", label: "Camera", icon: Camera, lock: "camera" }, { type: "picture", label: "Picture", icon: Image },
 ]
-const starters: World[] = STARTERS.map((f) => f())
-
-function Thumb({ world }: { world: World }) {
+/** A starting world's little picture: drawn by the engine itself, once the fonts have arrived. */
+function Thumb({ starter, order }: { starter: Starter; order: number }) {
   const [src, setSrc] = React.useState<string>()
-  React.useEffect(() => { let live = true; const go = () => { if (!live) return; if (!engine) { setTimeout(go, 150); return } setSrc(engine.thumb(world, 128, 96)) }; const id = setTimeout(go, 400 + starters.indexOf(world) * 60); return () => { live = false; clearTimeout(id) } }, [world])
+  React.useEffect(() => { let live = true, id = 0
+    const go = () => { if (!live) return; if (!engine) { id = window.setTimeout(go, 150); return } setSrc(engine.thumb(starter.make(), 128, 96)) }
+    void document.fonts.ready.then(() => { id = window.setTimeout(go, 500 + order * 70) }); return () => { live = false; clearTimeout(id) } }, [starter, order])
   return <span className="block aspect-[4/3] w-full overflow-hidden rounded-md bg-muted ring-1 ring-border">{src && <img src={src} alt="" className="size-full object-cover" />}</span>
 }
 
@@ -68,16 +70,17 @@ export function AppSidebar() {
               </SidebarMenuItem>) })}
           </SidebarMenu></SidebarGroupContent>
         </SidebarGroup>
-        <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-          <SidebarGroupLabel>Start from</SidebarGroupLabel>
-          <SidebarGroupContent><div className="grid grid-cols-2 gap-2 px-2">
-            {starters.map((w, i) => (
-              <button key={w.name} onClick={() => replaceWorld(STARTERS[i](), "starter")} className="group/st text-left" data-testid={`starter-${i}`}>
-                <span className="block transition-transform group-hover/st:scale-[1.03] group-active/st:scale-[.98]"><Thumb world={w} /></span>
-                <span className="mt-1 block truncate text-[11.5px] text-muted-foreground group-hover/st:text-foreground">{w.name}</span>
-              </button>))}
-          </div></SidebarGroupContent>
-        </SidebarGroup>
+        {WORLD_GROUPS.map((g) => (
+          <SidebarGroup key={g} className="group-data-[collapsible=icon]:hidden">
+            <SidebarGroupLabel>{g === "Classics" ? "Start from" : g} <span className="ml-1.5 font-mono text-[10px] text-muted-foreground">{WORLDS.filter((w) => w.group === g).length}</span></SidebarGroupLabel>
+            <SidebarGroupContent><div className="grid grid-cols-2 gap-2 px-2">
+              {WORLDS.map((w, i) => w.group !== g ? null : (
+                <button key={w.name} onClick={() => replaceWorld(w.make(), "starter")} className="group/st text-left" data-testid={`starter-${i}`}>
+                  <span className="block transition-transform group-hover/st:scale-[1.03] group-active/st:scale-[.98]"><Thumb starter={w} order={i} /></span>
+                  <span className="mt-1 block truncate text-[11.5px] text-muted-foreground group-hover/st:text-foreground">{w.name}</span>
+                </button>))}
+            </div></SidebarGroupContent>
+          </SidebarGroup>))}
         <SidebarGroup className="group-data-[collapsible=icon]:hidden">
           <SidebarGroupLabel>My worlds</SidebarGroupLabel>
           <SidebarGroupAction aria-label="Keep this world" title="Keep this world on this device" onClick={() => void saveToShelf()}><BookmarkPlus /></SidebarGroupAction>
