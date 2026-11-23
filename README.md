@@ -2,8 +2,8 @@
 
 <img src="docs/images/banner.jpg" alt="Chrometide: the name in chrome letters floating over a calm mint-green sea, with chrome spheres and a low sun. Rendered with this tool" width="880">
 
-<p><strong>Chrome spheres over endless water. Hazy two-colour skies. That 2002 ambient-CD look.</strong><br>
-A free, open-source world builder that ray traces in your browser. Open a page, make the picture, save it. No install, no account, no AI.</p>
+<p><strong>A remake of the kind of pictures people made with Bryce in the 90s, running in your browser.</strong><br>
+Free and open source. Built with Fable 5.2. No install, no account.</p>
 
 <h3><a href="https://denonmaryland.github.io/chrometide/">▶ Try it now in your browser</a></h3>
 
@@ -41,9 +41,9 @@ In 1994 a program called Bryce let anyone make surreal 3D landscapes, and a gene
 screensavers and magazine ads came out of it. It no longer runs on current computers. People keep asking
 for it back.
 
-This is not a copy. It is a new tool, written from scratch, that goes after the same feeling: a playful
-screen, a real ray tracer, and a striking picture in about a minute. Then it goes further than the
-original could, because it lives in a browser tab.
+Chrometide is a new tool written from scratch with Fable 5.2 that makes that same kind of picture in a
+browser tab. It is not a copy and uses nothing from the original. A picture that took twenty minutes to
+render back then takes seconds now, and there is no program to install.
 
 ## What it does
 
