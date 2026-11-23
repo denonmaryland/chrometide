@@ -17,7 +17,8 @@ import { Viewport } from "./ui/Viewport"
 
 export function App() {
   const sky = useApp((s) => s.world.sky), timeline = useApp((s) => s.timeline); const [sheet, setSheet] = React.useState(false)
-  React.useEffect(() => { void loadFromHash(); const q = new URLSearchParams(location.search); for (const f of FEATURES) f.boot?.(q) }, [])
+  React.useEffect(() => { void loadFromHash(); const q = new URLSearchParams(location.search); for (const f of FEATURES) f.boot?.(q)
+    const hash = () => void loadFromHash(); addEventListener("hashchange", hash); return () => removeEventListener("hashchange", hash) }, []) // a link pasted into the address bar opens too
   React.useEffect(() => {
     const key = (e: KeyboardEvent) => {
       const el = document.activeElement as HTMLElement | null; const typing = !!el && (/INPUT|TEXTAREA|SELECT/.test(el.tagName) || el.isContentEditable)

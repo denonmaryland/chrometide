@@ -56,10 +56,12 @@ const say = (s) => process.stderr.write(s + "\n")
 
 /** Turn whatever was given into a world, using the app itself to read it. */
 async function worldFrom(src, r, o, aspect) {
-  if (/(^|#w=)w2\./.test(src.trim())) { const w = await r.call("decode", src.trim()); if (!w) throw new Error("That share code could not be read. Copy the whole code, starting w2."); return w }
+  if (/(^|#w=)w2\.|#w=/.test(src.trim())) { const w = await r.call("decode", src.trim()); if (!w) throw new Error(await r.call("why", src.trim())); return w }
   if (/\.json$/i.test(src) || fs.existsSync(src)) {
     if (!fs.existsSync(src)) throw new Error(`No file at ${path.resolve(src)}.`)
-    let data; try { data = JSON.parse(fs.readFileSync(src, "utf8")) } catch (e) { throw new Error(`${src} is not readable JSON: ${e.message}`) }
+    if (fs.statSync(src).isDirectory()) throw new Error(`${src} is a folder, not a world file.`)
+    if (fs.statSync(src).size > 50_000_000) throw new Error(`${src} is too large to be a world (over 50 MB).`)
+    let data; try { data = JSON.parse(fs.readFileSync(src, "utf8")) } catch { throw new Error(fs.statSync(src).size ? `${src} is not a world file: it is not readable JSON.` : `${src} is empty.`) }
     if (data && data.v === 2 && data.sky && data.sea) return r.call("tidy", data)
     const w = await r.call("island", data, { user: o.user, aspect })
     if (w) return w

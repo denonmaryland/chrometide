@@ -4,7 +4,8 @@ import * as React from "react"
 import type { Engine, Status } from "./engine/engine"
 import { type DesignOpts, designOpts } from "./design/layouts"
 import { at, keyAt, newAnim, pose } from "./engine/anim"
-import { type LockKey, type Thing, type World, STARTERS, clone, decodeWorld, encodeWorld, newId, roll } from "./engine/scene"
+import { type LockKey, type Thing, type World, MAX_THINGS, STARTERS, clone, decodeWorld, encodeWorld, newId, readCode, roll } from "./engine/scene"
+import { notify } from "./notice"
 
 export type Sel = { type: "sky" | "sea" | "land" | "title" | "camera" | "picture" | "sound" } | { type: "thing"; id: string }
 export interface Saved { id: string; name: string; code: string; thumb: string; at: number }
@@ -19,7 +20,10 @@ export interface State {
   song: { name: string; duration: number; bpm: number; beats: number } | null; sounding: boolean; mic: boolean
 }
 const KEY = "untitled-worlds:saved"
-const loadSaved = (): Saved[] => { try { return JSON.parse(localStorage.getItem(KEY) ?? "[]") } catch { return [] } }
+const loadSaved = (): Saved[] => {
+  try { const v: unknown = JSON.parse(localStorage.getItem(KEY) ?? "[]"); return Array.isArray(v) ? v.filter((s): s is Saved => !!s && typeof s.id === "string" && typeof s.name === "string" && typeof s.code === "string").map((s) => ({ ...s, thumb: typeof s.thumb === "string" && s.thumb.startsWith("data:image/") ? s.thumb : "", at: +s.at || 0 })).slice(0, 40) : [] }
+  catch { return [] } // storage blocked (a private window) or spoiled: start with an empty shelf
+}
 
 let state: State = {
   world: STARTERS[0](), sel: { type: "sky" }, locks: [], past: [], future: [], quality: 1,
@@ -56,7 +60,10 @@ export function redo() { const f = state.future[0]; if (!f) return; lastAt = 0; 
 
 export const selectedThing = (s: State): Thing | undefined => (s.sel.type === "thing" ? s.world.things.find((t) => t.id === (s.sel as { id: string }).id) : undefined)
 export function editThing(id: string, label: string, fn: (t: Thing) => void) { edit(`${label}:${id}`, (w) => { const t = w.things.find((x) => x.id === id); if (t) fn(t) }) }
-export function addThing(t: Thing) { edit("add" + t.id, (w) => { w.things.push(t) }); patch({ sel: { type: "thing", id: t.id } }) }
+export function addThing(t: Thing) {
+  if (state.world.things.length >= MAX_THINGS) { notify(`A world holds up to ${MAX_THINGS} things. Remove one to make room.`); return false }
+  edit("add" + t.id, (w) => { w.things.push(t) }); patch({ sel: { type: "thing", id: t.id } }); return true
+}
 export function removeThing(id: string) { edit("remove" + id, (w) => { w.things = w.things.filter((t) => t.id !== id) }); patch({ sel: { type: "sky" } }) }
 export function duplicateThing(id: string) {
   const src = state.world.things.find((t) => t.id === id); if (!src) return
@@ -72,10 +79,13 @@ export function rollDice(only?: LockKey) {
 // ---------- links and the shelf of saved worlds ----------
 export async function shareLink(): Promise<string> { return `${location.origin}${location.pathname}#w=${await encodeWorld(state.world)}` }
 export async function loadFromHash(): Promise<boolean> {
-  const m = /^#w=(.+)$/.exec(location.hash); if (!m) return false
-  const w0 = await decodeWorld(m[1]); if (!w0) return false
-  const w = await (await import("./text")).prepare(w0)
-  w.remixOf = w.remixOf ?? w.name; state = { ...state, world: w, past: [], future: [] }; emit(); tap("open"); history.replaceState(null, "", location.pathname + location.search); return true
+  const m = /^#w=(.*)$/s.exec(location.hash); if (!m) return false
+  const clear = () => { try { history.replaceState(null, "", location.pathname + location.search) } catch { /* ignore */ } }
+  const got = await readCode(m[1])
+  if (!got.world) { clear(); notify(`${got.why} Here is a world to start from instead.`, { ms: 9000 }); return false }
+  const w = await (await import("./text")).prepare(got.world)
+  w.remixOf = w.remixOf ?? w.name; state = { ...state, world: w, past: state.past.length ? [...state.past.slice(-80), state.world] : [], future: [], sel: { type: "sky" } }; emit(); tap("open"); clear()
+  if (got.note) notify(got.note); return true
 }
 // ---------- the timeline ----------
 export function seek(t: number) { t = Math.min(1, Math.max(0, t)); const w = state.world; state = { ...state, playhead: t, world: w.anim && w.anim.keys.length ? at(w, t) : w }; emit() }
@@ -90,8 +100,9 @@ export async function saveToShelf() {
   if (!engine) return
   const w = state.world, item: Saved = { id: newId(), name: w.name, code: await encodeWorld(w, true), thumb: engine.thumb(w, 192, 144), at: Date.now() }
   const saved = [item, ...state.saved.filter((s) => s.name !== w.name)].slice(0, 40)
-  try { localStorage.setItem(KEY, JSON.stringify(saved)) } catch { /* storage full or blocked: keep it for this visit only */ }
-  patch({ saved })
+  patch({ saved }); if (!keepShelf(saved)) notify("Saved for this visit only: this browser is full or is not letting the page keep things. Remove a few saved worlds, or save the picture instead.", { ms: 9000 })
 }
-export function dropFromShelf(id: string) { const saved = state.saved.filter((s) => s.id !== id); try { localStorage.setItem(KEY, JSON.stringify(saved)) } catch { /* ignore */ } patch({ saved }) }
-export async function openSaved(s: Saved) { const w = await decodeWorld(s.code); if (w) replaceWorld(await (await import("./text")).prepare(w), "open") }
+/** Write the shelf; false if the browser would not keep it (full, or a private window). */
+function keepShelf(saved: Saved[]) { try { localStorage.setItem(KEY, JSON.stringify(saved)); return true } catch { return false } }
+export function dropFromShelf(id: string) { const saved = state.saved.filter((s) => s.id !== id); keepShelf(saved); patch({ saved }) }
+export async function openSaved(s: Saved) { const w = await decodeWorld(s.code); if (w) replaceWorld(await (await import("./text")).prepare(w), "open"); else notify("That saved world could not be opened. It may be from an older version.") }

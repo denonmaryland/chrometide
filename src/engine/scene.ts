@@ -242,7 +242,16 @@ let luck: () => number = Math.random
 export function withLuck<T>(r: () => number, fn: () => T): T { const keep = luck; luck = r; try { return fn() } finally { luck = keep } }
 let idn = 0
 export const newId = () => `t${Date.now().toString(36)}${(idn++).toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`
-export const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x))
+/** A deep copy of plain data, as JSON would make it, except that text is shared rather than copied:
+ *  text never changes in place, and a world can carry a picture or a font several megabytes long. */
+export function clone<T>(x: T): T {
+  if (x === null || typeof x !== "object") return (typeof x === "number" && !isFinite(x) ? null : x) as T
+  if (Array.isArray(x)) return x.map((v) => (v === undefined || typeof v === "function" ? null : clone(v))) as T
+  if (typeof (x as any).toJSON === "function") return JSON.parse(JSON.stringify(x))
+  const out: Record<string, unknown> = {}
+  for (const k in x) { if (!Object.prototype.hasOwnProperty.call(x, k)) continue; const v = (x as any)[k]; if (v !== undefined && typeof v !== "function") out[k] = clone(v) }
+  return out as T
+}
 
 export function thing(kind: Kind, pos: Vec3, size: number | Vec3, m: Material, o: Partial<Thing> = {}): Thing {
   const s: Vec3 = typeof size === "number" ? [size, size, size] : size
@@ -373,18 +382,123 @@ export const rollName = () => `${N1[Math.floor(luck() * N1.length)]} ${N2[Math.f
 const b64 = (u: Uint8Array) => { let s = ""; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "") }
 const unb64 = (s: string) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0))
 async function pipe(data: Uint8Array, stream: CompressionStream | DecompressionStream) {
-  const w = stream.writable.getWriter(); void w.write(data as BufferSource); void w.close()
+  const w = stream.writable.getWriter(); w.write(data as BufferSource).catch(() => {}); w.close().catch(() => {})
   return new Uint8Array(await new Response(stream.readable).arrayBuffer())
+}
+/** Unpack, but stop at max bytes: a few kilobytes of code can claim to hold gigabytes. */
+async function inflate(data: Uint8Array, max: number) {
+  const ds = new DecompressionStream("deflate-raw"), w = ds.writable.getWriter(); w.write(data as BufferSource).catch(() => {}); w.close().catch(() => {})
+  const r = ds.readable.getReader(), parts: Uint8Array[] = []; let total = 0
+  for (;;) { const { done, value } = await r.read(); if (done) break; total += value.length; if (total > max) { void r.cancel().catch(() => {}); throw new Error("big") } parts.push(value) }
+  const out = new Uint8Array(total); let o = 0; for (const p of parts) { out.set(p, o); o += p.length } return out
 }
 export async function encodeWorld(w: World, full = false): Promise<string> {
   const lean = clone(w); if (!full) { delete lean.model; delete lean.picture; delete lean.customFont; lean.things = lean.things.filter((t) => t.kind !== "model") } lean.things.forEach((t) => { t.pos = t.pos.map(r3) as Vec3; t.size = t.size.map(r3) as Vec3 })
   return "w2." + b64(await pipe(new TextEncoder().encode(JSON.stringify(lean)), new CompressionStream("deflate-raw")))
 }
-export async function decodeWorld(code: string): Promise<World | null> {
-  try {
-    if (!code.startsWith("w2.")) return null
-    const w = JSON.parse(new TextDecoder().decode(await pipe(unb64(code.slice(3)), new DecompressionStream("deflate-raw")))) as World
-    return w && w.v === 2 && w.sky && w.sea && w.land && Array.isArray(w.things) ? w : null
-  } catch { return null }
+/** Read a share code. Never throws: a code that cannot be opened says why, in words for people. */
+export async function readCode(raw: string): Promise<{ world: World; note?: string } | { world?: undefined; why: string }> {
+  let code = String(raw ?? "").replace(/\s+/g, "")
+  try { if (/%[0-9a-f]{2}/i.test(code)) code = decodeURIComponent(code) } catch { /* keep it as it came */ }
+  code = code.replace(/^.*#w=/, "")
+  if (!code) return { why: "This link has no world in it." }
+  if (code.length > MAX_CODE) return { why: "This link is far too long to be a world." }
+  if (!code.startsWith("w2.")) {
+    try { const old = JSON.parse(atob(code)); if (old && typeof old === "object") return { why: "This link was made by an early test version and cannot be opened any more." } } catch { /* not that either */ }
+    return { why: "This link does not hold a world. It may have been changed or cut short." }
+  }
+  let data: unknown
+  try { data = JSON.parse(new TextDecoder().decode(await inflate(unb64(code.slice(3)), MAX_JSON))) }
+  catch (e) { return { why: (e as Error)?.message === "big" ? "This world is too large to open." : "This link seems cut short. Copy the whole link and try again." } }
+  const d = data as Partial<World> | null
+  if (!d || typeof d !== "object" || d.v !== 2) return { why: "This link does not hold a world this version can read." }
+  const many = Array.isArray(d.things) && d.things.length > MAX_THINGS
+  return { world: tidyWorld(d), note: many ? `This world had more things than one world can hold, so the first ${MAX_THINGS} are here.` : undefined }
+}
+export async function decodeWorld(code: string): Promise<World | null> { return (await readCode(code)).world ?? null }
+
+// ---------- keeping a world inside what the app can draw ----------
+// Links and files come from anywhere: only known fields of known types are kept, numbers are
+// finite and in range, text is short, and pictures and fonts must be data held in the world itself.
+export const MAX_THINGS = 20 // as many as the ray tracer draws (MAXO in shader.ts)
+const MAX_CODE = 4_000_000, MAX_JSON = 12_000_000
+const HEX = /^#[0-9a-f]{6}$/i
+const obj = (x: unknown): Record<string, any> => (x && typeof x === "object" && !Array.isArray(x) ? (x as Record<string, any>) : {})
+const numIn = (x: unknown, d: number, lo = -1e4, hi = 1e4) => (typeof x === "number" && isFinite(x) ? Math.min(hi, Math.max(lo, x)) : d)
+const oneOf = <T,>(x: unknown, all: readonly T[], d: T): T => (all.includes(x as T) ? (x as T) : d)
+/** Copy x into the shape of the template: each field of the template's own type (a colour stays a
+ *  colour), anything else replaced by the template's value. Extra fields pass only as plain numbers,
+ *  yes/no or short text, so a newer world still opens with its new dials. */
+function fit<T>(tpl: T, x: unknown, extra = true, special: string[] = []): T {
+  if (typeof tpl === "number") return numIn(x, tpl) as T
+  if (typeof tpl === "boolean") return (typeof x === "boolean" ? x : tpl) as T
+  if (typeof tpl === "string") return (typeof x !== "string" ? tpl : HEX.test(tpl) ? (HEX.test(x) ? x : tpl) : x.slice(0, 120)) as T
+  if (Array.isArray(tpl)) return tpl.map((d, i) => fit(d, Array.isArray(x) ? x[i] : undefined, false)) as T
+  if (tpl && typeof tpl === "object") {
+    const src = obj(x), out: Record<string, unknown> = {}
+    if (extra) for (const [k, v] of Object.entries(src)) if (!(k in tpl) && k !== "__proto__" && !special.includes(k)) { if (typeof v === "number" && isFinite(v)) out[k] = numIn(v, 0); else if (typeof v === "boolean") out[k] = v; else if (typeof v === "string" && v.length <= 120) out[k] = v }
+    for (const k of Object.keys(tpl)) out[k] = fit((tpl as any)[k], src[k], false)
+    return out as T
+  }
+  return tpl
+}
+const sometimes = (o: Record<string, any>, src: Record<string, any>, keys: string[], lo = -1e4, hi = 1e4) => { for (const k of keys) if (typeof src[k] === "number" && isFinite(src[k])) o[k] = numIn(src[k], 0, lo, hi) }
+const dataUrl = (x: unknown, kinds: RegExp, max: number) => (typeof x === "string" && x.length <= max && kinds.test(x) && /^data:[\w/+.-]+;base64,[A-Za-z0-9+/=]*$/.test(x) ? x : undefined)
+const b64ok = (x: unknown, max: number) => (typeof x === "string" && x.length <= max && /^[A-Za-z0-9+/=]*$/.test(x) ? x : undefined)
+
+function tidyMat(x: unknown): Material {
+  const m = fit({ ...MATERIALS[0], name: "Custom" }, x, true, ["layer", "layerColor", "layerMix", "cloud"]), src = obj(x)
+  m.texture = oneOf(m.texture, TEXTURES, "none"); m.name = m.name.slice(0, 40)
+  if (src.layer !== undefined) m.layer = oneOf(src.layer, TEXTURES, "none")
+  if (typeof src.layerColor === "string" && HEX.test(src.layerColor)) m.layerColor = src.layerColor
+  sometimes(m as any, src, ["layerMix", "cloud"], 0, 5)
+  return m
+}
+function tidyThing(x: unknown, ids: Set<string>): Thing | null {
+  const src = obj(x); if (!KINDS.includes(src.kind)) return null
+  const base = thing(src.kind, [0, 2, 0], 1, MATERIALS[0]), t = fit(base, src, true, ["text", "hidden", "bob", "spin", "beam", "eq"])
+  t.kind = src.kind; t.role = oneOf(t.role, ROLES, "solid"); t.group = Math.round(numIn(t.group, 0, 0, 3)); t.name = t.name.slice(0, 60); t.mat = tidyMat(src.mat)
+  t.size = t.size.map((n) => numIn(n, 1, 0.01, 500)) as Vec3; t.round = numIn(t.round, base.round, 0, 1)
+  t.id = t.id.slice(0, 40); if (!t.id || ids.has(t.id)) t.id = newId(); ids.add(t.id)
+  if (typeof src.hidden === "boolean") t.hidden = src.hidden
+  sometimes(t as any, src, ["bob", "spin", "beam", "eq"], -1000, 1000)
+  if (src.text !== undefined) { const ts = fit(textSpec(""), src.text), st = obj(src.text)
+    ts.str = ts.str.slice(0, 120); ts.font = ts.font.slice(0, 24); ts.style = oneOf(ts.style, ["solid", "outline", "tube"] as const, "solid"); ts.edge = oneOf(ts.edge, ["round", "chisel", "sharp"] as const, "round")
+    if (st.motion !== undefined) ts.motion = oneOf(st.motion, ["none", "rise", "wave"] as const, "none"); if (typeof st.order === "number" && isFinite(st.order)) ts.order = Math.round(numIn(st.order, 0, 0, 100))
+    t.text = ts }
+  return t
+}
+const tidySky = (x: unknown): Sky => { const s = fit(skyFrom(SKIES[0]), x, true, ["rays", "comet"]); sometimes(s as any, obj(x), ["rays", "comet"], 0, 5); return s }
+const tidySea = (x: unknown): Sea => { const s = fit(seaFrom(SEAS[0]), x); s.kind = oneOf(s.kind, SEA_KINDS, "water"); return s }
+function tidyLand(x: unknown, keepSculpt = true): Land {
+  const src = obj(x), l = fit(off(), src, true, ["channel", "sculpt", "flat"]); l.mode = oneOf(l.mode, ["island", "range"] as const, "island")
+  if (src.channel !== undefined) l.channel = fit({ offset: 0, angle: 0, width: 1, bend: 0 }, src.channel, false)
+  const sc = keepSculpt ? b64ok(src.sculpt, 30000) : undefined; if (sc) l.sculpt = sc
+  if (typeof src.flat === "boolean") l.flat = src.flat
+  return l
+}
+const tidyCam = (x: unknown): Camera => { const c = fit(camFrom(), x, true, ["pano"]); c.dist = numIn(c.dist, 16, 0.5, 2000); c.fov = numIn(c.fov, 55.5, 5, 170); if (obj(x).pano === true) c.pano = true; return c }
+const tidyTitle = (x: unknown): Title | undefined => { if (!x || typeof x !== "object") return undefined; const t = fit(titleFrom(""), x); t.text = t.text.slice(0, 60); t.mat = tidyMat(obj(x).mat); return t }
+const tidyThings = (x: unknown) => { const ids = new Set<string>(); return (Array.isArray(x) ? x.slice(0, MAX_THINGS * 4) : []).map((t) => tidyThing(t, ids)).filter((t): t is Thing => !!t).slice(0, MAX_THINGS) }
+
+/** Any value at all in, a world the app can safely show out. */
+export function tidyWorld(x: unknown): World {
+  const src = obj(x), base = blankWorld()
+  const w: World = { ...fit({ v: 2, name: base.name }, src, true, ["sky", "sea", "land", "things", "cam", "views", "frame", "remixOf", "title", "bloom", "picture", "customFont", "model", "sound", "anim"]), v: 2, sky: tidySky(src.sky), sea: tidySea(src.sea), land: tidyLand(src.land), things: tidyThings(src.things), cam: tidyCam(src.cam),
+    views: Array.from({ length: 7 }, (_, i) => { const v = Array.isArray(src.views) ? src.views[i] : null; return v && typeof v === "object" ? tidyCam(v) : null }), frame: fit(FRAMES[1], src.frame) }
+  w.name = w.name.slice(0, 60) || "Untitled world"; w.frame.w = Math.round(numIn(w.frame.w, 1024, 64, 4096)); w.frame.h = Math.round(numIn(w.frame.h, 768, 64, 4096)); w.frame.name = w.frame.name.slice(0, 60)
+  if (typeof src.remixOf === "string") w.remixOf = src.remixOf.slice(0, 60)
+  const title = tidyTitle(src.title); if (title) w.title = title
+  if (typeof src.bloom === "number" && isFinite(src.bloom)) w.bloom = numIn(src.bloom, 0, 0, 1.5)
+  const pic = dataUrl(src.picture, /^data:image\/(png|jpeg|webp|gif);/, 3_000_000); if (pic) w.picture = pic
+  const font = dataUrl(src.customFont, /^data:(font|application)\/[\w.+-]*;/, 4_200_000); if (font) w.customFont = font
+  const md = obj(src.model); if (typeof md.n === "number" && md.n >= 4 && md.n <= 64) { const data = b64ok(md.data, Math.ceil(md.n ** 3 / 3) * 4 + 8); if (data) w.model = { n: Math.round(md.n), data } }
+  if (src.sound && typeof src.sound === "object") { const s = fit(soundSet(), src.sound); s.pulseTo = oneOf(s.pulseTo, ["bass", "mid", "high", "beat"] as const, "bass"); s.journey = oneOf(s.journey, ["off", "sunset", "candy", "night", "surprise"] as const, "off"); s.every = Math.round(numIn(s.every, 16, 1, 256)); w.sound = s }
+  const an = obj(src.anim); if (Array.isArray(an.keys)) {
+    w.anim = { seconds: numIn(an.seconds, 6, 0.5, 600), loop: an.loop !== false, ease: an.ease !== false,
+      keys: an.keys.slice(0, 60).filter((k: unknown) => k && typeof k === "object").map((k: any) => { const p = obj(k.pose), pose: Pose = { sky: tidySky(p.sky), sea: tidySea(p.sea), land: tidyLand(p.land, false), cam: tidyCam(p.cam), things: tidyThings(p.things), title: tidyTitle(p.title) }
+        if (!pose.title) delete pose.title; return { t: numIn(k.t, 0, 0, 1), pose } }).sort((a: { t: number }, b: { t: number }) => a.t - b.t) }
+  }
+  return w
 }
 const r3 = (n: number) => Math.round(n * 1000) / 1000

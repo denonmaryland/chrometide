@@ -74,8 +74,8 @@ tool("get_guide", "Read this first. Explains the coordinate system, every kind o
 tool("list_presets", "List what is built in: the ready-made worlds (with their groups), sky looks, sea looks, land looks, materials, shapes, patterns, fonts and picture sizes.", {}, async () => text(await call("presets")))
 tool("start_world", "Begin with a ready-made world by name (see list_presets), with \"blank\" (sea and sky only), or with a share code from the web app. Replaces the world being worked on.",
   { from: z.string().describe('A world name such as "Crag Lagoon", or "blank", or a share code beginning "w2."') }, async ({ from }) => {
-    const w = from.toLowerCase() === "blank" ? await call("blank") : /w2\./.test(from) ? await call("decode", from) : await call("starter", from)
-    if (!w) return fail(`No world called "${from}". Use list_presets to see the names.`); world = w; return text(brief(w)) })
+    const code = /w2\.|#w=/.test(from), w = from.toLowerCase() === "blank" ? await call("blank") : code ? await call("decode", from) : await call("starter", from)
+    if (!w) return fail(code ? `${await call("why", from)} Ask for the whole code, starting w2.` : `No world called "${from}". Use list_presets to see the names.`); world = w; return text(brief(w)) })
 tool("get_world", "Return the world being worked on. \"brief\" lists the things with their ids; \"full\" is the whole document, every field, ready to change with update_world.",
   { detail: z.enum(["brief", "full"]).default("brief") }, async ({ detail }) => text(detail === "full" ? await need() : brief(await need())))
 tool("update_world", "Change any fields of the world with a JSON merge patch: objects merge, null removes a field, arrays and values replace. Example: {\"sky\":{\"sun\":{\"el\":0.1}},\"sea\":{\"kind\":\"mirror\"},\"bloom\":0.4}. To change things, prefer update_thing.",
