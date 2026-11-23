@@ -7,6 +7,9 @@
 import type * as React from "react"
 
 import { embed } from "./share"
+import { retroFeature } from "./retro"
+import { screensaverFeature } from "./screensaver"
+import { wordWorldFeature } from "./word-world"
 
 export interface Feature {
   id: string
@@ -20,5 +23,8 @@ export interface Feature {
 
 // ---- one line per feature below this ----
 export const FEATURES: Feature[] = [
+  wordWorldFeature,
+  retroFeature,
+  screensaverFeature,
   embed,
 ]

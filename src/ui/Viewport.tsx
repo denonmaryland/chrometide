@@ -13,6 +13,7 @@ import { nowLevels } from "@/audio"
 import { Engine, GRID, QUALITY } from "@/engine/engine"
 import { react } from "@/sound"
 import { type Kind, type LockKey, type Vec3, KINDS, KIND_LABEL, mat, thing } from "@/engine/scene"
+import { WordBox } from "@/features/word-world"
 import { addThing, duplicateThing, edit, editThing, engine, get, patch, removeThing, rollDice, selectedThing, setEngine, toggleLock, useApp } from "@/store"
 
 export const KIND_ICON: Record<Kind, React.ComponentType<{ className?: string }>> = {
@@ -190,6 +191,8 @@ export function Viewport() {
                 </button>
                 <Button variant="ghost" size="xs" onClick={() => rollDice(l.key)}><Dices /> Roll</Button>
               </div>) })}
+            <p className="mt-2 border-t border-border/60 px-1 pt-2 pb-1.5 text-[12px] text-muted-foreground">Or grow a world from a word.</p>
+            <WordBox className="px-1 pb-1" />
           </PopoverContent>
         </Popover>
         <div className="mx-0.5 h-5 w-px bg-border" />
