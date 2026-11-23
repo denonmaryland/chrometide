@@ -1,6 +1,6 @@
 // "Your GitHub year as an island": type a GitHub username and the last year of that person's public
 // contribution calendar becomes the land. Opens from the Modes menu, or straight away from a link
-// such as ?github=torvalds. The world itself is built in ./island.ts.
+// such as ?github=sample-coder. The world itself is built in ./island.ts.
 import * as React from "react"
 import { ClipboardPaste, Download, Link, Loader2, MountainSnow } from "lucide-react"
 
