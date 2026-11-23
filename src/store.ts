@@ -5,6 +5,7 @@ import type { Engine, Status } from "./engine/engine"
 import { type DesignOpts, designOpts } from "./design/layouts"
 import { at, keyAt, newAnim, pose } from "./engine/anim"
 import { type LockKey, type Thing, type World, MAX_THINGS, STARTERS, clone, decodeWorld, encodeWorld, newId, readCode, roll } from "./engine/scene"
+import { keep, recall } from "./lib/keep"
 import { notify } from "./notice"
 
 export type Sel = { type: "sky" | "sea" | "land" | "title" | "camera" | "picture" | "sound" } | { type: "thing"; id: string }
@@ -21,7 +22,7 @@ export interface State {
 }
 const KEY = "untitled-worlds:saved"
 const loadSaved = (): Saved[] => {
-  try { const v: unknown = JSON.parse(localStorage.getItem(KEY) ?? "[]"); return Array.isArray(v) ? v.filter((s): s is Saved => !!s && typeof s.id === "string" && typeof s.name === "string" && typeof s.code === "string").map((s) => ({ ...s, thumb: typeof s.thumb === "string" && s.thumb.startsWith("data:image/") ? s.thumb : "", at: +s.at || 0 })).slice(0, 40) : [] }
+  try { const v = recall<unknown>(KEY, []); return Array.isArray(v) ? v.filter((s): s is Saved => !!s && typeof s.id === "string" && typeof s.name === "string" && typeof s.code === "string").map((s) => ({ ...s, thumb: typeof s.thumb === "string" && s.thumb.startsWith("data:image/") ? s.thumb : "", at: +s.at || 0 })).slice(0, 40) : [] }
   catch { return [] } // storage blocked (a private window) or spoiled: start with an empty shelf
 }
 
@@ -103,6 +104,6 @@ export async function saveToShelf() {
   patch({ saved }); if (!keepShelf(saved)) notify("Saved for this visit only: this browser is full or is not letting the page keep things. Remove a few saved worlds, or save the picture instead.", { ms: 9000 })
 }
 /** Write the shelf; false if the browser would not keep it (full, or a private window). */
-function keepShelf(saved: Saved[]) { try { localStorage.setItem(KEY, JSON.stringify(saved)); return true } catch { return false } }
+const keepShelf = (saved: Saved[]) => keep(KEY, saved)
 export function dropFromShelf(id: string) { const saved = state.saved.filter((s) => s.id !== id); keepShelf(saved); patch({ saved }) }
 export async function openSaved(s: Saved) { const w = await decodeWorld(s.code); if (w) replaceWorld(await (await import("./text")).prepare(w), "open"); else notify("That saved world could not be opened. It may be from an older version.") }
