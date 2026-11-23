@@ -231,13 +231,17 @@ export function rng(seed: number) {
   let a = seed >>> 0
   return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296 }
 }
+// the dice's luck: Math.random, unless a seeded roll lends its own for a moment (see withLuck)
+let luck: () => number = Math.random
+/** Run fn with every throw of the dice drawn from r instead of Math.random: the same r gives the same world. */
+export function withLuck<T>(r: () => number, fn: () => T): T { const keep = luck; luck = r; try { return fn() } finally { luck = keep } }
 let idn = 0
 export const newId = () => `t${Date.now().toString(36)}${(idn++).toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`
 export const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x))
 
 export function thing(kind: Kind, pos: Vec3, size: number | Vec3, m: Material, o: Partial<Thing> = {}): Thing {
   const s: Vec3 = typeof size === "number" ? [size, size, size] : size
-  return { id: newId(), name: KIND_LABEL[kind], kind, pos, size: s, rot: [0, 0, 0], round: kind === "torus" ? 0.5 : kind === "box" ? 0.04 : Math.random(), role: "solid", group: 0, mat: { ...m }, ...o }
+  return { id: newId(), name: KIND_LABEL[kind], kind, pos, size: s, rot: [0, 0, 0], round: kind === "torus" ? 0.5 : kind === "box" ? 0.04 : luck(), role: "solid", group: 0, mat: { ...m }, ...o }
 }
 export function skyFrom(look: SkyLook, o: Partial<Sky> = {}): Sky {
   return {
@@ -332,7 +336,7 @@ export const blankWorld = (): World => world("Untitled world", skyFrom(SKIES[0])
 // ---------- roll the dice ----------
 export type LockKey = "sky" | "sea" | "land" | "things" | "camera"
 export function roll(w: World, locks: Set<LockKey>, only?: LockKey): World {
-  const r = Math.random, pick = <T,>(a: readonly T[]) => a[Math.floor(r() * a.length)]
+  const r = luck, pick = <T,>(a: readonly T[]) => a[Math.floor(r() * a.length)]
   const out = clone(w); const does = (k: LockKey) => (only ? only === k : !locks.has(k))
   if (does("sky")) {
     const look = pick(SKIES)
@@ -358,7 +362,7 @@ export function roll(w: World, locks: Set<LockKey>, only?: LockKey): World {
 }
 const N1 = ["Slow", "Glass", "Chrome", "Soft", "Hollow", "Velvet", "Second", "Quiet", "Lunar", "Tidal", "Pale", "Neon", "Salt", "Amber", "Distant", "Paper"]
 const N2 = ["Orbit", "Tide", "Garden", "Signal", "Harbour", "Weather", "Meridian", "Lagoon", "Monument", "Horizon", "Engine", "Archive", "Summer", "Static", "Atlas", "Mirage"]
-export const rollName = () => `${N1[Math.floor(Math.random() * N1.length)]} ${N2[Math.floor(Math.random() * N2.length)]}`
+export const rollName = () => `${N1[Math.floor(luck() * N1.length)]} ${N2[Math.floor(luck() * N2.length)]}`
 
 // ---------- a world as a link ----------
 const b64 = (u: Uint8Array) => { let s = ""; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "") }
