@@ -2,6 +2,9 @@
 // Passes are averaged in a float target, so soft shadows, blurry reflections, depth of field and
 // anti-aliasing all come from the same thing: many slightly different samples.
 
+import { KINDS } from "./scene"
+import { shapeBranches, shapeFunctions } from "./shapes"
+
 export const MAXO = 20 // things per world
 export const MAT_COLS = 8 // texels of material per thing (row MAXO is the lettering)
 
@@ -124,6 +127,8 @@ float terrShadow(vec3 p, vec3 L){ float res = 1., t = .08; float top = terrTop()
 // ---------- things: signed distances, so shapes can be cut out of each other and melted together ----------
 vec3 toLocal(int i, vec3 p){ vec3 q = p - uOP[i].xyz; return vec3(dot(uR0[i].xyz, q), dot(uR1[i].xyz, q), dot(uR2[i].xyz, q)); }
 float capped(vec2 w){ return min(max(w.x, w.y), 0.) + length(max(w, 0.)); }
+// shapes from src/engine/shapes, each a distance function of the shape in a -1 to 1 box
+${shapeFunctions()}
 float sdThing(int i, vec3 p){
   vec3 q = toLocal(i, p); vec3 s = uOS[i].xyz; int k = int(uOP[i].w + .5); float r = uOS[i].w;
   float m = min(s.x, min(s.y, s.z));
@@ -165,6 +170,7 @@ float sdThing(int i, vec3 p){
     else if (ed < 1.5) d = max(max(d0.x, d0.y), (d0.x + d0.y + bev) * .7071);
     else d = length(max(d0, 0.)) + min(max(d0.x, d0.y), 0.);
     return d * slack; }
+  ${shapeBranches((id) => KINDS.indexOf(id))}
   else {
     d = capped(vec2(length(u.xz) - .08, abs(u.y + .7) - .3)); float rr = length(u.xz);
     for (int j = 0; j < 3; j++) { float fj = float(j); float top = 1. - fj * .36, h = .78, rad = .4 + fj * .2;

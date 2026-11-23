@@ -6,6 +6,7 @@ import * as THREE from "three"
 import { LH, LW, glyphLayer, titleField } from "./lettering"
 import { type Camera, type Material, type Thing, type World, KINDS, ROLES, SEA_KINDS, TEXTURES } from "./scene"
 import { DISPLAY_FRAG, MAT_COLS, MAXO, TRACE_FRAG, VERT } from "./shader"
+import { SHAPES } from "./shapes"
 
 export type Phase = "moving" | "blocks" | "refining" | "done"
 export interface Status { phase: Phase; samples: number; target: number }
@@ -49,6 +50,7 @@ const WIRE: Record<string, () => THREE.BufferGeometry> = {
   crag: () => new THREE.EdgesGeometry(new THREE.CylinderGeometry(1, 0.2, 1.6, 10), 20),
   model: () => new THREE.EdgesGeometry(new THREE.BoxGeometry(2, 2, 2)),
   text: () => new THREE.EdgesGeometry(new THREE.BoxGeometry(2, 2, 2)),
+  ...Object.fromEntries(SHAPES.map((s) => [s.id, s.wire])),
 }
 
 export class Engine {

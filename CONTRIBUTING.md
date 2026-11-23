@@ -29,6 +29,36 @@ S("Shapes", "My World", () => world("My World", sky("Morning"), sea("Mirror"), o
   [thing("sphere", [0, 3, 0], 2, m("Chrome"))], camFrom({ yaw: 0.3, pitch: 0.12, dist: 16 }))),
 ```
 
+## Add a shape
+
+Make one new file in `src/engine/shapes/`, for example `bean.ts`. That is all: the ray tracer, the Add
+menu, the kind picker, the agent API and the MCP server pick it up when the app is built.
+
+```ts
+import { Bean } from "lucide-react"
+import * as THREE from "three"
+import type { Shape } from "."
+
+export default {
+  id: "bean", label: "Bean", icon: Bean,
+  glsl: "p.x += .3 * p.y * p.y; return (length(p * vec3(1., .7, 1.)) - .7) * .7;",
+  wire: () => new THREE.WireframeGeometry(new THREE.SphereGeometry(0.7, 10, 6)),
+} satisfies Shape
+```
+
+- `glsl` is the body of a function that is given a point `p` and returns how far it is from the shape's
+  surface (negative inside). The shape must fit in the box from -1 to 1 on every side, y up. If you
+  bend or twist space, multiply the answer down (as above) so it never says more than the true distance.
+- `wire` is the outline shown when the shape is selected, in the same box.
+- `id` is saved in worlds and share links: keep it short and never change it once it is out.
+- Optional: `mesh` (a three.js geometry, so 3D export includes it; without one it is left out of
+  exports), `size` and `material` for new ones, `dial` (one slider that reaches the shader as `r`),
+  `helpers` (extra GLSL functions; start their names with the shape's id).
+
+`capsule.ts` is the smallest example; `gem.ts`, `star.ts` and `twist.ts` show helpers, a dial and a
+mesh. Run `node tools/shapes-test.mjs` after a build: it renders, cuts and picks every shape and saves
+pictures in `shots/`. Look at them in chrome and in glass.
+
 ## Add a design
 
 Open `src/design/presets.ts` and add a line to `DESIGNS`: the kind, the world it sits on, a layout and

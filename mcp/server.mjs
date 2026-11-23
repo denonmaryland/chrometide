@@ -48,6 +48,12 @@ const brief = (w) => ({ name: w.name, sky: `${w.sky.zenith} over ${w.sky.horizon
 const merge = (a, b) => { if (b === null || typeof b !== "object" || Array.isArray(b)) return b; const o = a && typeof a === "object" && !Array.isArray(a) ? { ...a } : {}; for (const [k, v] of Object.entries(b)) { if (v === null) delete o[k]; else o[k] = merge(o[k], v) } return o }
 const find = (w, key) => w.things.find((t) => t.id === key) ?? w.things.find((t) => t.name.toLowerCase() === String(key).toLowerCase())
 
+// Shapes: the built-in kinds, then any in the app's shape folder (src/engine/shapes, one file each).
+const SHAPES_DIR = path.join(here, "..", "src", "engine", "shapes")
+const MORE_SHAPES = fs.existsSync(SHAPES_DIR) ? fs.readdirSync(SHAPES_DIR).filter((f) => /^[a-z0-9]+\.ts$/.test(f) && f !== "index.ts").sort()
+  .map((f) => { const src = fs.readFileSync(path.join(SHAPES_DIR, f), "utf8"); return { id: /\bid:\s*"([a-z][a-z0-9]*)"/.exec(src)?.[1], label: /\blabel:\s*"([^"]+)"/.exec(src)?.[1] } }).filter((s) => s.id) : []
+const SHAPE_KINDS = ["sphere", "box", "pyramid", "cylinder", "cone", "torus", "disc", "stone", "blob", "tree", "pine", "crag", ...MORE_SHAPES.map((s) => s.id)]
+
 const GUIDE = `Untitled Worlds makes surreal ray-traced pictures: chrome spheres over endless seas, hazy two-colour skies, craggy islands, 3D lettering.
 
 HOW TO WORK
@@ -62,7 +68,7 @@ Units are metres, roughly. The sea is the plane y = 0. x is right, y is up, z is
 THE CAMERA circles a target: yaw (radians, turn around), pitch (0.02 = at the water, 1.5 = straight down), distance (3 to 120), target [x,y,z], fov (degrees, default 55), lens (0 = all sharp; 0.1 = soft focus) with focus distance.
 
 THINGS
-kind: sphere, box, pyramid, cylinder, cone, torus, disc, stone, blob, tree, pine, crag (a floating rock), text.
+kind: sphere, box, pyramid, cylinder, cone, torus, disc, stone, blob, tree, pine, crag (a floating rock), ${MORE_SHAPES.map((s) => `${s.id}${s.label.toLowerCase() !== s.id ? ` (${s.label.toLowerCase()})` : ""}, `).join("")}text.
 size is [half-width, half-height, half-depth]; a single number makes all three equal. rotation is [turn, tilt, roll] in degrees.
 material: a name from list_presets, or an object such as {"base":"Chrome","color":"#ff5a2a","reflect":0.9}. Material fields (0 to 1 unless said): color, color2 (hex), texture (pattern), texScale, diffuse, reflect, metal, shine, gloss, clear (see-through), ior (1 to 2.4), bump, glow (0 to 4; a glowing thing lights the scene), cloud (the shape becomes cloud).
 role: "solid", "cut" (carves a hole in the solid things that share its group number) or "keep" (only the overlap stays). group is 0 to 3. Blobs in one group melt together.
@@ -99,9 +105,9 @@ tool("set_land", "Grow land: a look from list_presets and/or field changes (heig
   { look: z.string().optional(), changes: z.record(z.string(), z.any()).optional() }, async ({ look, changes }) => { let w = await need(); if (look) { w = await call("land", w, look, {}); if (!w) return fail(`No land called "${look}".`) } world = changes ? await call("tidy", merge(w, { land: changes })) : w; return text(brief(world)) })
 tool("set_camera", "Move the camera. It circles a target point.", { yaw: z.number().optional(), pitch: z.number().optional(), distance: z.number().optional(), target: z.array(z.number()).length(3).optional(), fov: z.number().optional(), lens: z.number().optional(), focus: z.number().optional() },
   async (a) => { const c = {}; for (const k of ["yaw", "pitch", "target", "fov", "lens", "focus"]) if (a[k] !== undefined) c[k] = a[k]; if (a.distance !== undefined) c.dist = a.distance; world = await call("tidy", merge(await need(), { cam: c })); return text(brief(world).camera) })
-tool("add_thing", "Add a shape to the world. Returns its id.", { kind: z.enum(["sphere", "box", "pyramid", "cylinder", "cone", "torus", "disc", "stone", "blob", "tree", "pine", "crag"]), name: z.string().optional(), position: z.array(z.number()).length(3).describe("[x, y, z]; y is the height of its middle above the sea"),
+tool("add_thing", "Add a shape to the world. Returns its id.", { kind: z.enum(SHAPE_KINDS), name: z.string().optional(), position: z.array(z.number()).length(3).describe("[x, y, z]; y is the height of its middle above the sea"),
   size: vec.optional().describe("half-sizes [x, y, z], or one number"), rotation: z.array(z.number()).length(3).optional().describe("[turn, tilt, roll] in degrees"), material: z.union([z.string(), z.record(z.string(), z.any())]).optional().describe('A material name, or {"base":"Gold","color":"#…", …}'),
-  role: z.enum(["solid", "cut", "keep"]).optional(), group: z.number().int().min(0).max(3).optional(), round: z.number().optional().describe("box: round edges 0–0.5; torus: thickness 0.05–1"), bob: z.number().optional(), spin: z.number().optional(), beam: z.number().optional() },
+  role: z.enum(["solid", "cut", "keep"]).optional(), group: z.number().int().min(0).max(3).optional(), round: z.number().optional().describe("box: round edges 0–0.5; torus: thickness 0.05–1; star: sharpness 0–1; twist: how far it is twisted 0–1"), bob: z.number().optional(), spin: z.number().optional(), beam: z.number().optional() },
   async (a) => { const w = await need(); if (w.things.length >= 20) return fail("This world already holds 20 things, the most it can. Remove one first."); const t = await call("thing", a); world = { ...w, things: [...w.things, t] }; return text({ id: t.id, name: t.name, things: world.things.length }) })
 tool("add_lettering", "Stand real 3D letters in the world. They reflect, cast shadows, and with role \"cut\" carve their words through a solid thing in the same group.", { text: z.string().max(120), font: z.enum(["sans", "poster", "serif", "slab", "rounded", "mono", "script"]).optional(), style: z.enum(["solid", "outline", "tube"]).optional().describe('"tube" with a glowing material is a neon sign'),
   edge: z.enum(["round", "chisel", "sharp"]).optional(), height: z.number().optional().describe("letter height, default 2.5"), depth: z.number().optional(), position: z.array(z.number()).length(3).optional(), rotation: z.array(z.number()).length(3).optional(), bend: z.number().optional().describe("degrees around a ring; -360 is a full ring facing out"), arch: z.number().optional(),

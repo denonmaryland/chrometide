@@ -20,6 +20,8 @@ const img = r.content.find((c) => c.type === "image"); res.image = img ? `${img.
 const code = JSON.parse(say(await use("share_code"))).code; res.code = code.slice(0, 3) + "… " + code.length + " chars"
 await use("start_world", { from: code }); res.codeRoundTrip = JSON.parse(say(await use("get_world"))).things.length === brief.things.length
 await use("start_world", { from: "Crag Lagoon" }); await use("roll_dice", { keep: ["land", "sea"] }); res.rollKeptLand = JSON.parse(say(await use("get_world"))).land.includes("island")
+for (const kind of ["gem", "star", "twist", "capsule"]) { const r = await use("add_thing", { kind, position: [0, 2, 0], material: "Chrome" }); res[`shape_${kind}`] = !r.isError }
+res.guideHasShapes = /gem/.test(say(await use("get_guide"))) && JSON.parse(say(await use("list_presets"))).shapes?.includes("twist")
 res.fullLimit = 0; await use("remove_thing", { thing: "all" }); for (let i = 0; i < 21; i++) { const x = await use("add_thing", { kind: "sphere", position: [i - 10, 1, 0], size: 0.4 }); if (x.isError) res.fullLimit++ }
 const r2 = await use("render", { width: 480, height: 360, quality: "draft", save_as: "../../escape" }); res.savePathKept = fs.existsSync(path.join(out, "escape.png")) && !fs.existsSync(path.join(out, "..", "..", "escape.png")); void r2
 console.log(JSON.stringify(res, null, 1)); await client.close(); process.exit(0)

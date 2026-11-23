@@ -5,6 +5,7 @@
 //   - calls boot(params) once at start-up with the page's address parameters, so a feature can
 //     start itself from a link such as ?screensaver or ?seed=moon.
 import type * as React from "react"
+import { photoWorld } from "./photo-world"
 
 import { embed } from "./share"
 import { retroFeature } from "./retro"
@@ -27,4 +28,5 @@ export const FEATURES: Feature[] = [
   retroFeature,
   screensaverFeature,
   embed,
+  photoWorld,
 ]
