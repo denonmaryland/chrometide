@@ -48,6 +48,7 @@ precision highp float; precision highp int; precision highp sampler2D; precision
 out vec4 outCol;
 #define MAXO ${MAXO}
 #define MAXG 4
+#define ZERO min(uNObj, 0) // 0, but the compiler cannot know: loops from it are not unrolled into copies
 uniform vec2 uRes; uniform int uSample, uPreview, uMode, uLDR, uBounces; uniform float uBlend, uTime; uniform vec2 uPickUV;
 uniform vec3 uCamPos, uCamFw, uCamRt, uCamUp; uniform float uFocal, uLens, uFocus, uPanoYaw; uniform int uProj;
 uniform vec3 uZenith, uHorizon, uHazeCol, uSunCol, uSunDir, uCloudCol, uCloud2Col, uFogCol, uMoonDir;
@@ -118,8 +119,9 @@ float marchTerr(vec3 ro, vec3 rd, float tmax){
   }
   return -1.;
 }
-vec3 terrN(vec3 p, float t){ float e = max(.012, .0025 * t);
-  return normalize(vec3(terr(p.xz - vec2(e, 0.), 9) - terr(p.xz + vec2(e, 0.), 9), 2. * e, terr(p.xz - vec2(0., e), 9) - terr(p.xz + vec2(0., e), 9))); }
+vec3 terrN(vec3 p, float t){ float e = max(.012, .0025 * t); float h[4];
+  for (int i = ZERO; i < 4; i++) h[i] = terr(p.xz + (i == 0 ? vec2(-e, 0.) : i == 1 ? vec2(e, 0.) : i == 2 ? vec2(0., -e) : vec2(0., e)), 9);
+  return normalize(vec3(h[0] - h[1], 2. * e, h[2] - h[3])); }
 float terrShadow(vec3 p, vec3 L){ float res = 1., t = .08; float top = terrTop();
   for (int i = 0; i < 28; i++) { vec3 q = p + L * t; float h = q.y - terr(q.xz, 5); res = min(res, 10. * h / t); if (res < .02 || q.y > top) break; t += clamp(h * .6, .06, 1.2); }
   return clamp(res, 0., 1.); }
@@ -215,8 +217,9 @@ float marchThings(vec3 ro, vec3 rd, float tmax, out int id){
   for (int s = 0; s < 120; s++) { if (t > t1) break; float d = map(ro + rd * t, id); if (d < .0005 * t + .0004) return t; t += d; }
   return -1.;
 }
-vec3 thingN(vec3 p){ int id; const vec2 e = vec2(.0012, -.0012);
-  return normalize(e.xyy * map(p + e.xyy, id) + e.yyx * map(p + e.yyx, id) + e.yxy * map(p + e.yxy, id) + e.xxx * map(p + e.xxx, id)); }
+vec3 thingN(vec3 p){ int id; const vec2 e = vec2(.0012, -.0012); vec3 s = vec3(0.);
+  for (int i = ZERO; i < 4; i++) { vec3 o = i == 0 ? e.xyy : i == 1 ? e.yyx : i == 2 ? e.yxy : e.xxx; s += o * map(p + o, id); }
+  return normalize(s); }
 
 // ---------- lettering: an extruded distance field read from a texture ----------
 vec3 rotY(vec3 v, float a){ float c = cos(a), s = sin(a); return vec3(c * v.x - s * v.z, v.y, s * v.x + c * v.z); }
@@ -241,8 +244,8 @@ float hitLetters(vec3 ro, vec3 rd, float limit, out vec3 normal){
     float h = letterDistance(p);
     if (h < .001) {
       vec2 e = vec2(.0015, 0.);
-      normal = rotY(normalize(vec3(letterDistance(p + e.xyy) - letterDistance(p - e.xyy),
-        letterDistance(p + e.yxy) - letterDistance(p - e.yxy), letterDistance(p + e.yyx) - letterDistance(p - e.yyx))), uTitlePose.w);
+      vec3 g; for (int k = ZERO; k < 3; k++) { vec3 o = k == 0 ? e.xyy : k == 1 ? e.yxy : e.yyx; g[k] = letterDistance(p + o) - letterDistance(p - o); }
+      normal = rotY(normalize(g), uTitlePose.w);
       return t;
     }
     t += max(.0008, h * .88);
@@ -255,11 +258,6 @@ float thingShadow(vec3 p, vec3 L, float maxd){
   int id; float t = marchThings(p, L, maxd, id); float s = 1.;
   if (t > 0.) { vec4 m3 = texelFetch(uMat, ivec2(3, id), 0); vec4 m4 = texelFetch(uMat, ivec2(4, id), 0); s = m4.x > 0. ? 1. : m4.y > 0. ? 1. - .6 * m4.y : m3.y * .7; }
   vec3 n; if (s > 0. && hitLetters(p, L, maxd, n) > 0.) s = 0.;
-  return s;
-}
-float sunShadow(vec3 p){
-  vec3 L = uSunDir; if (uPreview == 0 && uSunSoft > 0.) L = normalize(L + rndBall() * uSunSoft);
-  float s = thingShadow(p, L, 600.); if (s > 0. && uTerrOn > .5) s = min(s, terrShadow(p + vec3(0., .01, 0.), L));
   return s;
 }
 vec3 lamps(vec3 p, vec3 n){
@@ -348,25 +346,67 @@ void groundFog(inout vec3 col, inout vec3 thr, vec3 ro, vec3 rd, float t){
   float T = exp(-max(od, 0.)); col += thr * (1. - T) * uFogCol; thr *= T;
 }
 
+vec4 gOut; // what a pick or mask pass writes (uMode != 0)
 vec3 trace(vec3 ro, vec3 rd){
   vec3 col = vec3(0.), thr = vec3(1.);
-  float sunOn = 1.;
+  float sunOn = 1., skySun = 0.;
   for (int b = 0; b < 6; b++) { if (b >= uBounces) break;
     int kind, id; vec3 n; float t = meet(ro, rd, kind, id, n); int primMask = gMask;
+    if (uMode != 0) { // a pick or a mask: only what the first ray meets
+      if (uMode == 9 || uMode == 10) { gOut = vec4(float(kind), float(id), t, 1.); return col; }
+      vec3 m = vec3(0.);
+      if (uMode == 1) m = vec3(kind == 0 ? 0. : exp(-t * .035));
+      else if (uMode == 2) m = vec3(kind >= 3 ? 1. : 0.);
+      else m = vec3(kind == 0 ? 0. : clamp((ro + rd * t).y / 12., 0., 1.));
+      gOut = vec4(uLDR == 1 ? m : pow(m, vec3(2.2)) * 1.2, uBlend); return col; }
     if (b == 0 && uRays > 0. && uPreview == 0) { float reach = min(t, 70.); vec3 q = ro + rd * reach * rnd();
       float vis = thingShadow(q, uSunDir, 600.); if (vis > 0. && uTerrOn > .5) vis = min(vis, terrShadow(q, uSunDir));
       col += thr * uRays * uSunCol * vis * (.22 + 1.6 * pow(max(dot(rd, uSunDir), 0.), 6.)) * .55 * (1. - exp(-reach * .04)); gMask = primMask; }
-    if (kind == 0) { groundFog(col, thr, ro, rd, 2000.); col += thr * sky(rd, sunOn); return col; }
+    if (kind == 0) { groundFog(col, thr, ro, rd, 2000.); skySun = sunOn; break; }
     vec3 p = ro + rd * t;
     float T = exp(-t * uHaze * uHaze * .02);
     col += thr * (1. - T) * fogCol(); thr *= T;
     groundFog(col, thr, ro, rd, t);
     vec3 amb = (mix(uHorizon, uZenith, .5) * .55 + .12) * uAmbient * 2.;
     float refl = 0.; vec3 tint = vec3(1.); vec3 lc = vec3(0.); float gloss = 1.;
+    // the surface: which way it faces, what it is made of, and where its shadows are looked for
+    vec3 alb = vec3(0.), lp = vec3(0.); vec4 m0 = vec4(0.), m1 = vec4(0.), m2 = vec4(0.), m3 = vec4(0.), m4 = vec4(0.); float glow = 0.;
+    vec3 pS = p + vec3(0., .003, 0.), pT = pS + vec3(0., .01, 0.), lampN = vec3(0., 1., 0.); bool wantLamps = uNLight > 0, cloud = false;
+    if (kind == 2) {
+      n = terrN(p, t);
+      float hh = clamp(p.y / (uTerrH * 1.1), 0., 1.);
+      float sp = n3(p * vec3(5., 5., 5.));
+      alb = mix(uT1, uT2, smoothstep(.03, .2, hh + (sp - .5) * .08));
+      float rock = smoothstep(.82, .55, n.y);
+      alb = mix(alb, uT3, max(smoothstep(.42, .8, hh + (sp - .5) * .25), rock * .85));
+      alb = mix(alb, vec3(.95, .96, 1.), uSnow * smoothstep(.62, .75, hh + (sp - .5) * .2) * smoothstep(.5, .8, n.y));
+      alb *= .72 + .56 * sp;
+      if (uGround == 2) alb = mix(alb, uG1 * 2., smoothstep(.06, 0., hh) * .8);
+      pS = p + n * .01; pT = p + n * .02; lampN = n;
+    } else if (kind >= 3) {
+      m0 = texelFetch(uMat, ivec2(0, id), 0); m1 = texelFetch(uMat, ivec2(1, id), 0); m2 = texelFetch(uMat, ivec2(2, id), 0); m3 = texelFetch(uMat, ivec2(3, id), 0);
+      m4 = texelFetch(uMat, ivec2(4, id), 0); glow = m4.x;
+      lp = kind == 3 ? toLocal(id, p) : rotY(p - uTitlePose.xyz, -uTitlePose.w);
+      int tex = int(m0.w + .5);
+      if (tex == 8) { vec3 u = kind == 3 ? lp / uOS[id].xyz : lp / uTitleBox; int k = kind == 3 ? int(uOP[id].w + .5) : 1;
+        vec2 uv = (k == 1 || k == 2 || k == 6 || k == 13) ? u.xy * .5 + .5 : vec2(atan(u.x, u.z) / 6.2831853 + .5, u.y * .5 + .5);
+        alb = pow(texture(uPic, fract(uv * m1.w)).rgb, vec3(2.2)) * m0.rgb * 1.6; }
+      else alb = pattern(tex, lp * m1.w, m0.rgb, m1.rgb);
+      if (m4.w > 0.) alb = mix(alb, pattern(int(m4.z + .5), lp * m1.w * 2.3 + 5., alb, texelFetch(uMat, ivec2(5, id), 0).rgb), m4.w);
+      if (kind == 3) { int k = int(uOP[id].w + .5); vec3 u = lp / uOS[id].xyz;
+        if (k == 9 && u.y < -.12 && length(u.xz) < .16) alb = vec3(.13, .07, .035);
+        if (k == 10 && u.y < -.42 && length(u.xz) < .12) alb = vec3(.11, .06, .03); }
+      if (m3.w > 0.) { vec3 q = lp * m1.w * 6.; float e = .02; float b0 = n3(q);
+        n = normalize(n + m3.w * 1.6 * (vec3(n3(q + vec3(e, 0., 0.)), n3(q + vec3(0., e, 0.)), n3(q + vec3(0., 0., e))) - b0) / e * .06); }
+      cloud = kind == 3 && m4.y > 0.; pS = p + n * (cloud ? .02 : .004); pT = pS + vec3(0., .01, 0.); lampN = n; wantLamps = wantLamps && !cloud && glow <= 0.;
+    }
+    // the sun's shadow and the lamps, in one place for every kind of surface: each is a whole march
+    // through the things, and the graphics driver copies a function out in full wherever it is called
+    vec3 L = uSunDir; if (uPreview == 0 && uSunSoft > 0.) L = normalize(L + rndBall() * uSunSoft);
+    float sh = thingShadow(pS, L, 600.); if (sh > 0. && uTerrOn > .5) sh = min(sh, terrShadow(pT, L));
+    vec3 lamp = wantLamps ? lamps(p, lampN) : vec3(0.);
     if (kind == 1) {
       float depth = 1e3; if (uTerrOn > .5) depth = -terr(p.xz, 5);
-      float sh = sunShadow(p + vec3(0., .003, 0.));
-      vec3 lamp = uNLight > 0 ? lamps(p, vec3(0., 1., 0.)) : vec3(0.);
       if (uGround == 0) {
         float fade = 1. / (1. + t * .035);
         vec2 w = p.xz + uTime * vec2(.35, .12); float e = .06;
@@ -402,37 +442,12 @@ vec3 trace(vec3 ro, vec3 rd){
         refl = mix(.6, .96, uGRefl); tint = mix(vec3(1.), uG2 * 2.2, .55); lc = uG1 * (amb + uSunCol * .3 * sh) * .25;
       }
     } else if (kind == 2) {
-      n = terrN(p, t);
-      float hh = clamp(p.y / (uTerrH * 1.1), 0., 1.);
-      float sp = n3(p * vec3(5., 5., 5.));
-      vec3 alb = mix(uT1, uT2, smoothstep(.03, .2, hh + (sp - .5) * .08));
-      float rock = smoothstep(.82, .55, n.y);
-      alb = mix(alb, uT3, max(smoothstep(.42, .8, hh + (sp - .5) * .25), rock * .85));
-      alb = mix(alb, vec3(.95, .96, 1.), uSnow * smoothstep(.62, .75, hh + (sp - .5) * .2) * smoothstep(.5, .8, n.y));
-      alb *= .72 + .56 * sp;
-      if (uGround == 2) alb = mix(alb, uG1 * 2., smoothstep(.06, 0., hh) * .8);
-      vec3 L = uSunDir; if (uPreview == 0 && uSunSoft > 0.) L = normalize(L + rndBall() * uSunSoft);
-      float sh = min(thingShadow(p + n * .01, L, 600.), terrShadow(p + n * .02, L));
-      lc = alb * (amb * (.6 + .4 * n.y) + uSunCol * max(dot(n, uSunDir), 0.) * sh + (uNLight > 0 ? lamps(p, n) : vec3(0.)));
+      lc = alb * (amb * (.6 + .4 * n.y) + uSunCol * max(dot(n, uSunDir), 0.) * sh + lamp);
     } else {
-      vec4 m0 = texelFetch(uMat, ivec2(0, id), 0), m1 = texelFetch(uMat, ivec2(1, id), 0), m2 = texelFetch(uMat, ivec2(2, id), 0), m3 = texelFetch(uMat, ivec2(3, id), 0);
-      vec4 m4 = texelFetch(uMat, ivec2(4, id), 0); float glow = m4.x;
-      vec3 lp = kind == 3 ? toLocal(id, p) : rotY(p - uTitlePose.xyz, -uTitlePose.w);
-      int tex = int(m0.w + .5); vec3 alb;
-      if (tex == 8) { vec3 u = kind == 3 ? lp / uOS[id].xyz : lp / uTitleBox; int k = kind == 3 ? int(uOP[id].w + .5) : 1;
-        vec2 uv = (k == 1 || k == 2 || k == 6 || k == 13) ? u.xy * .5 + .5 : vec2(atan(u.x, u.z) / 6.2831853 + .5, u.y * .5 + .5);
-        alb = pow(texture(uPic, fract(uv * m1.w)).rgb, vec3(2.2)) * m0.rgb * 1.6; }
-      else alb = pattern(tex, lp * m1.w, m0.rgb, m1.rgb);
-      if (m4.w > 0.) alb = mix(alb, pattern(int(m4.z + .5), lp * m1.w * 2.3 + 5., alb, texelFetch(uMat, ivec2(5, id), 0).rgb), m4.w);
-      if (kind == 3) { int k = int(uOP[id].w + .5); vec3 u = lp / uOS[id].xyz;
-        if (k == 9 && u.y < -.12 && length(u.xz) < .16) alb = vec3(.13, .07, .035);
-        if (k == 10 && u.y < -.42 && length(u.xz) < .12) alb = vec3(.11, .06, .03); }
-      if (m3.w > 0.) { vec3 q = lp * m1.w * 6.; float e = .02; float b0 = n3(q);
-        n = normalize(n + m3.w * 1.6 * (vec3(n3(q + vec3(e, 0., 0.)), n3(q + vec3(0., e, 0.)), n3(q + vec3(0., 0., e))) - b0) / e * .06); }
       gloss = m3.x; float clear = kind == 3 ? m3.y : 0.;
       if (kind == 3 && m4.y > 0.) { // a thing made of cloud: walk through it, gathering light
         vec3 sz = uOS[id].xyz; float span = max(sz.x, max(sz.y, sz.z)), stp = span * 2.2 / 22., soft = min(sz.x, min(sz.y, sz.z)) * .45;
-        float sunVis = sunShadow(p + n * .02); gMask = primMask;
+        float sunVis = sh; gMask = primMask;
         vec3 pin = p + rd * .01; float ti = stp * (uPreview == 1 ? .5 : rnd()), Tr = 1.; vec3 acc = vec3(0.); int tmp;
         for (int s = 0; s < 26; s++) { vec3 q = pin + rd * ti; float d = -map(q, tmp); if (d < 0.) break;
           float den = m4.y * smoothstep(0., soft, d) * (.25 + 1.5 * n3(q * 1.4 + 3.) * n3(q * 4.1));
@@ -440,12 +455,11 @@ vec3 trace(vec3 ro, vec3 rd){
           acc += Tr * a * alb * (amb * 1.5 + uSunCol * lit * (.35 + .65 * sunVis)); Tr *= 1. - a; ti += stp; if (Tr < .03) break; }
         col += thr * acc; thr *= Tr; if (max(thr.r, max(thr.g, thr.b)) < .012) return col;
         ro = pin + rd * (ti + .02); continue; }
-      float sh = sunShadow(p + n * .004);
       float nl = max(dot(n, uSunDir), 0.) * sh;
       vec3 rf = reflect(rd, n);
       float fr = pow(1. - max(dot(-rd, n), 0.), 5.);
       vec3 spec = uSunCol * pow(max(dot(rf, uSunDir), 0.), mix(6., 420., gloss * gloss)) * sh * m2.w * (.25 + 1.6 * gloss);
-      vec3 dif = alb * m2.x * (amb * (.85 + .3 * n.y) + uSunCol * nl * 1.1 + (uNLight > 0 && glow <= 0. ? lamps(p, n) : vec3(0.)));
+      vec3 dif = alb * m2.x * (amb * (.85 + .3 * n.y) + uSunCol * nl * 1.1 + lamp);
       refl = clamp(m2.y + (1. - m2.y) * fr * (.25 + .5 * m2.w), 0., 1.);
       tint = mix(vec3(1.), alb, m2.z);
       col += thr * (spec + alb * glow);
@@ -475,7 +489,7 @@ vec3 trace(vec3 ro, vec3 rd){
     if (kind == 1 && rd.y < .002) { rd.y = .002; rd = normalize(rd); }
     sunOn = .6;
   }
-  col += thr * sky(rd, 0.);
+  col += thr * sky(rd, skySun);
   return col;
 }
 
@@ -494,17 +508,9 @@ void main(){
     if (uLens > 0. && uPreview == 0 && uMode == 0) { float a = rnd() * 6.2831853, r = sqrt(rnd()) * uLens;
       vec3 fp = ro + rd * (uFocus / max(dot(rd, uCamFw), .05)); ro += (uCamRt * cos(a) + uCamUp * sin(a)) * r; rd = normalize(fp - ro); }
   }
-  if (uMode != 0) {
-    if (uMode == 10) { ro = uPRo; rd = uPRd; }
-    int kind, id; vec3 n; float t = meet(ro, rd, kind, id, n);
-    if (uMode == 9 || uMode == 10) { outCol = vec4(float(kind), float(id), t, 1.); return; }
-    vec3 m = vec3(0.);
-    if (uMode == 1) m = vec3(kind == 0 ? 0. : exp(-t * .035));
-    else if (uMode == 2) m = vec3(kind >= 3 ? 1. : 0.);
-    else m = vec3(kind == 0 ? 0. : clamp((ro + rd * t).y / 12., 0., 1.));
-    outCol = vec4(uLDR == 1 ? m : pow(m, vec3(2.2)) * 1.2, uBlend); return;
-  }
+  if (uMode == 10) { ro = uPRo; rd = uPRd; }
   vec3 c = min(trace(ro, rd), vec3(6.));
+  if (uMode != 0) { outCol = gOut; return; }
   if (uLDR == 1) { c = c / (1. + .18 * c) * 1.12; float l = dot(c, vec3(.3, .59, .11)); c = mix(vec3(l), c, 1.12); c = pow(clamp(c, 0., 1.), vec3(1. / 2.2)); }
   outCol = vec4(c, uBlend);
 }
