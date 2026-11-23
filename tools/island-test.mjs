@@ -34,7 +34,7 @@ check("parseGraphQL", parsed.gqlUser === "sample-coder" && parsed.gqlSame)
 check("parseText", parsed.text === "3,0,12", parsed.text)
 check("parseRejectsJunk", parsed.bad === null && parsed.junk === null)
 check("keepsLast53Weeks", parsed.manyDays === 371, parsed.manyDays)
-res.sample-coder = { total: parsed.total, busiest: parsed.busiest, longestRun: parsed.streak }
+res.sample = { total: parsed.total, busiest: parsed.busiest, longestRun: parsed.streak }
 
 // ---- the Modes menu opens it, and it says what is sent where ----
 await p.click('[data-testid="modes-menu"]'); await p.click('[data-testid="mode-github-island"]'); await p.waitForSelector('[data-testid="island-dialog"]', { timeout: 5000 })
@@ -54,12 +54,12 @@ await p.waitForSelector('[data-testid="island-result"]', { timeout: 15000 }); aw
 const w = await world(p)
 check("onlyUsernameSent", served.at(-1) === "https://github-contributions-api.jogruber.de/v4/sample-coder?y=last", served)
 check("landFromGrid", w.land.on && w.land.flat && typeof w.land.sculpt === "string" && w.land.sculpt.length > 20000)
-check("nameInLetters", w.things.some((t) => t.kind === "text" && t.text.str === "TORVALDS"), w.things.map((t) => t.name))
+check("nameInLetters", w.things.some((t) => t.kind === "text" && t.text.str === "SAMPLE-CODER"), w.things.map((t) => t.name))
 check("countInLetters", w.things.some((t) => t.kind === "text" && t.text.str === `${F.total.lastYear} CONTRIBUTIONS`))
 check("withinThingLimit", w.things.length <= 20, w.things.length)
 check("bannerFrame", w.frame.w === 1500 && w.frame.h === 500, w.frame)
-check("skyFromYear", w.sky.zenith === "#170840", w.sky.zenith) // 4039 a year: the blazing sky
-const summary = await p.textContent('[data-testid="island-result"]'); check("statsShown", summary.includes("4,039") && /A blazing year/.test(summary), summary.slice(0, 200))
+check("skyFromYear", w.sky.zenith === "#170840", w.sky.zenith) // about 4000 a year: the blazing sky
+const summary = await p.textContent('[data-testid="island-result"]'); check("statsShown", summary.includes(F.total.lastYear.toLocaleString("en-US")) && /A blazing year/.test(summary), summary.slice(0, 200))
 // busy days are high ground, quiet water stays water: the busiest day's peak stands tall
 const ground = await p.evaluate(() => { const w = window.__app.get().world, e = window.__engine, top = w.things.find((t) => t.name.startsWith("Busiest day")); return { busiest: e.groundAt(top.pos[0], top.pos[2]), farSea: e.groundAt(0, -18), name: top.name } })
 check("busiestDayIsAPeak", ground.busiest > 3.5 && ground.farSea <= 0.01, ground)
@@ -78,7 +78,7 @@ await shot(p, "island-3-lone.png")
 // ---- GitHub's own GraphQL answer, pasted ----
 const gql = JSON.stringify({ data: { user: { login: "sample-coder", contributionsCollection: { contributionCalendar: { weeks: [{ contributionDays: F.contributions.map((c) => ({ date: c.date, contributionCount: c.count })) }] } } } } })
 await p.click('[data-testid="island-paste-open"]'); await p.fill('[data-testid="island-paste"]', gql); await p.click('[data-testid="island-use"]'); await done(p)
-check("pastedGraphQL", (await world(p)).things.some((t) => t.text?.str === "TORVALDS"))
+check("pastedGraphQL", (await world(p)).things.some((t) => t.text?.str === "SAMPLE-CODER"))
 
 // ---- square, save, link ----
 await p.click('role=radio[name="Square"]'); await done(p); const sq = await world(p); check("squareFrame", sq.frame.w === 1200 && sq.frame.h === 1200 && sq.cam.yaw > 0.2, sq.frame)
@@ -91,7 +91,7 @@ await p.close()
 
 // ---- ?github= in the address builds it at start-up ----
 const p2 = await page(ctx, s.url + "?github=sample-coder"); await p2.waitForSelector('[data-testid="island-result"]', { timeout: 30000 }).catch(() => {}); await done(p2)
-check("bootFromAddress", (await world(p2)).things.some((t) => t.text?.str === "TORVALDS"))
+check("bootFromAddress", (await world(p2)).things.some((t) => t.text?.str === "SAMPLE-CODER"))
 await p2.click('[data-testid="island-link"]'); await p2.waitForTimeout(300); check("linkIsShort", (await p2.evaluate(() => window.__islandLink)).endsWith("/?github=sample-coder"))
 await shot(p2, "island-4-boot.png"); await p2.close()
 

@@ -7,12 +7,14 @@
 //   WORLDS_APP     folder of the built app (default: ../dist next to this file)
 //   WORLDS_CHROME  path to a Chrome or Chromium program (default: looked for in the usual places)
 //   WORLDS_OUT     folder that pictures may be saved into (default: the folder the server was started in)
-import fs from "node:fs"; import path from "node:path"
+import fs from "node:fs"; import path from "node:path"; import { fileURLToPath } from "node:url"
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod"
 
 import { createRenderer } from "./renderer.mjs"
+
+const here = path.dirname(fileURLToPath(import.meta.url))
 
 const OUT = path.resolve(process.env.WORLDS_OUT || process.cwd())
 
