@@ -49,7 +49,7 @@ function tidy(w: World, r: () => number) {
   w.things = things
   // a trail reads best seen from the side it was laid out for; a clear sky reads better than a washed-out one
   if (style === "trail") w.cam.yaw = 0.3 + (r() - 0.5) * 0.7
-  w.sky.hazeAmt = Math.min(w.sky.hazeAmt, 0.6); w.sky.fog = Math.min(w.sky.fog, 0.4)
+  clearer(w)
   const cam = w.cam, yaw = cam.yaw, toCam: Vec3 = [Math.sin(yaw), 0, Math.cos(yaw)], side: Vec3 = [Math.cos(yaw), 0, -Math.sin(yaw)]
   const isle = w.land.on && w.land.mode === "island"
   let g = bounds(things)
@@ -64,6 +64,28 @@ function tidy(w: World, r: () => number) {
   g = bounds(things); cam.pitch = 0.06 + r() * 0.2; cam.target = [g.c[0], Math.max(1.2, g.c[1]), g.c[2]]
   let lo = 5, hi = 70; for (let k = 0; k < 24; k++) { const mid = (lo + hi) / 2; if (fits(things, { ...cam, dist: mid })) hi = mid; else lo = mid }
   cam.dist = Math.max(9, hi)
+}
+
+/** A colour as 0..1 channels, and back. */
+const rgb = (h: string) => { const m = /^#?([0-9a-f]{6})$/i.exec(h); const s = m ? m[1] : "888888"; return [0, 2, 4].map((i) => parseInt(s.slice(i, i + 2), 16) / 255) }
+const hexOf = (c: number[]) => "#" + c.map((x) => Math.round(Math.min(1, Math.max(0, x)) * 255).toString(16).padStart(2, "0")).join("")
+const lum = (c: number[]) => 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2]
+/** Darker by `dark` (0..1) and more coloured by `more` (1 keeps it), around its own grey. */
+function deepen(h: string, dark: number, more: number) {
+  const c = rgb(h), l = lum(c)
+  return hexOf(c.map((x) => (l + (x - l) * more) * (1 - dark)))
+}
+
+/** A word's world should have contrast and colour: pale haze and fog over a pale sky wash it out
+ *  to milk, so the haze is held back the paler it is, fog stays a hint, and a pale top of the sky
+ *  is deepened, light rays stay soft. Uses no dice, so the word's things and layout stay as they were. */
+function clearer(w: World) {
+  const s = w.sky, hz = lum(rgb(s.haze)), top = lum(rgb(s.zenith)), low = lum(rgb(s.horizon))
+  s.hazeAmt = Math.min(s.hazeAmt, 0.55 - 0.3 * hz) // a white haze no more than 0.25, a dark one up to 0.55
+  s.fog = s.fog > 0 ? Math.min(s.fog, 0.12) : 0
+  if (s.rays) s.rays = Math.min(s.rays, 0.4) // light rays add the sun's colour over everything
+  if (top > 0.45) s.zenith = deepen(s.zenith, Math.min(0.4, (top - 0.45) * 1.1), 1.35) // a pale sky gets a deeper top
+  if (low > 0.85 && top > 0.35) s.horizon = deepen(s.horizon, 0.06, 1.5) // and a horizon with a little colour
 }
 
 /** Do all the things show inside a 4:3 picture, with a margin, from this camera? */
