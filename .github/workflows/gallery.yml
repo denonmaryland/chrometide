@@ -1,0 +1,16 @@
+# Checks the community gallery list whenever a pull request changes it: every code opens, every
+# field is there and short, nothing is listed twice. Needs no packages, so it is quick.
+name: Gallery
+on:
+  pull_request:
+    paths: ["gallery/**", "tools/gallery-check.mjs"]
+permissions: { contents: read }
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: node tools/gallery-check.mjs

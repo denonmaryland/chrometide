@@ -1,0 +1,88 @@
+# When a maintainer adds the label "add-to-gallery" to an issue made with the "Share a world" form,
+# this opens a pull request that adds the world to gallery/worlds.json.
+#
+# The issue's words are untrusted: they are read only inside actions/github-script (never pasted
+# into a shell line), the share code is pulled out with a strict pattern, every field is cut down
+# and checked, and tools/gallery-check.mjs must pass before anything is pushed. A maintainer still
+# reviews and merges the pull request by hand.
+#
+# Pull requests opened with the built-in token do not start other workflows, so the Gallery check
+# runs here instead, before the pull request is made.
+name: Add to gallery
+on:
+  issues:
+    types: [labeled]
+permissions: { contents: write, pull-requests: write, issues: write }
+concurrency: { group: gallery-add, cancel-in-progress: false }
+jobs:
+  add:
+    if: github.event.label.name == 'add-to-gallery'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Read the issue and add the world
+        id: entry
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs")
+            const issue = context.payload.issue
+            const fail = async (why) => {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: issue.number, body: `Could not add this world to the gallery: ${why}` })
+              core.setFailed(why)
+            }
+            // the form writes "### Label" then the answer; read answers by their label
+            const body = String(issue.body || "").slice(0, 60000)
+            const answer = (label) => {
+              const parts = body.split(/^###\s+/m)
+              const hit = parts.find((p) => p.split("\n")[0].trim().toLowerCase() === label.toLowerCase())
+              if (!hit) return ""
+              const v = hit.split("\n").slice(1).join("\n").trim()
+              return v === "_No response_" ? "" : v
+            }
+            const plain = (s, max) => String(s).replace(/[\u0000-\u001f\u007f<>`\[\]()*_#|\\]/g, " ").replace(/\s+/g, " ").trim().slice(0, max).trim()
+            const code = (/(?:#w=|^|\s)(w2\.[A-Za-z0-9_-]{20,16000})(?![A-Za-z0-9_-])/.exec(answer("Share link")) || [])[1]
+            if (!code) return fail("the share link has no world code in it (it should end in #w=w2.…).")
+            const name = plain(answer("A name for it"), 40)
+            if (!name) return fail("the world needs a name.")
+            const login = String(issue.user && issue.user.login || "")
+            const handle = /^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$/.test(login) ? login : undefined
+            const author = plain(answer("Your name for the gallery"), 40) || handle || "Anonymous"
+            const tags = [...new Set(answer("Tags").toLowerCase().split(/[,\s]+/).map((t) => t.replace(/[^a-z0-9-]/g, "").replace(/^-+|-+$/g, "").slice(0, 16)).filter(Boolean))].slice(0, 5)
+            const file = "gallery/worlds.json", list = JSON.parse(fs.readFileSync(file, "utf8"))
+            if (list.some((w) => w.code === code)) return fail("this world is already in the gallery.")
+            const entry = { name, author, ...(handle ? { github: handle } : {}), code, date: new Date().toISOString().slice(0, 10), tags }
+            list.push(entry)
+            fs.writeFileSync(file, JSON.stringify(list, null, 2) + "\n")
+            core.setOutput("ok", "yes")
+      - name: Check the list
+        run: node tools/gallery-check.mjs
+      - name: Open a pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event.issue.number }}
+        run: |
+          case "$NUMBER" in ''|*[!0-9]*) echo "bad issue number"; exit 1;; esac
+          branch="gallery/issue-$NUMBER"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add gallery/worlds.json
+          git commit -m "Add a world to the gallery (from #$NUMBER)"
+          git push --force origin "$branch"
+          gh pr create --head "$branch" --title "Add a world to the gallery (from #$NUMBER)" \
+            --body "Adds the world shared in #$NUMBER to the community gallery. Open the world from the gallery page in the preview and look at it before merging. Closes #$NUMBER."
+      - name: Say so on the issue
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({ ...context.repo, issue_number: context.payload.issue.number, body: "Thank you! A pull request adding this world to the gallery is open; it shows up once a maintainer merges it." })
+      - name: Say what went wrong
+        if: failure() && steps.entry.outputs.ok == 'yes'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({ ...context.repo, issue_number: context.payload.issue.number, body: "This world did not pass the gallery check (see the Actions run for the reason), so nothing was added." })
