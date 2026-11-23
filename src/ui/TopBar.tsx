@@ -4,6 +4,7 @@ import * as React from "react"
 import { Check, Clapperboard, Disc3, Download, FolderOpen, GanttChart, Link, Redo2, Search, SlidersHorizontal, Sparkles, Undo2 } from "lucide-react"
 
 import { FEATURES } from "@/features"
+import { pickPhoto } from "@/features/photo-world"
 
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -43,6 +44,7 @@ export function TopBar({ onInspector }: { onInspector: () => void }) {
         <DropdownMenuContent align="start" className="w-60">
           <DropdownMenuGroup><DropdownMenuLabel>Bring in</DropdownMenuLabel>
           <DropdownMenuItem data-testid="import-model" onClick={async () => { const f = await pickFile(".glb,.gltf,.obj"); if (f) { setNote("Reading the model…"); const ok = await importModel(f).catch(() => false); setNote(ok ? "" : "That file had no shape I could read."); if (!ok) setTimeout(() => setNote(""), 4000) } }}>A 3D model (.glb, .obj)…</DropdownMenuItem>
+          <DropdownMenuItem data-testid="photo-world" onClick={() => void pickPhoto()}>A photo as a whole world…</DropdownMenuItem>
           <DropdownMenuItem onClick={async () => { const f = await pickFile("image/*"); if (f) { await photoToLand(f); patch({ sel: { type: "land" } }) } }}>A picture as land…</DropdownMenuItem>
           <DropdownMenuItem onClick={async () => { const f = await pickFile("image/*"); if (f) await setPicture(f) }}>A picture for materials…</DropdownMenuItem>
           </DropdownMenuGroup><DropdownMenuSeparator />
