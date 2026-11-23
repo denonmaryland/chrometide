@@ -4,8 +4,8 @@
   "description": "Lets an AI agent build surreal ray-traced worlds and get the pictures back.",
   "type": "module",
   "license": "MIT",
-  "bin": { "untitled-worlds-mcp": "server.mjs" },
-  "scripts": { "start": "node server.mjs", "test": "node test.mjs" },
+  "bin": { "untitled-worlds-mcp": "server.mjs", "untitled-worlds": "cli.mjs" },
+  "scripts": { "start": "node server.mjs", "render": "node cli.mjs", "test": "node test.mjs" },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
     "playwright-core": "^1.65.1",

@@ -9,6 +9,7 @@ import {
   FRAMES, KINDS, LANDS, MATERIALS, SEAS, SKIES, TEXTURES, applySky, blankWorld, clone, decodeWorld, encodeWorld, landFrom, mat, newId, roll, seaFrom, textSpec, thing,
 } from "./engine/scene"
 import { WORLDS } from "./engine/worlds"
+import { islandWorld, parseCalendar } from "./features/island"
 
 const v3 = (v: unknown, d: Vec3): Vec3 => (Array.isArray(v) && v.length === 3 && v.every((n) => typeof n === "number" && isFinite(n)) ? (v as Vec3) : typeof v === "number" ? [v, v, v] : d)
 function material(m: unknown): Material {
@@ -52,6 +53,7 @@ export function Api() {
       land: (w: World, look: string, over: object) => { const n = clone(tidy(w)), l = LANDS.find((s) => s.name.toLowerCase() === String(look).toLowerCase()); if (!l) return null; n.land = { ...landFrom(l, { ...n.land, c1: l.c1, c2: l.c2, c3: l.c3, snow: l.snow, on: true }), ...(over ?? {}) }; return n },
       thing: makeThing, material,
       roll: (w: World, keep: LockKey[]) => roll(tidy(w), new Set(keep ?? [])),
+      island: (data: unknown, o: { user?: string; aspect?: number } = {}) => { const c = parseCalendar(data, o.user); return c ? tidy(islandWorld(c, { aspect: o.aspect })) : null },
       render: async (w: World, width: number, height: number, samples: number) => (await e.still(tidy(w), width, height, samples)).toDataURL("image/png"),
     }
     void loadFonts().then(() => { (window as any).__api = api })
