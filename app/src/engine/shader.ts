@@ -3,7 +3,7 @@
 // anti-aliasing all come from the same thing: many slightly different samples.
 
 export const MAXO = 20 // things per world
-export const MAT_COLS = 6 // texels of material per thing (row MAXO is the lettering)
+export const MAT_COLS = 8 // texels of material per thing (row MAXO is the lettering)
 
 export const VERT = /* glsl */ `
 in vec3 position;
@@ -49,7 +49,7 @@ uniform int uNObj; uniform vec4 uOP[MAXO], uOS[MAXO], uR0[MAXO], uR1[MAXO], uR2[
 uniform sampler2D uMat;
 uniform int uNLight; uniform vec4 uLP[4]; uniform vec3 uLC[4];
 uniform sampler2D uLetters; uniform vec4 uTitlePose; uniform vec3 uTitleBox;
-uniform vec4 uLD[4]; uniform float uRays, uComet, uTerrFlat, uGridHalf; uniform vec3 uCometDir, uPRo, uPRd; uniform sampler2D uPic; uniform sampler3D uModel;
+uniform vec4 uLD[4]; uniform float uRays, uComet, uTerrFlat, uGridHalf; uniform vec3 uCometDir, uPRo, uPRd; uniform sampler2D uPic; uniform sampler3D uModel; uniform highp sampler2DArray uGlyph;
 
 // ---------- random ----------
 uint rs;
@@ -140,6 +140,23 @@ float sdThing(int i, vec3 p){
     vec3 b = abs(u) - 1.; float db = length(max(b, 0.)) + min(max(b.x, max(b.y, b.z)), 0.);
     float v = texture(uModel, clamp(u * .5 + .5, 0., 1.)).r - .5;
     d = (db > 0. ? db + max(v, .02) : v) * .8; }
+  else if (k == 13) {
+    // lettering: a distance picture of the text, given depth. tx = layer, used width, used height, style + 10 * edge
+    vec4 tx = texelFetch(uMat, ivec2(6, i), 0), tb = texelFetch(uMat, ivec2(7, i), 0); vec3 w = q; float slack = .8;
+    if (abs(tb.z) > .01) { float sg = sign(tb.z), R = 2. * s.x / abs(tb.z); w.z += sg * R * (1. - cos(min(abs(tb.z), 6.2831853) * .5)) * .5; float a = atan(w.x, R - sg * w.z); w = vec3(a * R, w.y, sg * (R - length(vec2(w.x, R - sg * w.z)))); slack = .6; }
+    if (abs(tb.w) > .01) { float sg = sign(tb.w), R = 2. * s.x / abs(tb.w), a = atan(w.x, R + sg * w.y); w = vec3(a * R, sg * (length(vec2(w.x, R + sg * w.y)) - R), w.z); slack = .6; }
+    vec2 uv = .5 + w.xy / (2. * s.xy) * tx.yz;
+    float px = min(2. * s.x / (tx.y * float(textureSize(uGlyph, 0).x)), 2. * s.y / (tx.z * float(textureSize(uGlyph, 0).y)));
+    float e = (texture(uGlyph, vec3(clamp(uv, 0., 1.), tx.x)).r * 255. - 128.) * .25 * px;
+    vec2 ob = abs(w.xy) - s.xy; e += length(max(ob, 0.));
+    float st = mod(tx.w, 10.), ed = floor(tx.w / 10.), bev = tb.x;
+    if (st > 1.5) return (length(vec2(e, w.z)) - tb.y) * slack;
+    if (st > .5) e = abs(e) - tb.y;
+    vec2 d0 = vec2(e, abs(w.z) - s.z);
+    if (ed < .5) { vec2 dd = d0 + bev; d = length(max(dd, 0.)) + min(max(dd.x, dd.y), 0.) - bev; }
+    else if (ed < 1.5) d = max(max(d0.x, d0.y), (d0.x + d0.y + bev) * .7071);
+    else d = length(max(d0, 0.)) + min(max(d0.x, d0.y), 0.);
+    return d * slack; }
   else {
     d = capped(vec2(length(u.xz) - .08, abs(u.y + .7) - .3)); float rr = length(u.xz);
     for (int j = 0; j < 3; j++) { float fj = float(j); float top = 1. - fj * .36, h = .78, rad = .4 + fj * .2;
@@ -389,7 +406,7 @@ vec3 trace(vec3 ro, vec3 rd){
       vec3 lp = kind == 3 ? toLocal(id, p) : rotY(p - uTitlePose.xyz, -uTitlePose.w);
       int tex = int(m0.w + .5); vec3 alb;
       if (tex == 8) { vec3 u = kind == 3 ? lp / uOS[id].xyz : lp / uTitleBox; int k = kind == 3 ? int(uOP[id].w + .5) : 1;
-        vec2 uv = (k == 1 || k == 2 || k == 6) ? u.xy * .5 + .5 : vec2(atan(u.x, u.z) / 6.2831853 + .5, u.y * .5 + .5);
+        vec2 uv = (k == 1 || k == 2 || k == 6 || k == 13) ? u.xy * .5 + .5 : vec2(atan(u.x, u.z) / 6.2831853 + .5, u.y * .5 + .5);
         alb = pow(texture(uPic, fract(uv * m1.w)).rgb, vec3(2.2)) * m0.rgb * 1.6; }
       else alb = pattern(tex, lp * m1.w, m0.rgb, m1.rgb);
       if (m4.w > 0.) alb = mix(alb, pattern(int(m4.z + .5), lp * m1.w * 2.3 + 5., alb, texelFetch(uMat, ivec2(5, id), 0).rgb), m4.w);

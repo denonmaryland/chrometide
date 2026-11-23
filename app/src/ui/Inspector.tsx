@@ -9,11 +9,12 @@ import { Switch } from "@/components/ui/switch"
 import { QUALITY } from "@/engine/engine"
 import {
   type Camera, type Kind, type LockKey, type Material, type Thing, type Vec3, type World, FRAMES, KINDS, KIND_LABEL, LANDS, MATERIALS, SEAS, SEA_KINDS, SKIES, TEXTURES,
-  camFrom, clone, mat, newId, seaFrom, skyFrom, thing, titleFrom,
+  camFrom, clone, mat, newId, seaFrom, skyFrom, thing,
 } from "@/engine/scene"
-import { edit, editThing, engine, get, patch, removeThing, rollDice, selectedThing, useApp } from "@/store"
+import { edit, editThing, engine, get, patch, previewMoves, removeThing, rollDice, selectedThing, useApp } from "@/store"
 
 import { exportHeightmap, photoToLand, pickFile, setPicture } from "@/io"
+import { FONTS, addCarved, addNeon, addRing, addWord, floatApart, loadCustomFont, refit, setMotion, splitLetters, writeOnLand } from "@/text"
 
 import { Color, Colors, Dial, Looks, Row, Section, Segmented } from "./fields"
 
@@ -214,14 +215,15 @@ function ThingPanel() {
     else { c.pos = [t.pos[0] + i * t.size[0] * 2.4, t.pos[1], t.pos[2]]; c.size = t.size.map((s) => s * Math.pow(0.86, i)) as Vec3 }
     if (w.things.length < 20) w.things.push(c) } })
   return (<>
+    {t.kind === "text" && t.text && <TextSection t={t} />}
     <Section title="Shape" action={<Button variant="ghost" size="xs" onClick={() => removeThing(t.id)}><Trash2 /> Remove</Button>}>
       <Input value={t.name} onChange={(e) => set("name", (k) => { k.name = e.target.value.slice(0, 40) })} className="h-7 text-[12.5px]" aria-label="Name" />
-      <Row label="Kind"><select value={t.kind} onChange={(e) => set("kind", (k) => { k.kind = e.target.value as Kind })} className="h-6 rounded-sm bg-muted/60 px-1.5 text-[12px] outline-none">{KINDS.map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}</select></Row>
+      {t.kind !== "text" && t.kind !== "model" && <Row label="Kind"><select value={t.kind} onChange={(e) => set("kind", (k) => { k.kind = e.target.value as Kind })} className="h-6 rounded-sm bg-muted/60 px-1.5 text-[12px] outline-none">{KINDS.filter((k) => k !== "text" && k !== "model").map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}</select></Row>}
       {(t.kind === "box" || t.kind === "torus" || t.kind === "stone") && <Dial label={t.kind === "box" ? "Round edges" : t.kind === "torus" ? "Thickness" : "Shape"} value={t.round} min={t.kind === "box" ? 0 : 0.05} max={t.kind === "box" ? 0.5 : 1} onChange={(v) => set("round", (k) => { k.round = v })} />}
     </Section>
     <Section title="Place" action={<Button variant={linked ? "glass" : "ghost"} size="xs" onClick={() => setLinked(!linked)} aria-pressed={linked}><Link2 /> Even size</Button>}>
       <Vec label="Position" value={t.pos} onChange={(v) => set("pos", (k) => { k.pos = v })} />
-      {linked ? <Dial label="Size" value={t.size[0]} min={0.1} max={8} onChange={(v) => set("size", (k) => { const f = v / Math.max(0.01, k.size[0]); k.size = k.size.map((s) => Math.max(0.02, s * f)) as Vec3 })} />
+      {t.kind === "text" ? null : linked ? <Dial label="Size" value={t.size[0]} min={0.1} max={8} onChange={(v) => set("size", (k) => { const f = v / Math.max(0.01, k.size[0]); k.size = k.size.map((s) => Math.max(0.02, s * f)) as Vec3 })} />
         : <Vec label="Size" value={t.size} min={0.02} onChange={(v) => set("size3", (k) => { k.size = v.map((s) => Math.max(0.02, s)) as Vec3 })} />}
       <Dial label="Turn" value={t.rot[0]} min={-180} max={180} step={1} unit="°" onChange={(v) => set("r0", (k) => { k.rot[0] = v })} />
       <Dial label="Tilt" value={t.rot[1]} min={-180} max={180} step={1} unit="°" onChange={(v) => set("r1", (k) => { k.rot[1] = v })} />
@@ -248,23 +250,62 @@ function ThingPanel() {
 }
 
 // ---------- lettering ----------
+const fontSelect = (value: string, onChange: (v: string) => void, custom: boolean) => (
+  <select value={value} onChange={(e) => onChange(e.target.value)} aria-label="Typeface" data-testid="font-select" className="h-6 rounded-sm bg-muted/60 px-1.5 text-[12px] outline-none">
+    {FONTS.filter((f) => f.id !== "custom" || custom).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+  </select>)
 function TitlePanel() {
-  const t = useApp((x) => x.world.title); const set = (label: string, fn: (k: NonNullable<World["title"]>) => void) => edit("title:" + label, (w) => { if (!w.title) w.title = titleFrom(""); fn(w.title) })
-  const v = t ?? titleFrom("")
+  const things = useApp((x) => x.world.things), custom = useApp((x) => !!x.world.customFont); const [str, setStr] = React.useState(""); const [font, setFont] = React.useState("sans"); const [note, setNote] = React.useState("")
+  const texts = things.filter((t) => t.kind === "text"), singles = texts.filter((t) => t.text && [...t.text.str].length === 1).length, full = things.length >= 20
+  const myFont = async () => { const f = await pickFile(".ttf,.otf,.woff,.woff2"); if (!f) return; const ok = await loadCustomFont(f); setNote(ok ? "" : "That font file could not be read."); if (ok) setFont("custom") }
   return (<>
-    <Section title="Words" action={t ? <Button variant="ghost" size="xs" onClick={() => edit("title-off", (w) => { delete w.title })}><Trash2 /> Remove</Button> : undefined}>
-      <Input value={v.text} placeholder="Type a title…" maxLength={40} onChange={(e) => set("text", (k) => { k.text = e.target.value.toUpperCase() })} className="h-8" aria-label="Lettering text" data-testid="title-input" />
-      <p className="text-[11.5px] text-muted-foreground">Real 3D letters standing in the world. They reflect, and the world reflects in them.</p>
+    <Section title="Words">
+      <Input value={str} placeholder="Type a title…" maxLength={40} onChange={(e) => setStr(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !full) addWord(str, font) }} className="h-8" aria-label="Lettering text" data-testid="title-input" />
+      <Row label="Typeface">{fontSelect(font, setFont, custom)}</Row>
+      <div className="flex flex-wrap gap-1.5">
+        <Button className="glass-primary" size="xs" disabled={full} onClick={() => addWord(str, font)} data-testid="add-word">Stand it in the world</Button>
+        <Button variant="glass" size="xs" disabled={full} onClick={() => addNeon(str, font)} data-testid="add-neon">Neon sign</Button>
+        <Button variant="glass" size="xs" disabled={full} onClick={() => addRing(str, font)} data-testid="add-ring">Around a ring</Button>
+        <Button variant="glass" size="xs" disabled={things.length > 18} onClick={() => addCarved(str, font)} data-testid="add-carved">Cut through a slab</Button>
+      </div>
+      <Button variant="ghost" size="xs" className="self-start" onClick={() => void myFont()}>Use my own font file…</Button>
+      {note && <p className="text-[11.5px] text-destructive">{note}</p>}
+      <p className="text-[11.5px] text-muted-foreground">Real 3D letters. They reflect, cast shadows, and can cut holes in other shapes. Select a word to restyle it or split it into letters.</p>
     </Section>
-    {t && <>
-      <Section title="Place">
-        <Dial label="Width" value={v.width} min={2} max={40} step={0.1} onChange={(x) => set("w", (k) => { k.width = x })} /><Dial label="Lift" value={v.lift} min={-1} max={14} step={0.05} onChange={(x) => set("l", (k) => { k.lift = x })} />
-        <Dial label="Depth" value={v.depth} min={0.05} max={3} onChange={(x) => set("d", (k) => { k.depth = x })} /><Dial label="Across" value={v.x} min={-20} max={20} step={0.1} onChange={(x) => set("x", (k) => { k.x = x })} />
-        <Dial label="Near / far" value={v.z} min={-20} max={20} step={0.1} onChange={(x) => set("z", (k) => { k.z = x })} /><Dial label="Turn" value={v.yaw} min={-3.14} max={3.14} onChange={(x) => set("y", (k) => { k.yaw = x })} />
-      </Section>
-      <MaterialLab m={v.mat} set={(label, fn) => set("mat:" + label, (k) => fn(k.mat))} />
-    </>}
+    <Section title="Into the land">
+      <div className="flex flex-wrap gap-1.5"><Button variant="glass" size="xs" onClick={() => writeOnLand(str, font, "raise")} data-testid="write-raise">Raise it as islands</Button><Button variant="glass" size="xs" onClick={() => writeOnLand(str, font, "carve")} data-testid="write-carve">Carve it as canals</Button></div>
+    </Section>
+    <Section title="In this world">
+      {texts.length === 0 ? <p className="text-[12px] text-muted-foreground">No lettering yet.</p> : <div className="flex flex-col gap-0.5">{texts.map((t) => (
+        <button key={t.id} onClick={() => patch({ sel: { type: "thing", id: t.id } })} className="flex h-7 items-center justify-between rounded-md px-2 text-left text-[12.5px] hover:bg-muted/60"><span className="truncate">{t.text?.str.replace(/\n/g, " ") || t.name}</span><span className="size-2.5 rounded-full ring-1 ring-border" style={{ background: t.mat.color }} /></button>))}</div>}
+      {singles > 1 && <div className="flex flex-wrap gap-1.5"><Button variant="glass" size="xs" onClick={floatApart} data-testid="float-apart">Float letters apart</Button></div>}
+    </Section>
+    <Section title="Moves">
+      <div className="flex flex-wrap gap-1.5"><Button variant="glass" size="xs" disabled={!texts.length} onClick={() => { setMotion("rise"); previewMoves(5) }} data-testid="move-rise">Rise from the water</Button><Button variant="glass" size="xs" disabled={!texts.length} onClick={() => { setMotion("wave"); previewMoves(4) }}>Wave</Button><Button variant="ghost" size="xs" disabled={!texts.length} onClick={() => setMotion("none")}>Still</Button></div>
+      <p className="text-[11.5px] text-muted-foreground">Moves play here once as a preview, and for real when you film a Loop. Split a word first to have its letters go one by one.</p>
+    </Section>
   </>)
+}
+function TextSection({ t }: { t: Thing }) {
+  const x = t.text!, custom = useApp((s) => !!s.world.customFont); const set = (label: string, fn: (k: NonNullable<Thing["text"]>, th: Thing) => void) => editThing(t.id, "text:" + label, (k) => { if (k.text) { fn(k.text, k); refit(k) } })
+  const one = [...x.str].length === 1
+  return (
+    <Section title="Lettering" action={!one && !x.str.includes("\n") ? <Button variant="ghost" size="xs" onClick={() => splitLetters(t.id)} data-testid="split">Split into letters</Button> : undefined}>
+      <textarea value={x.str} rows={x.str.includes("\n") ? 2 : 1} maxLength={120} onChange={(e) => set("str", (k, th) => { k.str = e.target.value.toUpperCase() || " "; th.name = k.str.replace(/\n/g, " ").slice(0, 24) })} aria-label="Words" data-testid="text-str"
+        className="min-h-8 w-full resize-none rounded-md bg-muted/60 px-2 py-1.5 text-[13px] outline-none focus:ring-1 focus:ring-ring" />
+      <Row label="Typeface">{fontSelect(x.font, (v) => set("font", (k) => { k.font = v }), custom)}</Row>
+      <Segmented label="Style" value={x.style} options={[{ value: "solid", label: "Solid" }, { value: "outline", label: "Outline" }, { value: "tube", label: "Tube" }]} onChange={(v) => set("style", (k) => { k.style = v })} />
+      {x.style !== "tube" && <Segmented label="Edges" value={x.edge} options={[{ value: "round", label: "Round" }, { value: "chisel", label: "Chisel" }, { value: "sharp", label: "Sharp" }]} onChange={(v) => set("edge", (k) => { k.edge = v })} />}
+      {x.style !== "tube" && x.edge !== "sharp" && <Dial label="Edge size" value={x.bevel} max={0.12} step={0.002} digits={3} onChange={(v) => set("bevel", (k) => { k.bevel = v })} />}
+      {x.style !== "solid" && <Dial label="Line weight" value={x.stroke} min={0.008} max={0.12} step={0.002} digits={3} onChange={(v) => set("stroke", (k) => { k.stroke = v })} />}
+      <Dial label="Letter height" value={t.size[1] * 2} min={0.3} max={12} step={0.05} onChange={(v) => set("h", (_k, th) => { th.size[1] = v / 2 })} />
+      {x.style !== "tube" && <Dial label="Depth" value={t.size[2] * 2} min={0.05} max={6} step={0.05} onChange={(v) => set("d", (_k, th) => { th.size[2] = v / 2 })} />}
+      <Dial label="Around a ring" value={x.bend} min={-360} max={360} step={1} unit="°" onChange={(v) => set("bend", (k) => { k.bend = v })} />
+      <Dial label="Arch" value={x.arch} min={-180} max={180} step={1} unit="°" onChange={(v) => set("arch", (k) => { k.arch = v })} />
+      <Row label="Move in loops"><Segmented label="Move" value={x.motion ?? "none"} options={[{ value: "none", label: "Still" }, { value: "rise", label: "Rise" }, { value: "wave", label: "Wave" }]} onChange={(v) => { set("motion", (k) => { k.motion = v }); if (v !== "none") previewMoves(4) }} /></Row>
+      <p className="text-[11.5px] text-muted-foreground">Set it to “Cuts” below and it carves its words through the solid shapes of its set.</p>
+    </Section>
+  )
 }
 
 // ---------- camera ----------

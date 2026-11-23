@@ -2,7 +2,7 @@
 // push the land up and down.
 import * as React from "react"
 import * as THREE from "three"
-import { Box, Boxes, Circle, Cone, Copy, Cylinder, Dices, Diamond, Donut, Droplet, Lock, LockOpen, Mountain, Plus, Scissors, Trash2, TreeDeciduous, TreePine, Triangle, ArrowDownToLine, Disc } from "lucide-react"
+import { Box, Boxes, Type, Circle, Cone, Copy, Cylinder, Dices, Diamond, Donut, Droplet, Lock, LockOpen, Mountain, Plus, Scissors, Trash2, TreeDeciduous, TreePine, Triangle, ArrowDownToLine, Disc } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -14,9 +14,9 @@ import { type Kind, type LockKey, type Vec3, KINDS, KIND_LABEL, mat, thing } fro
 import { addThing, duplicateThing, edit, editThing, engine, get, patch, removeThing, rollDice, selectedThing, setEngine, toggleLock, useApp } from "@/store"
 
 export const KIND_ICON: Record<Kind, React.ComponentType<{ className?: string }>> = {
-  sphere: Circle, box: Box, pyramid: Triangle, cylinder: Cylinder, cone: Cone, torus: Donut, disc: Disc, stone: Diamond, blob: Droplet, tree: TreeDeciduous, pine: TreePine, crag: Mountain, model: Boxes,
+  sphere: Circle, box: Box, pyramid: Triangle, cylinder: Cylinder, cone: Cone, torus: Donut, disc: Disc, stone: Diamond, blob: Droplet, tree: TreeDeciduous, pine: TreePine, crag: Mountain, model: Boxes, text: Type,
 }
-export const ADDABLE = KINDS.filter((k) => k !== "model")
+export const ADDABLE = KINDS.filter((k) => k !== "model" && k !== "text")
 const LOCKS: { key: LockKey; label: string }[] = [{ key: "sky", label: "Sky" }, { key: "sea", label: "Sea" }, { key: "land", label: "Land" }, { key: "things", label: "Things" }, { key: "camera", label: "Camera" }]
 
 export function newThing(kind: Kind) {
@@ -70,6 +70,8 @@ export function Viewport() {
   React.useEffect(() => { engine?.setQuality(QUALITY[quality].samples) }, [quality])
   React.useEffect(() => { engine?.setSelected(sel.type === "thing" ? sel.id : null); engine?.touch(true) }, [sel])
   React.useEffect(() => { engine?.setWires(wires) }, [wires])
+  const phase = useApp((s) => s.phase)
+  React.useEffect(() => { if (engine) { engine.livePhase = phase; engine.touch() } }, [phase])
   React.useEffect(() => { if (engine) { engine.mode = mask; engine.touch() } }, [mask])
 
   // fit the frame inside the space there is

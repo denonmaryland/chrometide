@@ -3,13 +3,14 @@
 // camera maths and the wireframes.
 import * as THREE from "three"
 
-import { titleField } from "./lettering"
+import { LH, LW, glyphLayer, titleField } from "./lettering"
 import { type Camera, type Material, type Thing, type World, KINDS, ROLES, SEA_KINDS, TEXTURES } from "./scene"
 import { DISPLAY_FRAG, MAT_COLS, MAXO, TRACE_FRAG, VERT } from "./shader"
 
 export type Phase = "moving" | "blocks" | "refining" | "done"
 export interface Status { phase: Phase; samples: number; target: number }
 export interface Hit { kind: "sky" | "sea" | "land" | "thing" | "title"; id?: string; point: [number, number, number]; dist: number }
+const GLYPHS = 24 // pieces of lettering that can be on screen at once
 export const GRID = 128 // the hand-sculpted land is a grid this many cells across
 export const QUALITY = [
   { name: "Draft", samples: 4 }, { name: "Good", samples: 16 }, { name: "Fine", samples: 48 }, { name: "Premium", samples: 160 },
@@ -47,6 +48,7 @@ const WIRE: Record<string, () => THREE.BufferGeometry> = {
   pine: () => new THREE.EdgesGeometry(new THREE.ConeGeometry(0.8, 1.8, 8).translate(0, 0.1, 0), 20),
   crag: () => new THREE.EdgesGeometry(new THREE.CylinderGeometry(1, 0.2, 1.6, 10), 20),
   model: () => new THREE.EdgesGeometry(new THREE.BoxGeometry(2, 2, 2)),
+  text: () => new THREE.EdgesGeometry(new THREE.BoxGeometry(2, 2, 2)),
 }
 
 export class Engine {
@@ -61,6 +63,9 @@ export class Engine {
   private matTex!: THREE.DataTexture; private matData = new Float32Array(MAT_COLS * (MAXO + 1) * 4)
   private letterTex: THREE.DataTexture | null = null; private letterKey = ""
   private sculptTex!: THREE.DataTexture; private sculptKey = ""
+  private glyphTex!: THREE.DataArrayTexture; private glyphs = new Map<string, { layer: number; uw: number; uh: number }>()
+  /** when set, things with a move (rise, wave) and bobbing things follow this moment of the loop, 0 to 1 */
+  livePhase: number | null = null
   private picTex!: THREE.Texture; private picKey = ""; private modelTex!: THREE.Data3DTexture; private modelKey = ""
   private wireScene = new THREE.Scene(); private wireCam = new THREE.PerspectiveCamera(); private wires = new Map<string, THREE.LineSegments>()
   private float = false
@@ -95,6 +100,7 @@ export class Engine {
     this.u.uMat = { value: this.matTex }
     const blank = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1, THREE.RGBAFormat); blank.needsUpdate = true
     this.u.uLetters = { value: blank }
+    this.glyphTex = new THREE.DataArrayTexture(new Uint8Array(LW * LH * GLYPHS).fill(255), LW, LH, GLYPHS); this.glyphTex.format = THREE.RedFormat; this.glyphTex.minFilter = this.glyphTex.magFilter = THREE.LinearFilter; this.glyphTex.unpackAlignment = 1; this.glyphTex.needsUpdate = true; this.u.uGlyph = { value: this.glyphTex }
     this.picTex = blank; this.u.uPic = { value: blank }
     this.modelTex = new THREE.Data3DTexture(new Uint8Array([255]), 1, 1, 1); this.modelTex.format = THREE.RedFormat; this.modelTex.unpackAlignment = 1; this.modelTex.needsUpdate = true; this.u.uModel = { value: this.modelTex }
     this.sculptTex = new THREE.DataTexture(new Uint8Array(GRID * GRID * 4).fill(128), GRID, GRID, THREE.RGBAFormat)
@@ -135,7 +141,17 @@ export class Engine {
   touch(soft = false) { this.dirty = true; if (!soft) this.lastChange = performance.now() }
 
   // ---------- world -> uniforms ----------
-  private upload(w: World, vw: number, vh: number, time = this.time, phase = time) {
+  /** Forget every drawn letter (after a font arrives), so they are drawn again. */
+  resetGlyphs() { this.glyphs.clear(); this.touch() }
+  private glyphFor(str: string, font: string) {
+    const key = font + "|" + str; let g = this.glyphs.get(key)
+    if (!g) { if (this.glyphs.size >= GLYPHS) this.glyphs.clear()
+      const made = glyphLayer(str, font), layer = this.glyphs.size; (this.glyphTex.image.data as Uint8Array).set(made.data, layer * LW * LH); this.glyphTex.needsUpdate = true
+      g = { layer, uw: made.uw, uh: made.uh }; this.glyphs.set(key, g) }
+    return g
+  }
+  private upload(w: World, vw: number, vh: number, time = this.time, moment: number | null = this.livePhase) {
+    const phase = moment ?? time
     const u = this.u, v3 = (n: string, c: [number, number, number] | THREE.Vector3) => (c instanceof THREE.Vector3 ? u[n].value.copy(c) : u[n].value.set(c[0], c[1], c[2]))
     const s = w.sky, night = s.stars > 0.5 ? 0.6 : 1.25
     const b = camBasis(w.cam); v3("uCamPos", b.pos); b.pos.y = Math.max(b.pos.y, 0.25); u.uCamPos.value.y = b.pos.y
@@ -162,16 +178,23 @@ export class Engine {
     if (t.sculpt && t.sculpt !== this.sculptKey) { this.sculptKey = t.sculpt; try { const raw = atob(t.sculpt), d = this.sculptTex.image.data as Uint8Array; for (let i = 0; i < GRID * GRID; i++) d[i * 4] = i < raw.length ? raw.charCodeAt(i) : 128; this.sculptTex.needsUpdate = true } catch { /* a bad sculpt string leaves the land untouched */ } }
     // things
     const things = w.things.filter((x) => !x.hidden).slice(0, MAXO); this.ids = things.map((x) => x.id)
-    const m4 = new THREE.Matrix4(), e = new THREE.Euler(); let nl = 0
+    const m4 = new THREE.Matrix4(), e = new THREE.Euler(); let nl = 0; const risers = things.filter((x) => x.text?.motion && x.text.motion !== "none")
     things.forEach((o, i) => {
       const ki = Math.max(0, KINDS.indexOf(o.kind)); const sz = o.size.map((x) => Math.max(0.02, num(x, 1, 0, 200))) as [number, number, number]
-      const bob = o.bob ? Math.sin(phase * Math.PI * 2 + i * 1.7) * o.bob : 0
+      let bob = o.bob ? Math.sin(phase * Math.PI * 2 + i * 1.7) * o.bob : 0
+      if (moment !== null && o.text?.motion && o.text.motion !== "none") { const order = o.text.order ?? risers.indexOf(o), n = Math.max(1, risers.length)
+        if (o.text.motion === "wave") bob += Math.sin((moment - order * 0.11) * Math.PI * 2) * sz[1] * 0.45
+        else { const sm = (x: number) => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x) }, delay = n > 1 ? (order / (n - 1)) * 0.45 : 0
+          bob -= (1 - sm((moment - delay) / 0.22) * (1 - sm((moment - 0.86) / 0.12))) * (Math.max(0, o.pos[1]) + sz[1] + 0.4) } }
       u.uOP.value[i].set(num(o.pos[0], 0), num(o.pos[1], 0) + bob, num(o.pos[2], 0), ki); u.uOS.value[i].set(sz[0], sz[1], sz[2], num(o.round, 0.1, 0, 1))
       e.set(THREE.MathUtils.degToRad(o.rot[1]), THREE.MathUtils.degToRad(o.rot[0] + Math.round(o.spin ?? 0) * phase * 360), THREE.MathUtils.degToRad(o.rot[2]), "YXZ"); m4.makeRotationFromEuler(e)
       const el = m4.elements // columns of the rotation = rows of its inverse
-      const bound = Math.hypot(sz[0], sz[1], sz[2]) * (o.kind === "blob" ? 1.6 : 1.02) + (o.kind === "blob" ? 0.5 : 0)
+      const bent = o.kind === "text" && o.text && (o.text.bend || o.text.arch)
+      const bound = Math.hypot(sz[0], sz[1], sz[2]) * (o.kind === "blob" ? 1.6 : bent ? 1.9 : 1.02) + (o.kind === "blob" ? 0.5 : 0)
       u.uR0.value[i].set(el[0], el[1], el[2], Math.max(0, ROLES.indexOf(o.role))); u.uR1.value[i].set(el[4], el[5], el[6], Math.min(3, Math.max(0, Math.round(o.group || 0)))); u.uR2.value[i].set(el[8], el[9], el[10], bound)
       this.putMat(i, o.mat)
+      if (o.kind === "text") { const t = o.text ?? { str: o.name, font: "sans", style: "solid", edge: "round", bevel: 0.03, stroke: 0.035, bend: 0, arch: 0 }, g = this.glyphFor(t.str || " ", t.font), hgt = sz[1] * 2
+        this.matData.set([g.layer, g.uw, g.uh, ["solid", "outline", "tube"].indexOf(t.style) + 10 * ["round", "chisel", "sharp"].indexOf(t.edge), num(t.bevel, 0.03, 0, 0.2) * hgt, num(t.stroke, 0.035, 0.005, 0.2) * hgt, THREE.MathUtils.degToRad(num(t.bend, 0, -360, 360)), THREE.MathUtils.degToRad(num(t.arch, 0, -180, 180))], i * MAT_COLS * 4 + 24) }
       if (o.mat.glow > 0 && nl < 4 && o.role === "solid") { const c = hex(o.mat.color), p = o.mat.glow * Math.min(40, 2.5 + sz[0] * sz[0] * 4)
         u.uLP.value[nl].set(o.pos[0], o.pos[1] + bob, o.pos[2], Math.max(...sz)); const beam = num(o.beam, 0, 0, 170), k = beam > 0 ? 2.2 : 1; u.uLC.value[nl].set(c[0] * p * k, c[1] * p * k, c[2] * p * k)
         u.uLD.value[nl].set(-el[4], -el[5], -el[6], beam > 0 ? Math.cos(THREE.MathUtils.degToRad(beam / 2)) : -2); nl++ }
@@ -327,7 +350,7 @@ export class Engine {
   }
 
   /** Render a world to its own pixels, away from the screen: for saved pictures, thumbnails and loop frames. */
-  private offscreen(w: World, width: number, height: number, samples: number, time: number, preview: boolean, phase = time): Uint8Array {
+  private offscreen(w: World, width: number, height: number, samples: number, time: number, preview: boolean, phase: number | null = null): Uint8Array {
     const opt = { depthBuffer: false, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, generateMipmaps: false }
     const hdr = new THREE.WebGLRenderTarget(width, height, { ...opt, type: this.float ? THREE.HalfFloatType : THREE.UnsignedByteType })
     this.upload(w, width, height, time, phase)
@@ -351,7 +374,7 @@ export class Engine {
     for (let y = 0; y < height; y++) im.data.set(px.subarray((height - 1 - y) * width * 4, (height - y) * width * 4), y * width * 4)
     x.putImageData(im, 0, 0); return c
   }
-  frame(w: World, width: number, height: number, samples = 2, time = 0, into?: HTMLCanvasElement, phase = 0) { return this.toCanvas(this.offscreen(w, width, height, samples, time, false, phase), width, height, into) }
+  frame(w: World, width: number, height: number, samples = 2, time = 0, into?: HTMLCanvasElement, phase: number | null = null) { return this.toCanvas(this.offscreen(w, width, height, samples, time, false, phase), width, height, into) }
   thumb(w: World, width = 160, height = 120): string { return this.toCanvas(this.offscreen(w, width, height, 2, 0, false), width, height).toDataURL("image/jpeg", 0.82) }
   /** A finished picture at any size, in slices so the page stays alive and can show progress. */
   async still(w: World, width: number, height: number, samples: number, onProgress?: (f: number) => void): Promise<HTMLCanvasElement> {

@@ -3,11 +3,11 @@
 
 export type Vec3 = [number, number, number]
 
-export const KINDS = ["sphere", "box", "pyramid", "cylinder", "cone", "torus", "disc", "stone", "blob", "tree", "pine", "crag", "model"] as const
+export const KINDS = ["sphere", "box", "pyramid", "cylinder", "cone", "torus", "disc", "stone", "blob", "tree", "pine", "crag", "model", "text"] as const
 export type Kind = (typeof KINDS)[number]
 export const KIND_LABEL: Record<Kind, string> = {
   sphere: "Sphere", box: "Box", pyramid: "Pyramid", cylinder: "Cylinder", cone: "Cone", torus: "Ring",
-  disc: "Disc", stone: "Stone", blob: "Blob", tree: "Tree", pine: "Pine", crag: "Floating rock", model: "Imported model",
+  disc: "Disc", stone: "Stone", blob: "Blob", tree: "Tree", pine: "Pine", crag: "Floating rock", model: "Imported model", text: "Lettering",
 }
 export const ROLES = ["solid", "cut", "keep"] as const
 export type Role = (typeof ROLES)[number]
@@ -31,8 +31,17 @@ export interface Thing {
   round: number; role: Role; group: number
   mat: Material; hidden?: boolean
   bob?: number; spin?: number // used by loops
+  text?: TextSpec
   beam?: number // for glowing things: 0 lights all around, above 0 is a spotlight this many degrees wide, pointing down its own axis
 }
+export interface TextSpec {
+  str: string; font: string
+  style: "solid" | "outline" | "tube"; edge: "round" | "chisel" | "sharp"
+  bevel: number; stroke: number // both as a share of the letter height
+  bend: number; arch: number // degrees: around a ring, and up into an arch
+  motion?: "none" | "rise" | "wave"; order?: number
+}
+export const textSpec = (str: string, o: Partial<TextSpec> = {}): TextSpec => ({ str, font: "sans", style: "solid", edge: "round", bevel: 0.03, stroke: 0.035, bend: 0, arch: 0, ...o })
 export interface Sky {
   zenith: string; horizon: string; haze: string; sunColor: string
   sun: { az: number; el: number }; sunSize: number; sunGlow: number; sunSoft: number
@@ -68,6 +77,7 @@ export interface World {
   anim?: Anim
   picture?: string // a small picture (data URL) that materials with the "picture" pattern show
   model?: { n: number; data: string } // an imported shape, kept as a grid of distances
+  customFont?: string // a font file the user brought (data URL); letters set in "My font" use it
 }
 export type Pose = Pick<World, "sky" | "sea" | "land" | "cam" | "things" | "title">
 export interface Anim { seconds: number; loop: boolean; ease: boolean; keys: { t: number; pose: Pose }[] }
@@ -293,7 +303,7 @@ async function pipe(data: Uint8Array, stream: CompressionStream | DecompressionS
   return new Uint8Array(await new Response(stream.readable).arrayBuffer())
 }
 export async function encodeWorld(w: World, full = false): Promise<string> {
-  const lean = clone(w); if (!full) { delete lean.model; delete lean.picture; lean.things = lean.things.filter((t) => t.kind !== "model") } lean.things.forEach((t) => { t.pos = t.pos.map(r3) as Vec3; t.size = t.size.map(r3) as Vec3 })
+  const lean = clone(w); if (!full) { delete lean.model; delete lean.picture; delete lean.customFont; lean.things = lean.things.filter((t) => t.kind !== "model") } lean.things.forEach((t) => { t.pos = t.pos.map(r3) as Vec3; t.size = t.size.map(r3) as Vec3 })
   return "w2." + b64(await pipe(new TextEncoder().encode(JSON.stringify(lean)), new CompressionStream("deflate-raw")))
 }
 export async function decodeWorld(code: string): Promise<World | null> {

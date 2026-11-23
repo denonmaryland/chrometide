@@ -35,7 +35,7 @@ await shot("t3-thing.png")
 // orbit by dragging empty sky
 await changed("orbit", async () => { await p.mouse.move(cv.x + cv.width * 0.9, cv.y + cv.height * 0.08); await p.mouse.down(); await p.mouse.move(cv.x + cv.width * 0.7, cv.y + cv.height * 0.12, { steps: 6 }); await p.mouse.up() })
 // lettering
-await p.click('[data-testid="part-title"]'); await changed("lettering", () => p.fill('[data-testid="title-input"]', "LOW TIDE")); await shot("t4-lettering.png")
+await p.click('[data-testid="part-title"]'); await changed("lettering", async () => { await p.fill('[data-testid="title-input"]', "LOW TIDE"); await p.click('[data-testid="add-word"]') }); await shot("t4-lettering.png")
 // dice with a lock
 await p.click('[data-testid="part-sky"]'); const sky0 = JSON.stringify((await world()).sky)
 await p.evaluate(() => window.__app.toggleLock("sky")); await changed("dice", () => p.click('[data-testid="dice"]')); res.lockKept = JSON.stringify((await world()).sky) === sky0; await p.evaluate(() => window.__app.toggleLock("sky")); await shot("t5-rolled.png")

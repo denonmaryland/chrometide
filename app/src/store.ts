@@ -11,7 +11,7 @@ export interface State {
   world: World; sel: Sel; locks: LockKey[]; past: World[]; future: World[]
   quality: number; status: Status; saved: Saved[]; sculpt: { tool: "off" | "raise" | "lower" | "smooth" | "erode"; size: number }
   wires: boolean; mask: number; dialog: null | "cover" | "loop" | "find" | "gallery"; rolls: number
-  playhead: number; playing: boolean; timeline: boolean
+  playhead: number; playing: boolean; timeline: boolean; phase: number | null
 }
 const KEY = "untitled-worlds:saved"
 const loadSaved = (): Saved[] => { try { return JSON.parse(localStorage.getItem(KEY) ?? "[]") } catch { return [] } }
@@ -19,7 +19,7 @@ const loadSaved = (): Saved[] => { try { return JSON.parse(localStorage.getItem(
 let state: State = {
   world: STARTERS[0](), sel: { type: "sky" }, locks: [], past: [], future: [], quality: 1,
   status: { phase: "blocks", samples: 0, target: 16 }, saved: loadSaved(), sculpt: { tool: "off", size: 0.12 },
-  wires: true, mask: 0, dialog: null, rolls: 0, playhead: 0, playing: false, timeline: false,
+  wires: true, mask: 0, dialog: null, rolls: 0, playhead: 0, playing: false, timeline: false, phase: null,
 }
 const subs = new Set<() => void>()
 const emit = () => subs.forEach((f) => f())
@@ -65,13 +65,18 @@ export function rollDice(only?: LockKey) {
 export async function shareLink(): Promise<string> { return `${location.origin}${location.pathname}#w=${await encodeWorld(state.world)}` }
 export async function loadFromHash(): Promise<boolean> {
   const m = /^#w=(.+)$/.exec(location.hash); if (!m) return false
-  const w = await decodeWorld(m[1]); if (!w) return false
+  const w0 = await decodeWorld(m[1]); if (!w0) return false
+  const w = await (await import("./text")).prepare(w0)
   w.remixOf = w.remixOf ?? w.name; state = { ...state, world: w, past: [], future: [] }; emit(); history.replaceState(null, "", location.pathname + location.search); return true
 }
 // ---------- the timeline ----------
 export function seek(t: number) { t = Math.min(1, Math.max(0, t)); const w = state.world; state = { ...state, playhead: t, world: w.anim && w.anim.keys.length ? at(w, t) : w }; emit() }
 export function addKey() { const t = state.playhead; edit("anim-key", (w) => { const an = (w.anim ??= newAnim()); const i = keyAt(an, t); const k = { t, pose: pose(w) }; if (i >= 0) an.keys[i] = k; else an.keys.push(k); an.keys.sort((a, b) => a.t - b.t) }) }
 export function removeKey(i: number) { edit("anim-unkey", (w) => { w.anim?.keys.splice(i, 1) }) }
+
+/** Play the loop moves (rise, wave, bob, spin) once in the picture, then put everything back. */
+let movesRun = 0
+export function previewMoves(seconds = 4) { const id = ++movesRun, t0 = performance.now(); const tick = (now: number) => { if (id !== movesRun) return; const k = (now - t0) / 1000 / seconds; if (k >= 1) { patch({ phase: null }); return } patch({ phase: k }); requestAnimationFrame(tick) }; requestAnimationFrame(tick) }
 
 export async function saveToShelf() {
   if (!engine) return
@@ -81,4 +86,4 @@ export async function saveToShelf() {
   patch({ saved })
 }
 export function dropFromShelf(id: string) { const saved = state.saved.filter((s) => s.id !== id); try { localStorage.setItem(KEY, JSON.stringify(saved)) } catch { /* ignore */ } patch({ saved }) }
-export async function openSaved(s: Saved) { const w = await decodeWorld(s.code); if (w) replaceWorld(w, "open") }
+export async function openSaved(s: Saved) { const w = await decodeWorld(s.code); if (w) replaceWorld(await (await import("./text")).prepare(w), "open") }
