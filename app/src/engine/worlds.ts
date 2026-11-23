@@ -1,8 +1,11 @@
 // The worlds you can start from. All original.
 import { textAspect } from "./lettering"
+
+/** A colour along the rainbow: low notes warm, high notes cool. */
+const hue = (k: number) => { const h = 330 - k * 190, f = (n: number) => { const a = (n + h / 30) % 12; return Math.round(255 * (0.58 - 0.42 * Math.max(-1, Math.min(a - 3, 9 - a, 1)))).toString(16).padStart(2, "0") }; return `#${f(0)}${f(8)}${f(4)}` }
 import {
   type Material, type Sea, type Sky, type Land, type TextSpec, type Thing, type Vec3, type World,
-  LANDS, SEAS, SKIES, STARTERS, arrange, camFrom, landFrom, mat, off, seaFrom, skyFrom, textSpec, thing, world,
+  LANDS, SEAS, SKIES, STARTERS, arrange, camFrom, landFrom, mat, off, seaFrom, skyFrom, soundSet, textSpec, thing, world,
 } from "./scene"
 
 const sky = (name: string, o: Partial<Sky> = {}) => { const l = SKIES.find((x) => x.name === name) ?? SKIES[0]; return skyFrom(l, { ...l.extra, ...o }) }
@@ -104,7 +107,7 @@ export const WORLDS: Starter[] = [
   // ---------- words and light ----------
   S("Words & light", "Neon Harbour", () => world("Neon Harbour", sky("Synth", { sun: { az: 2.9, el: 0.14 }, cloud: 0.25, streak: 0.9, ambient: 0.3 }), sea("Ink", { reflect: 0.6, wave: 0.14 }), off(),
     [word("OPEN LATE", 2.6, [0, 2.4, 7], { font: "script", style: "tube", stroke: 0.028 }, { mat: m("Neon", { glow: 2.6 }) }), ...arrange("cluster", 3, 5, m("Black pearl")).map((t) => ({ ...t, pos: [t.pos[0] * 1.6, t.pos[1] + 2.5, t.pos[2] - 4] as Vec3 }))],
-    camFrom({ yaw: 0.12, pitch: 0.1, dist: 17, target: [0, 3, 0] }))),
+    camFrom({ yaw: 0.12, pitch: 0.1, dist: 17, target: [0, 3, 0] }), { bloom: 0.6 })),
   S("Words & light", "Low Tide", () => world("Low Tide", sky("Dusk", { sun: { az: 2.7, el: 0.2 }, cloud: 0.45, streak: 0.6 }), sea("Mercury", { wave: 0.08 }), land("Island", { height: 6, radius: 9, freq: 0.26, ridge: 1, seed: 7.7 }),
     [word("LOW TIDE", 3, [0, 1.8, 10.5], { font: "poster" })], camFrom({ yaw: 0.1, pitch: 0.12, dist: 24, target: [0, 2.8, 0] }))),
   S("Words & light", "Orbit Words", () => world("Orbit Words", sky("Lilac", { sun: { az: 0.9, el: 0.55 }, cloud: 0.55, streak: 0.5 }), sea("Mercury", { wave: 0.16 }), off(),
@@ -128,5 +131,16 @@ export const WORLDS: Starter[] = [
   S("Strange", "Sunken Letters", () => world("Sunken Letters", sky("Deep teal", { sun: { az: -0.7, el: 0.7 }, cloud: 0.35, fog: 0.25 }), sea("Teal", { wave: 0.22 }), off(),
     ["D", "R", "I", "F", "T"].map((ch, i) => word(ch, 4.6, [-7 + i * 3.5, 0.6 + ((i * 7) % 3) * 0.5, (i % 2) * 1.6 - 0.8], { font: "serif", order: i }, { rot: [(i - 2) * 9, (i % 2 ? 1 : -1) * 14, (i - 2) * 6], bob: 0.2, mat: m(i === 2 ? "Gold" : "Chrome") })),
     camFrom({ yaw: 0.15, pitch: 0.14, dist: 15, target: [0, 1.8, 0] }))),
+
+  // ---------- made for music: open Sound and choose a song ----------
+  S("Sound", "Equalizer Bay", () => world("Equalizer Bay", sky("Midnight", { sun: { az: 2.6, el: 0.1 }, cloud: 0.12, ambient: 0.3, stars: 1.2, moon: 1, moonAz: 3.5, moonEl: 0.42, moonSize: 0.08, moonPhase: 0.5 }), sea("Mirror", { c1: "#05060c", c2: "#28304a", reflect: 0.8 }), off(),
+    [...Array.from({ length: 12 }, (_, i) => { const a = (i / 12) * Math.PI * 2 + 0.26; return thing("box", [Math.cos(a) * 6, 1.5, Math.sin(a) * 6], [0.42, 1.5, 0.42], m("Neon", { color: hue(i / 11), glow: 1.1 }), { name: `Meter ${i + 1}`, eq: Math.round((i / 11) * 14), rot: [(-a * 180) / Math.PI, 0, 0], round: 0.08 }) }),
+      thing("sphere", [0, 2.6, 0], 2, m("Chrome"), { name: "Mirror ball" })],
+    camFrom({ yaw: 0.3, pitch: 0.2, dist: 20, target: [0, 2.2, 0] }), { bloom: 0.55, sound: soundSet({ pulse: 0.5, float: 0.25, glow: 1, ripple: 0.2, twinkle: 0.9, orbit: 0.4, punch: 0.3, journey: "off" }) })),
+  S("Sound", "Loud Letters", () => world("Loud Letters", sky("Dusk", { sun: { az: 2.8, el: 0.2 }, cloud: 0.45, streak: 0.7 }), sea("Mercury", { wave: 0.1 }), off(),
+    [..."LOUDER"].map((ch, i) => word(ch, 3.2, [-6.5 + i * 2.6, 1.9, 2], { font: "poster", order: i }, { mat: m(i % 2 ? "Gold" : "Chrome") })),
+    camFrom({ yaw: 0.1, pitch: 0.1, dist: 16, target: [0, 2.6, 0] }), { bloom: 0.55, sound: soundSet({ pulse: 0.2, float: 0.1, meters: 1, glow: 0.6, orbit: 0.2, punch: 0.4, journey: "sunset", every: 32 }) })),
+  S("Sound", "Bass Moons", () => world("Bass Moons", sky("Deep teal", { sun: { az: -0.9, el: 0.7 }, cloud: 0.35 }), sea("Teal", { wave: 0.3 }), off(),
+    arrange("trail", 7, 11, m("Chrome")), camFrom({ yaw: 0.3, pitch: 0.19, dist: 15.5, target: [0, 3.1, 0] }), { bloom: 0.55, sound: soundSet({ pulse: 0.9, float: 0.6, ripple: 0.9, glow: 0.5, orbit: 0.3, punch: 0.3 }) })),
 ]
 export const WORLD_GROUPS = [...new Set(WORLDS.map((w) => w.group))]

@@ -66,6 +66,8 @@ export class Engine {
   private glyphTex!: THREE.DataArrayTexture; private glyphs = new Map<string, { layer: number; uw: number; uh: number }>()
   /** when set, things with a move (rise, wave) and bobbing things follow this moment of the loop, 0 to 1 */
   livePhase: number | null = null
+  /** live mode, for music: every frame is a quick whole picture, as large as the graphics chip can keep smooth */
+  live = false; private liveDiv = 3
   private picTex!: THREE.Texture; private picKey = ""; private modelTex!: THREE.Data3DTexture; private modelKey = ""
   private wireScene = new THREE.Scene(); private wireCam = new THREE.PerspectiveCamera(); private wires = new Map<string, THREE.LineSegments>()
   private float = false
@@ -115,7 +117,7 @@ export class Engine {
     this.acc = new THREE.WebGLRenderTarget(2, 2, { ...opt, type: this.float ? THREE.HalfFloatType : THREE.UnsignedByteType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter })
     if (this.float) this.pickRT = new THREE.WebGLRenderTarget(1, 1, { ...opt, type: THREE.FloatType })
     this.showMat = new THREE.RawShaderMaterial({ glslVersion: THREE.GLSL3, vertexShader: VERT, fragmentShader: DISPLAY_FRAG, depthTest: false, depthWrite: false,
-      uniforms: { tLow: { value: this.low.texture }, tAcc: { value: this.acc.texture }, uRes: { value: new THREE.Vector2(2, 2) }, uScanY: { value: 0 }, uHave: { value: 0 }, uAccLDR: { value: this.float ? 0 : 1 } } })
+      uniforms: { tLow: { value: this.low.texture }, tAcc: { value: this.acc.texture }, uRes: { value: new THREE.Vector2(2, 2) }, uScanY: { value: 0 }, uHave: { value: 0 }, uAccLDR: { value: this.float ? 0 : 1 }, uBloom: { value: 0 } } })
     const sm = new THREE.Mesh(tri, this.showMat); sm.frustumCulled = false; this.showScene.add(sm)
     let bad = ""
     r.debug.onShaderError = (gl, _p, _vs, fs) => { bad = gl.getShaderInfoLog(fs) || "shader error"; console.error("SHADER", bad) }
@@ -211,7 +213,7 @@ export class Engine {
       this.putMat(MAXO, ti.mat)
     } else u.uTitleBox.value.set(0, 0, 0)
     this.matTex.needsUpdate = true
-    u.uRes.value.set(vw, vh)
+    u.uRes.value.set(vw, vh); this.showMat.uniforms.uBloom.value = num(w.bloom, 0, 0, 1.5)
   }
   /** The world's picture (for materials) and imported shape, loaded into textures when they change. */
   private pictures(w: World) {
@@ -252,7 +254,7 @@ export class Engine {
     this.drawWires()
   }
   private drawWires() {
-    const w = this.world; if (!w || w.cam.pano) return
+    const w = this.world; if (!w || w.cam.pano || this.live) return
     const all = this.showWires && this.stage < 3 && this.sample === 0 && this.moving
     const want = new Set<string>()
     for (const t of w.things) { if (t.hidden) continue; if (!(all || t.id === this.selected)) continue; want.add(t.id)
@@ -283,7 +285,9 @@ export class Engine {
     const still = now - this.lastChange > 130
     if (this.dirty) {
       this.dirty = false; this.upload(this.world, this.w, this.h); this.stage = 0; this.sample = 0; this.scan = 0; this.moving = !still
-      this.lowPass(this.moving ? Math.max(3, Math.round(Math.sqrt((this.w * this.h) / 90000))) : 12); if (!this.moving) this.stage = 1
+      if (this.live) { this.moving = true; if (dt > 44) this.liveDiv = Math.min(8, this.liveDiv + 0.5); else if (dt < 26) this.liveDiv = Math.max(1.25, this.liveDiv - 0.08) }
+      const linear = this.live ? THREE.LinearFilter : THREE.NearestFilter; if (this.low.texture.magFilter !== linear) { this.low.dispose(); this.low.texture.magFilter = this.low.texture.minFilter = linear }
+      this.lowPass(this.live ? this.liveDiv : this.moving ? Math.max(3, Math.round(Math.sqrt((this.w * this.h) / 90000))) : 12); if (!this.moving) this.stage = 1
       this.show(); this.status(); return
     }
     if (this.moving) { if (!still) return; this.moving = false }

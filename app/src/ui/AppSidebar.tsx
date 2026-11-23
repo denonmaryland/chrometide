@@ -1,6 +1,6 @@
 // The left sidebar: the parts of this world, its things, and worlds to start from.
 import * as React from "react"
-import { Aperture, BookmarkPlus, Camera, Eye, EyeOff, Image, Lock, LockOpen, Mountain, Plus, Sun, Type, Waves, X } from "lucide-react"
+import { Aperture, AudioLines, BookmarkPlus, Camera, Eye, EyeOff, Image, Lock, LockOpen, Mountain, Plus, Sun, Type, Waves, X } from "lucide-react"
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
@@ -15,7 +15,7 @@ import { ADDABLE, KIND_ICON, newThing } from "./Viewport"
 
 const PARTS: { type: Exclude<Sel["type"], "thing">; label: string; icon: React.ComponentType<{ className?: string }>; lock?: LockKey }[] = [
   { type: "sky", label: "Sky", icon: Sun, lock: "sky" }, { type: "sea", label: "Sea & floor", icon: Waves, lock: "sea" }, { type: "land", label: "Land", icon: Mountain, lock: "land" },
-  { type: "title", label: "Lettering", icon: Type }, { type: "camera", label: "Camera", icon: Camera, lock: "camera" }, { type: "picture", label: "Picture", icon: Image },
+  { type: "title", label: "Lettering", icon: Type }, { type: "camera", label: "Camera", icon: Camera, lock: "camera" }, { type: "picture", label: "Picture", icon: Image }, { type: "sound", label: "Sound", icon: AudioLines },
 ]
 /** A starting world's little picture: drawn by the engine itself, once the fonts have arrived. */
 function Thumb({ starter, order }: { starter: Starter; order: number }) {

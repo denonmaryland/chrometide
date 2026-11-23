@@ -23,10 +23,18 @@ vec3 tone(vec3 c){
   float l = dot(c, vec3(.3, .59, .11)); c = mix(vec3(l), c, 1.12);
   return pow(clamp(c, 0., 1.), vec3(1. / 2.2));
 }
+uniform float uBloom;    // how much bright things spill light around themselves
+vec3 pic(vec2 uv, bool acc){ return acc ? (uAccLDR == 1 ? texture(tAcc, uv).rgb : tone(texture(tAcc, uv).rgb)) : texture(tLow, uv).rgb; }
 void main(){
   vec2 uv = gl_FragCoord.xy / uRes;
   bool acc = uHave == 2 || (uHave == 1 && gl_FragCoord.y >= uRes.y - uScanY);
-  vec3 c = acc ? (uAccLDR == 1 ? texture(tAcc, uv).rgb : tone(texture(tAcc, uv).rgb)) : texture(tLow, uv).rgb;
+  vec3 c = pic(uv, acc);
+  if (uBloom > 0.) { // a ring of looks around each dot: whatever is very bright nearby leaks in
+    vec3 g = vec3(0.); float n = 0.; vec2 asp = vec2(uRes.y / uRes.x, 1.);
+    for (int i = 0; i < 28; i++) { float fi = float(i) + .5, r = sqrt(fi / 28.) * .055, a = fi * 2.39996; vec2 o = vec2(cos(a), sin(a)) * r * asp;
+      vec3 s = pic(clamp(uv + o, 0., 1.), uHave == 2 || (uHave == 1 && (uv.y + o.y) * uRes.y >= uRes.y - uScanY)); float w = 1. - r / .06;
+      g += s * smoothstep(.72, 1., max(s.r, max(s.g, s.b))) * w; n += w; }
+    c += g / n * uBloom * 2.2; }
   if (uHave == 1) { float d = abs(gl_FragCoord.y - (uRes.y - uScanY)); c += vec3(.35) * smoothstep(1.5, 0., d); }
   outCol = vec4(c, 1.);
 }

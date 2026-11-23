@@ -17,6 +17,7 @@ import { exportHeightmap, photoToLand, pickFile, setPicture } from "@/io"
 import { FONTS, addCarved, addNeon, addRing, addWord, floatApart, loadCustomFont, refit, setMotion, splitLetters, writeOnLand } from "@/text"
 
 import { Color, Colors, Dial, Looks, Row, Section, Segmented } from "./fields"
+import { SoundPanel } from "./SoundPanel"
 
 /** Put every thing in a row, a ring, or at one height. */
 function arrangeAll(how: "row" | "ring" | "level") {
@@ -33,7 +34,7 @@ function scatter(t: Thing) {
 }
 
 const grad = (a: string, b: string) => `linear-gradient(${a}, ${b})`
-const TITLES = { sky: "Sky", sea: "Sea & floor", land: "Land", title: "Lettering", camera: "Camera", picture: "Picture", thing: "Thing" }
+const TITLES = { sky: "Sky", sea: "Sea & floor", land: "Land", title: "Lettering", camera: "Camera", picture: "Picture", thing: "Thing", sound: "Sound" }
 
 export function Inspector() {
   const sel = useApp((s) => s.sel)
@@ -41,7 +42,7 @@ export function Inspector() {
     <aside className="glass-panel flex h-full min-h-0 w-full flex-col overflow-hidden rounded-lg" aria-label="Inspector" data-testid="inspector">
       <header className="flex h-10 shrink-0 items-center justify-between border-b border-border/60 px-3">
         <h2 className="text-[13px] font-medium">{TITLES[sel.type]}</h2>
-        {sel.type !== "thing" && sel.type !== "picture" && sel.type !== "title" && (
+        {sel.type !== "thing" && sel.type !== "picture" && sel.type !== "title" && sel.type !== "sound" && (
           <Button variant="ghost" size="xs" onClick={() => rollDice(sel.type as LockKey)}><Dices /> Roll this</Button>
         )}
       </header>
@@ -53,6 +54,7 @@ export function Inspector() {
         {sel.type === "title" && <TitlePanel />}
         {sel.type === "camera" && <CameraPanel />}
         {sel.type === "picture" && <PicturePanel />}
+        {sel.type === "sound" && <SoundPanel />}
       </div>
     </aside>
   )
@@ -344,7 +346,7 @@ function CameraPanel() {
 
 // ---------- picture ----------
 function PicturePanel() {
-  const f = useApp((x) => x.world.frame), quality = useApp((x) => x.quality), wires = useApp((x) => x.wires), mask = useApp((x) => x.mask)
+  const bloom = useApp((x) => x.world.bloom ?? 0); const f = useApp((x) => x.world.frame), quality = useApp((x) => x.quality), wires = useApp((x) => x.wires), mask = useApp((x) => x.mask)
   return (<>
     <Section title="Frame"><div className="flex flex-col gap-1">{FRAMES.map((x) => (
       <button key={x.name} onClick={() => edit("frame", (w) => { w.frame = x; w.cam.pano = x.name.startsWith("360") })} aria-pressed={x.name === f.name}
@@ -352,6 +354,7 @@ function PicturePanel() {
         <span>{x.name.replace(/ \d.*$/, "")}</span><span className="font-mono text-[11px]">{x.w} × {x.h}</span></button>))}</div></Section>
     <Section title="Finish"><Segmented label="Quality" value={String(quality)} options={QUALITY.map((q, i) => ({ value: String(i), label: q.name }))} onChange={(v) => patch({ quality: +v })} />
       <p className="text-[11.5px] text-muted-foreground">More passes make shadows, blur and glass smoother. Premium takes the longest.</p></Section>
+    <Section title="Light"><Dial label="Bloom" value={bloom} max={1.2} onChange={(v) => edit("bloom", (w) => { w.bloom = v })} /><p className="text-[11.5px] text-muted-foreground">Bright things spill a soft light around themselves. Lovely with neon and the sun.</p></Section>
     <Section title="Show"><Segmented label="Show" value={String(mask)} options={[{ value: "0", label: "Picture" }, { value: "1", label: "Distance" }, { value: "2", label: "Things" }, { value: "3", label: "Height" }]} onChange={(v) => patch({ mask: +v })} />
       <Row label="Wireframes while moving"><Switch checked={wires} onCheckedChange={(v) => patch({ wires: v })} aria-label="Wireframes while moving" /></Row></Section>
   </>)

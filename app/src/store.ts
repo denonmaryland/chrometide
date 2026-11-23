@@ -5,13 +5,15 @@ import type { Engine, Status } from "./engine/engine"
 import { at, keyAt, newAnim, pose } from "./engine/anim"
 import { type LockKey, type Thing, type World, STARTERS, clone, decodeWorld, encodeWorld, newId, roll } from "./engine/scene"
 
-export type Sel = { type: "sky" | "sea" | "land" | "title" | "camera" | "picture" } | { type: "thing"; id: string }
+export type Sel = { type: "sky" | "sea" | "land" | "title" | "camera" | "picture" | "sound" } | { type: "thing"; id: string }
 export interface Saved { id: string; name: string; code: string; thumb: string; at: number }
 export interface State {
   world: World; sel: Sel; locks: LockKey[]; past: World[]; future: World[]
   quality: number; status: Status; saved: Saved[]; sculpt: { tool: "off" | "raise" | "lower" | "smooth" | "erode"; size: number }
   wires: boolean; mask: number; dialog: null | "cover" | "loop" | "find" | "gallery"; rolls: number
   playhead: number; playing: boolean; timeline: boolean; phase: number | null
+  /** the music: what is loaded, whether it is sounding, and whether the picture is following it */
+  song: { name: string; duration: number; bpm: number; beats: number } | null; sounding: boolean; mic: boolean
 }
 const KEY = "untitled-worlds:saved"
 const loadSaved = (): Saved[] => { try { return JSON.parse(localStorage.getItem(KEY) ?? "[]") } catch { return [] } }
@@ -19,7 +21,7 @@ const loadSaved = (): Saved[] => { try { return JSON.parse(localStorage.getItem(
 let state: State = {
   world: STARTERS[0](), sel: { type: "sky" }, locks: [], past: [], future: [], quality: 1,
   status: { phase: "blocks", samples: 0, target: 16 }, saved: loadSaved(), sculpt: { tool: "off", size: 0.12 },
-  wires: true, mask: 0, dialog: null, rolls: 0, playhead: 0, playing: false, timeline: false, phase: null,
+  wires: true, mask: 0, dialog: null, rolls: 0, playhead: 0, playing: false, timeline: false, phase: null, song: null, sounding: false, mic: false,
 }
 const subs = new Set<() => void>()
 const emit = () => subs.forEach((f) => f())

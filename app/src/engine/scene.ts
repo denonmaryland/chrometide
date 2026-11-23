@@ -32,6 +32,7 @@ export interface Thing {
   mat: Material; hidden?: boolean
   bob?: number; spin?: number // used by loops
   text?: TextSpec
+  eq?: number // a meter bar: its height follows this band of the music, 0 (lowest) to 15
   beam?: number // for glowing things: 0 lights all around, above 0 is a spotlight this many degrees wide, pointing down its own axis
 }
 export interface TextSpec {
@@ -77,8 +78,27 @@ export interface World {
   anim?: Anim
   picture?: string // a small picture (data URL) that materials with the "picture" pattern show
   model?: { n: number; data: string } // an imported shape, kept as a grid of distances
+  sound?: SoundSet // how this world moves to music
+  bloom?: number // bright things spill light around themselves
   customFont?: string // a font file the user brought (data URL); letters set in "My font" use it
 }
+export type Band = "bass" | "mid" | "high" | "beat"
+/** How a world answers music. Every amount runs from 0 (not at all) to 1 (a lot). */
+export interface SoundSet {
+  pulse: number; pulseTo: Band // things swell
+  float: number // things ride up and down
+  ripple: number // the water roughens with the bass
+  glow: number // lamps, neon and the sun brighten
+  twinkle: number // stars flicker with the highs
+  breathe: number // haze and clouds move with the middle
+  meters: number // meter bars and single letters jump with their own bands
+  orbit: number // the camera circles slowly
+  kick: number // the camera steps round on each beat
+  punch: number // the camera leans in on each beat
+  journey: "off" | "sunset" | "candy" | "night" | "surprise" // the sky changes colour as the song goes
+  every: number // beats between colour changes
+}
+export const soundSet = (o: Partial<SoundSet> = {}): SoundSet => ({ pulse: 0.5, pulseTo: "bass", float: 0.4, ripple: 0.5, glow: 0.5, twinkle: 0.5, breathe: 0.3, meters: 0.8, orbit: 0.3, kick: 0, punch: 0.2, journey: "off", every: 16, ...o })
 export type Pose = Pick<World, "sky" | "sea" | "land" | "cam" | "things" | "title">
 export interface Anim { seconds: number; loop: boolean; ease: boolean; keys: { t: number; pose: Pose }[] }
 

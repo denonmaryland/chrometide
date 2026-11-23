@@ -9,7 +9,9 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { nowLevels } from "@/audio"
 import { Engine, GRID, QUALITY } from "@/engine/engine"
+import { react } from "@/sound"
 import { type Kind, type LockKey, type Vec3, KINDS, KIND_LABEL, mat, thing } from "@/engine/scene"
 import { addThing, duplicateThing, edit, editThing, engine, get, patch, removeThing, rollDice, selectedThing, setEngine, toggleLock, useApp } from "@/store"
 
@@ -66,7 +68,14 @@ export function Viewport() {
     e.onStatus = (s) => patch({ status: s }); e.setWorld(get().world)
     return () => { e.dispose(); setEngine(null) }
   }, [])
-  React.useEffect(() => { engine?.setWorld(world) }, [world])
+  const sounding = useApp((s) => s.sounding)
+  React.useEffect(() => { if (!sounding) engine?.setWorld(world) }, [world, sounding])
+  // while music sounds, every frame is the world as the music moves it
+  React.useEffect(() => {
+    if (!engine || !sounding) return; const e = engine; e.live = true; let raf = 0
+    const tick = () => { const r = react(get().world, nowLevels()); e.time = r.time; e.setWorld(r.world); raf = requestAnimationFrame(tick) }
+    raf = requestAnimationFrame(tick); return () => { cancelAnimationFrame(raf); e.live = false; e.time = 0; e.setWorld(get().world) }
+  }, [sounding])
   React.useEffect(() => { engine?.setQuality(QUALITY[quality].samples) }, [quality])
   React.useEffect(() => { engine?.setSelected(sel.type === "thing" ? sel.id : null); engine?.touch(true) }, [sel])
   React.useEffect(() => { engine?.setWires(wires) }, [wires])
