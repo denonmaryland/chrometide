@@ -1,9 +1,10 @@
 // The bar across the top: the world's name, undo, how the render is going, and the ways out
 // (share, cover, loop, save).
 import * as React from "react"
-import { Check, Clapperboard, Disc3, Download, FolderOpen, GanttChart, Link, Redo2, Search, SlidersHorizontal, Sparkles, Undo2 } from "lucide-react"
+import { Check, Clapperboard, Code2, Disc3, Download, FolderOpen, GanttChart, Link, Redo2, Search, SlidersHorizontal, Sparkles, Undo2 } from "lucide-react"
 
 import { FEATURES } from "@/features"
+import { openEmbed } from "@/features/share"
 
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -66,6 +67,7 @@ export function TopBar({ onInspector }: { onInspector: () => void }) {
         </span>
         <Button variant="glass" size="sm" className="hidden text-muted-foreground md:inline-flex" onClick={() => patch({ dialog: "find" })}><Search /> Find anything <Kbd>/</Kbd></Button>
         <Tip label="Copy a link to this world"><Button variant="ghost" size="sm" onClick={() => void share()} data-testid="share">{copied ? <Check /> : <Link />}<span className="hidden sm:inline">{copied ? "Copied" : "Share"}</span></Button></Tip>
+        <Tip label="Put this world on your own page"><Button variant="ghost" size="icon-sm" className="max-sm:hidden" onClick={openEmbed} aria-label="Embed on a page" data-testid="embed"><Code2 /></Button></Tip>
         <Tip label="Make a cover, flyer, poster, postcard…"><Button variant="ghost" size="sm" onClick={() => patch({ dialog: "cover" })} data-testid="open-cover"><Disc3 /><span className="hidden sm:inline">Design</span></Button></Tip>
         <Tip label="Make a looping video"><Button variant="ghost" size="sm" onClick={() => patch({ dialog: "loop" })} data-testid="open-loop"><Clapperboard /><span className="hidden sm:inline">Loop</span></Button></Tip>
         <Button size="sm" className="glass-primary" onClick={() => void save()} data-testid="save"><Download />{saving === null ? "Save" : `${Math.round(saving * 100)}%`}</Button>
