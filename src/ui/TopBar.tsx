@@ -1,7 +1,9 @@
 // The bar across the top: the world's name, undo, how the render is going, and the ways out
 // (share, cover, loop, save).
 import * as React from "react"
-import { Check, Clapperboard, Disc3, Download, FolderOpen, GanttChart, Link, Redo2, Search, SlidersHorizontal, Undo2 } from "lucide-react"
+import { Check, Clapperboard, Disc3, Download, FolderOpen, GanttChart, Link, Redo2, Search, SlidersHorizontal, Sparkles, Undo2 } from "lucide-react"
+
+import { FEATURES } from "@/features"
 
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -50,6 +52,12 @@ export function TopBar({ onInspector }: { onInspector: () => void }) {
           <DropdownMenuItem onClick={exportHeightmap}>The land as a height picture</DropdownMenuItem></DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
+      {FEATURES.some((f) => f.run) && <DropdownMenu>
+        <DropdownMenuTrigger render={<Button variant="ghost" size="sm" data-testid="modes-menu" />}><Sparkles /><span className="hidden lg:inline">Modes</span></DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-72"><DropdownMenuGroup>
+          {FEATURES.filter((f) => f.run).map((f) => <DropdownMenuItem key={f.id} onClick={() => f.run!()} data-testid={`mode-${f.id}`}>{f.icon && <f.icon className="size-4" />}<span className="flex flex-col"><span>{f.label}</span><span className="text-[11px] text-muted-foreground">{f.about}</span></span></DropdownMenuItem>)}
+        </DropdownMenuGroup></DropdownMenuContent>
+      </DropdownMenu>}
       <Tip label="Animate with keys on a timeline"><Button variant={timeline ? "glass" : "ghost"} size="sm" onClick={() => patch({ timeline: !timeline, playing: false })} data-testid="open-timeline"><GanttChart /><span className="hidden lg:inline">Timeline</span></Button></Tip>
       {note && <span className="text-[12px] text-muted-foreground">{note}</span>}
       <div className="ml-auto flex items-center gap-1.5">

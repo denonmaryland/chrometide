@@ -4,6 +4,8 @@ import { KIND_LABEL, LANDS, MATERIALS, SEAS, SKIES, applySky, clone, seaFrom } f
 import { WORLDS } from "@/engine/worlds"
 import { edit, editThing, get, patch, redo, replaceWorld, rollDice, saveToShelf, undo, useApp } from "@/store"
 
+import { FEATURES } from "@/features"
+
 import { ADDABLE, newThing } from "./Viewport"
 
 export function CommandBar() {
@@ -15,6 +17,7 @@ export function CommandBar() {
       <CommandInput placeholder="Try dusk, chrome, lagoon, ring, roll…" />
       <CommandList>
         <CommandEmpty>Nothing by that name. Try “dusk” or “chrome”.</CommandEmpty>
+        {FEATURES.some((f) => f.run) && <CommandGroup heading="Modes">{FEATURES.filter((f) => f.run).map((f) => <CommandItem key={f.id} onSelect={run(f.run!)}>{f.label}: {f.about}</CommandItem>)}</CommandGroup>}
         <CommandGroup heading="Do">
           <CommandItem onSelect={run(() => rollDice())}>Roll a new world</CommandItem>
           <CommandItem onSelect={run(() => rollDice("sky"))}>Roll only the sky</CommandItem>

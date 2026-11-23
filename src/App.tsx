@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import { duplicateThing, edit, editThing, get, loadFromHash, patch, redo, removeThing, rollDice, undo, useApp } from "@/store"
 
+import { FEATURES } from "./features"
 import { AppSidebar } from "./ui/AppSidebar"
 import { CommandBar } from "./ui/CommandBar"
 import { DesignDialog } from "./ui/Design"
@@ -16,7 +17,7 @@ import { Viewport } from "./ui/Viewport"
 
 export function App() {
   const sky = useApp((s) => s.world.sky), timeline = useApp((s) => s.timeline); const [sheet, setSheet] = React.useState(false)
-  React.useEffect(() => { void loadFromHash() }, [])
+  React.useEffect(() => { void loadFromHash(); const q = new URLSearchParams(location.search); for (const f of FEATURES) f.boot?.(q) }, [])
   React.useEffect(() => {
     const key = (e: KeyboardEvent) => {
       const el = document.activeElement as HTMLElement | null; const typing = !!el && (/INPUT|TEXTAREA|SELECT/.test(el.tagName) || el.isContentEditable)
@@ -50,6 +51,7 @@ export function App() {
         </SidebarInset>
       </SidebarProvider>
       <CommandBar /><DesignDialog /><LoopDialog />
+      {FEATURES.map((f) => (f.Overlay ? <f.Overlay key={f.id} /> : null))}
     </TooltipProvider>
   )
 }
