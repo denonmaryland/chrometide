@@ -58,6 +58,36 @@ SLOW in gold. Show me, then make it better."*
 `npm test` connects the way an agent would, builds a small world, renders it and saves
 `test-out/agent-moon.png`.
 
+## Render from the terminal
+The same hidden renderer also works without an agent. In this folder (after `npm install`, and
+with the app built once):
+
+```bash
+node cli.mjs render "Red Moons" -o red-moons.png --size 1200x1200 --quality fine
+node cli.mjs render w2.pVVNj9ow… -o shared.png        # a share code, or a whole link with #w=
+node cli.mjs render my-world.json -o mine.png         # a world saved as JSON
+node cli.mjs render calendar.json -o island.png --size 1500x500   # a GitHub year becomes an island
+node cli.mjs list                                     # the ready-made worlds, by group
+node cli.mjs code "Red Moons"                         # a share code to open in the web app
+```
+
+| Option | What it does |
+|---|---|
+| `-o`, `--out` | Where to save the PNG. Default: the world's name, in the current folder |
+| `--size WxH` | Picture size, up to 4096 a side. Default: the world's own frame |
+| `--quality` | `draft` (4 passes, quick), `good` (16, the default) or `fine` (48, for keeps) |
+| `--user NAME` | The name to stand on a calendar island, if the file does not say it |
+
+A calendar file can be the JSON from the free contributions service
+(`https://github-contributions-api.jogruber.de/v4/NAME?y=last`), GitHub's own GraphQL answer
+(`contributionsCollection { contributionCalendar { weeks { contributionDays { date contributionCount } } } }`),
+or a plain list of `{ "date": "2026-03-14", "count": 7 }`.
+
+Installed with `npm install -g` (or `npm link`) in this folder, the command is `untitled-worlds`.
+It reads the same `WORLDS_APP` and `WORLDS_CHROME` settings as the server, and says plainly what
+is missing if the app is not built or no Chrome is found. It exits with 0 when the picture is
+saved, 1 when something went wrong, 2 when the command was mistyped.
+
 ## Not in this version
 Timeline animation, loops, the cover maker, music, hand-sculpted land and imported models are in
 the web app but not yet reachable from here. One world is worked on at a time.
