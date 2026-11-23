@@ -4,7 +4,6 @@
 // With a song playing or the microphone on, the worlds move to the music. Any key, click or
 // mouse move goes back.
 import * as React from "react"
-import { MonitorPlay } from "lucide-react"
 
 import { micOn, nowLevels } from "@/audio"
 import { Engine } from "@/engine/engine"
@@ -14,7 +13,7 @@ import { react } from "@/sound"
 import { engine as mainEngine, get } from "@/store"
 import { prepare } from "@/text"
 
-import type { Feature } from "./index"
+import type { FeatureCode } from "./lazy"
 import { wordWorld } from "./words"
 
 let isOpen = false; const subs = new Set<() => void>()
@@ -122,8 +121,7 @@ function SaverScreen() {
   )
 }
 
-export const screensaverFeature: Feature = {
-  id: "screensaver", label: "Screensaver", about: "Drift slowly through worlds, full screen. Any key brings you back.", icon: MonitorPlay,
+export const screensaverFeature: FeatureCode = {
   run: start, Overlay: Saver,
   boot: (q) => { if (q.has("screensaver")) setOpen(true) },
 }

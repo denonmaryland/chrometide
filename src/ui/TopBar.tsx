@@ -3,8 +3,7 @@
 import * as React from "react"
 import { Check, Clapperboard, Code2, Disc3, Download, FolderOpen, GanttChart, Link, Redo2, Search, SlidersHorizontal, Sparkles, Undo2 } from "lucide-react"
 
-import { FEATURES } from "@/features"
-import { openEmbed } from "@/features/share"
+import { FEATURES, openEmbed } from "@/features"
 import { pickPhoto } from "@/features/photo-world"
 
 import { Button } from "@/components/ui/button"

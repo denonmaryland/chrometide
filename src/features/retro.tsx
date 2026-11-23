@@ -3,7 +3,7 @@
 // The world is traced once (offscreen, at good quality), then shown crawling down the screen.
 // Save the finished picture as a PNG with the look, or film the crawl as a short clip.
 import * as React from "react"
-import { Clapperboard, Dices, Download, Monitor, RotateCcw, X } from "lucide-react"
+import { Clapperboard, Dices, Download, RotateCcw, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
@@ -12,7 +12,7 @@ import { engine, get, rollDice, useApp } from "@/store"
 import { Dial } from "@/ui/fields"
 import { download, fileName } from "@/ui/TopBar"
 
-import type { Feature } from "./index"
+import type { FeatureCode } from "./lazy"
 import { SH, SW, type Tube, countColours, dither, pal, textWidth, tube, write } from "./retro-look"
 
 // ---------- open or closed, shared with the menu ----------
@@ -172,8 +172,7 @@ function RetroScreen() {
   )
 }
 
-export const retroFeature: Feature = {
-  id: "1994", label: "1994 mode", about: "Watch the picture arrive line by line, the way a 1994 computer drew it.", icon: Monitor,
+export const retroFeature: FeatureCode = {
   run: () => setOpen(true), Overlay: Retro,
   boot: (q) => { if (q.has("1994") || q.has("retro")) setOpen(true) },
 }

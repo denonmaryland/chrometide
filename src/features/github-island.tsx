@@ -12,7 +12,7 @@ import { engine, patch as patchApp, replaceWorld, shareLink } from "@/store"
 import { Segmented } from "@/ui/fields"
 import { download, fileName } from "@/ui/TopBar"
 
-import type { Feature } from "./index"
+import type { FeatureCode } from "./lazy"
 import { type Calendar, cleanUser, islandWorld, moodOf, parseCalendar, stats, validUser } from "./island"
 
 /** The free, open service that reads public contribution calendars (it allows any website to ask). */
@@ -103,13 +103,10 @@ function Island() {
 }
 const Stat = ({ label, value }: { label: string; value: string }) => <div className="flex flex-col"><span className="text-[10.5px] tracking-wide text-muted-foreground uppercase">{label}</span><span className="font-medium tabular-nums">{value}</span></div>
 
-export const githubIsland: Feature = {
-  id: "github-island", label: "GitHub year island", icon: MountainSnow,
-  about: "A year of GitHub contributions becomes an island, with the name in chrome.",
+export const githubIsland: FeatureCode = {
   run: () => set({ open: true, note: "" }),
   Overlay: Island,
   boot: (q) => { const u = q.get("github"); if (u !== null) { set({ open: true }); if (u.trim()) void fetchYear(u) } },
 }
 // test handle
 ;(window as any).__island = { get: () => s, set, fetchYear, fromPasted }
-;(window as any).__islandLib = { parse: parseCalendar, stats, build: islandWorld }

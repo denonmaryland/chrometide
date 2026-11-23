@@ -2,7 +2,7 @@
 import * as React from "react"
 
 import type { Engine, Status } from "./engine/engine"
-import { type DesignOpts, designOpts } from "./design/layouts"
+import { type DesignOpts, designOpts } from "./design/opts"
 import { at, keyAt, newAnim, pose } from "./engine/anim"
 import { type LockKey, type Thing, type World, STARTERS, clone, decodeWorld, encodeWorld, newId, roll } from "./engine/scene"
 
