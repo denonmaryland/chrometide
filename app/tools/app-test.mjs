@@ -40,7 +40,7 @@ await p.click('[data-testid="part-title"]'); await changed("lettering", async ()
 await p.click('[data-testid="part-sky"]'); const sky0 = JSON.stringify((await world()).sky)
 await p.evaluate(() => window.__app.toggleLock("sky")); await changed("dice", () => p.click('[data-testid="dice"]')); res.lockKept = JSON.stringify((await world()).sky) === sky0; await p.evaluate(() => window.__app.toggleLock("sky")); await shot("t5-rolled.png")
 // find anything
-await p.keyboard.press("/"); await p.keyboard.type("lagoon"); await p.waitForTimeout(300); await shot("t6-find.png"); await changed("find", () => p.keyboard.press("Enter"))
+await p.keyboard.press("/"); await p.keyboard.type("world lava teeth"); await p.waitForTimeout(300); await shot("t6-find.png"); await changed("find", () => p.keyboard.press("Enter"))
 // share link round trip
 await p.click('[data-testid="share"]'); await p.waitForTimeout(500); const link = await p.evaluate(() => location.href); res.linkLength = link.length
 const w1 = await world(); const p2 = await ctx.newPage(); await p2.goto(link); await p2.waitForFunction(() => window.__app && window.__app.get().world.remixOf, null, { timeout: 20000 }).catch(() => logs.push("link did not load"))
