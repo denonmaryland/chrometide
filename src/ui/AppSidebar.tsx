@@ -1,6 +1,6 @@
 // The left sidebar: the parts of this world, its things, and worlds to start from.
 import * as React from "react"
-import { Aperture, AudioLines, BookmarkPlus, Camera, Eye, EyeOff, Image, Lock, LockOpen, Mountain, Plus, Sun, Type, Waves, X } from "lucide-react"
+import { Aperture, AudioLines, BookmarkPlus, Camera, Eye, EyeOff, Image, LayoutGrid, Lock, LockOpen, Mountain, Plus, Sun, Type, Waves, X } from "lucide-react"
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
@@ -94,7 +94,9 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter><p className="px-2 pb-1 text-[11px] leading-snug text-muted-foreground group-data-[collapsible=icon]:hidden">Drag the picture to look around. Drag a thing to move it. Drag the sun.</p></SidebarFooter>
+      <SidebarFooter>
+        <SidebarMenu><SidebarMenuItem><SidebarMenuButton tooltip="Community gallery" render={<a href="./gallery.html" target="_blank" rel="noopener" />} data-testid="open-gallery"><LayoutGrid /><span>Community gallery</span></SidebarMenuButton></SidebarMenuItem></SidebarMenu>
+        <p className="px-2 pb-1 text-[11px] leading-snug text-muted-foreground group-data-[collapsible=icon]:hidden">Drag the picture to look around. Drag a thing to move it. Drag the sun.</p></SidebarFooter>
       <SidebarRail />
     </Sidebar>
   )

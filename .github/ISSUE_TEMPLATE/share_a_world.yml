@@ -1,13 +1,17 @@
 name: Share a world
-description: Made something good? Offer it as a ready-made world, sky or design
+description: Made something good? Offer it for the community gallery, or as a ready-made world, sky or design
 labels: [preset]
 body:
   - type: input
-    attributes: { label: Share link }
+    attributes: { label: Share link, description: "Press Share in the app and paste the link here." }
     validations: { required: true }
   - type: input
     attributes: { label: A name for it }
     validations: { required: true }
+  - type: input
+    attributes: { label: Your name for the gallery, description: "Optional. Leave it empty to be shown by your GitHub name." }
+  - type: input
+    attributes: { label: Tags, description: "Optional. Up to five words, like: islands, night, chrome" }
   - type: textarea
     attributes: { label: Picture, description: "Drag the saved picture in here." }
   - type: checkboxes

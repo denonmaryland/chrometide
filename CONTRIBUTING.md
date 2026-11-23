@@ -34,6 +34,25 @@ S("Shapes", "My World", () => world("My World", sky("Morning"), sea("Mirror"), o
 Open `src/design/presets.ts` and add a line to `DESIGNS`: the kind, the world it sits on, a layout and
 the words. Use made-up names, never a real artist, venue or brand.
 
+## Gallery
+
+The community gallery (`gallery.html` on the live site) shows worlds people made. Each one is a few lines in
+`gallery/worlds.json`:
+
+```json
+{ "name": "Glass Orchard", "author": "Your name", "github": "your-github-name", "code": "w2.…", "date": "2026-11-22", "tags": ["shapes", "glass"] }
+```
+
+The code is the part of a share link after `#w=`. `github` is optional. Keep names under 40
+characters and use up to five lower-case tags. Then check the list:
+
+```bash
+node tools/gallery-check.mjs
+```
+
+Or skip the editing: send the link with the **Share a world** form. When a maintainer adds the
+`add-to-gallery` label, a pull request adding it is opened for them to review.
+
 ## Check your work
 
 ```bash
