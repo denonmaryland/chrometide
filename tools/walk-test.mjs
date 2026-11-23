@@ -4,7 +4,8 @@
 import path from "path"; import fs from "fs"; import { execFileSync } from "child_process"; import { serve, browser, root } from "./serve.mjs"
 const want = new Set(process.argv.slice(2)), on = (k) => !want.size || want.has(k)
 fs.mkdirSync(path.join(root, "shots"), { recursive: true })
-const s = await serve(), b = await browser(); const logs = [], res = {}
+// software video decoding: the GPU video decoder of headless Chromium here takes WebGL down with it
+const s = await serve(), b = await browser(["--disable-domain-blocking-for-3d-apis", "--disable-accelerated-video-decode"]); const logs = [], res = {}
 const page = async (o) => { const ctx = await b.newContext({ acceptDownloads: true, ...o }); const p = await ctx.newPage()
   p.on("console", (m) => (m.type() === "error" || m.text().includes("SHADER")) && logs.push(m.text().slice(0, 300))); p.on("pageerror", (e) => logs.push("PAGEERROR " + e.message.slice(0, 300))); return { ctx, p } }
 const done = (p, t = 90000) => p.waitForTimeout(350).then(() => p.waitForFunction(() => window.__engine && window.__engine.done, null, { timeout: t }).catch(() => logs.push("not done")))
@@ -24,7 +25,7 @@ try {
     // a word on the world, so a mirrored picture would show
     await p.click('[data-testid="part-title"]'); await p.fill('[data-testid="title-input"]', "LOW TIDE"); await p.click('[data-testid="add-word"]'); await done(p)
     await p.click('[data-testid="part-sky"]'); await done(p); await shot(p, "w0-editor.png")
-    const cam0 = JSON.stringify((await world(p)).cam), rolls0 = await p.evaluate(() => window.__app.get().rolls), px0 = await pix(p)
+    const past0 = await p.evaluate(() => window.__app.get().past.length), cam0 = JSON.stringify((await world(p)).cam), rolls0 = await p.evaluate(() => window.__app.get().rolls), px0 = await pix(p)
 
     if (on("fly")) {
       await mode(p, "fly"); await p.waitForSelector('[data-testid="fly-layer"]'); await p.waitForTimeout(600)
@@ -48,7 +49,7 @@ try {
       res.flyLeft = (await p.locator('[data-testid="fly-layer"]').count()) === 0
       res.camRestored = JSON.stringify((await world(p)).cam) === cam0
       await done(p); res.pictureRestoredDiff = r2(diff(px0, await pix(p))); res.pictureRestored = res.pictureRestoredDiff < 2
-      res.undoUntouched = (await p.evaluate(() => window.__app.get().past.length)) >= 0
+      res.flyLeftNoUndoSteps = (await p.evaluate(() => window.__app.get().past.length)) === past0
       await shot(p, "w3-after-fly.png")
     }
 
@@ -111,12 +112,13 @@ try {
     res.tapeSteps = await p.evaluate(() => window.__tape.steps().length)
     await mode(p, "timelapse"); await p.waitForSelector('[data-testid="lapse-go"]'); await p.waitForTimeout(800)
     await p.click('role=radio[name="Quick"]'); await p.click('role=radio[name="Small"]')
-    await p.locator('[aria-label="Length value"]').fill("12"); await p.keyboard.press("Enter")
+    const len = p.locator('[aria-label="Length value"]'); await len.click(); await p.waitForTimeout(150); await len.fill("12"); await p.keyboard.press("Enter"); res.lapseLength = await len.inputValue()
     await shot(p, "w10-lapse-dialog.png")
     const t0 = Date.now(); await p.click('[data-testid="lapse-go"]')
     await p.waitForTimeout(4000); await shot(p, "w11-lapse-filming.png")
-    await p.waitForSelector('[data-testid="lapse-video"]', { timeout: 600000 }); res.lapseSeconds = Math.round((Date.now() - t0) / 1000)
-    await p.waitForTimeout(1500); await shot(p, "w12-lapse-done.png")
+    await p.waitForSelector('[data-testid="lapse-save"]', { timeout: 600000 }); res.lapseSeconds = Math.round((Date.now() - t0) / 1000)
+    await p.waitForTimeout(2500); await shot(p, "w12-lapse-done.png")
+    res.lapsePreview = await p.evaluate(() => { const v = document.querySelector('[data-testid="lapse-video"]'); return v ? { time: Math.round(v.currentTime * 10) / 10, error: v.error?.code ?? 0 } : "still (this browser cannot decode video)" })
     const [dl] = await Promise.all([p.waitForEvent("download"), p.click('[data-testid="lapse-save"]')]); const ext = (dl.suggestedFilename().split(".").pop()); const fv = path.join(root, "shots", "out-timelapse." + ext); await dl.saveAs(fv)
     res.lapseFile = path.basename(fv); res.lapseBytes = fs.statSync(fv).size
     try {
@@ -126,6 +128,18 @@ try {
       execFileSync("ffmpeg", ["-v", "error", "-y", "-i", fv, "-vf", "fps=1.5,scale=320:-1,tile=6x3", "-frames:v", "1", path.join(root, "shots", "w13-lapse-contact.png")])
     } catch (e) { res.ffprobe = "FAILED " + String(e.message).slice(0, 200) }
     await ctx.close()
+    // the WebM way, as in browsers that cannot play MP4: the preview must play and the file must be whole
+    const w2 = await page({ viewport: { width: 1280, height: 800 } }); const q = w2.p
+    await q.addInitScript(() => { const can = HTMLMediaElement.prototype.canPlayType; HTMLMediaElement.prototype.canPlayType = function (t) { return /mp4/.test(t) ? "" : can.call(this, t) } })
+    await q.goto(s.url); await done(q)
+    await q.evaluate(async () => { const A = window.__app; for (let i = 0; i < 8; i++) { A.edit("w" + i, (w) => { w.sky.sun.el = 0.08 + i * 0.06; w.cam.yaw += 0.08 }); await new Promise((ok) => setTimeout(ok, 30)) } })
+    await mode(q, "timelapse"); await q.waitForSelector('[data-testid="lapse-go"]'); await q.click('role=radio[name="Quick"]'); await q.click('role=radio[name="Small"]')
+    await q.click('[data-testid="lapse-go"]'); await q.waitForSelector('[data-testid="lapse-save"]', { timeout: 600000 }); await q.waitForTimeout(2500)
+    await shot(q, "w14-lapse-webm.png")
+    const [dl2] = await Promise.all([q.waitForEvent("download"), q.click('[data-testid="lapse-save"]')]); const fw = path.join(root, "shots", "out-timelapse-2." + dl2.suggestedFilename().split(".").pop()); await dl2.saveAs(fw)
+    try { const pr = JSON.parse(execFileSync("ffprobe", ["-v", "error", "-count_frames", "-select_streams", "v:0", "-show_entries", "stream=codec_name,nb_read_frames:format=duration", "-of", "json", fw]).toString())
+      res.ffprobeWebm = { file: path.basename(fw), codec: pr.streams[0].codec_name, frames: +pr.streams[0].nb_read_frames, duration: r2(+pr.format.duration) } } catch (e) { res.ffprobeWebm = "FAILED " + String(e.message).slice(0, 200) }
+    await w2.ctx.close()
   }
 } catch (e) { logs.push("TEST FAILED " + String(e.stack || e).slice(0, 600)) }
 console.log(JSON.stringify(res, null, 1)); console.log(logs.slice(0, 12).join("\n") || "no errors"); await b.close(); s.close()

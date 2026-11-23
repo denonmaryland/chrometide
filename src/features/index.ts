@@ -6,6 +6,7 @@
 //     start itself from a link such as ?screensaver or ?seed=moon.
 import type * as React from "react"
 
+import { TIMELAPSE } from "./timelapse"
 import { WALK } from "./walk"
 
 export interface Feature {
@@ -21,4 +22,5 @@ export interface Feature {
 // ---- one line per feature below this ----
 export const FEATURES: Feature[] = [
   ...WALK,
+  TIMELAPSE,
 ]
