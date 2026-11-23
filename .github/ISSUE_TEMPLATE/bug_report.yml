@@ -1,0 +1,14 @@
+name: Something is broken
+description: The picture looks wrong, a button does nothing, or the page will not start
+labels: [bug]
+body:
+  - type: textarea
+    attributes: { label: What happened?, description: "And what did you expect instead?" }
+    validations: { required: true }
+  - type: input
+    attributes: { label: Share link, description: "Press Share in the app and paste the link, so we can open the same world." }
+  - type: input
+    attributes: { label: Browser and device, placeholder: "Chrome 140 on a 2021 MacBook Air" }
+    validations: { required: true }
+  - type: textarea
+    attributes: { label: Screenshot, description: "Drag a picture in here." }

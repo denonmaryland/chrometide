@@ -10,7 +10,7 @@ It runs on your own computer. The renderer is the web app itself, opened in a hi
 ## Needs
 - Node 20 or newer
 - Chrome, Chromium or Edge installed
-- The app built once: in `../app`, run `npm install` and `npm run build`
+- The app built once: in the project folder (one up from here), run `npm install` and `npm run build`
 
 ## Set up
 In this folder: `npm install`

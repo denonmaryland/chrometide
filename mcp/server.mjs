@@ -4,7 +4,7 @@
 // ray-traced picture back. The renderer is the web app itself, run in a hidden browser.
 //
 // Settings (environment):
-//   WORLDS_APP     folder of the built app (default: ../app/dist next to this file)
+//   WORLDS_APP     folder of the built app (default: ../dist next to this file)
 //   WORLDS_CHROME  path to a Chrome or Chromium program (default: looked for in the usual places)
 //   WORLDS_OUT     folder that pictures may be saved into (default: the folder the server was started in)
 import fs from "node:fs"; import http from "node:http"; import path from "node:path"; import { fileURLToPath } from "node:url"
@@ -14,7 +14,7 @@ import { chromium } from "playwright-core"
 import { z } from "zod"
 
 const here = path.dirname(fileURLToPath(import.meta.url))
-const APP = path.resolve(process.env.WORLDS_APP || path.join(here, "..", "app", "dist"))
+const APP = path.resolve(process.env.WORLDS_APP || path.join(here, "..", "dist"))
 const OUT = path.resolve(process.env.WORLDS_OUT || process.cwd())
 const CHROME = process.env.WORLDS_CHROME || ["/usr/bin/chromium", "/usr/bin/chromium-browser", "/usr/bin/google-chrome", "/usr/bin/google-chrome-stable", "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "/Applications/Chromium.app/Contents/MacOS/Chromium",
   "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"].find((p) => fs.existsSync(p))
@@ -22,7 +22,7 @@ const CHROME = process.env.WORLDS_CHROME || ["/usr/bin/chromium", "/usr/bin/chro
 // ---------- the hidden browser that does the ray tracing ----------
 let page = null, starting = null
 async function boot() {
-  if (!fs.existsSync(path.join(APP, "index.html"))) throw new Error(`The built app was not found at ${APP}. Run "npm run build" in the app folder, or set WORLDS_APP.`)
+  if (!fs.existsSync(path.join(APP, "index.html"))) throw new Error(`The built app was not found at ${APP}. Run "npm install" and "npm run build" in the project folder, or set WORLDS_APP.`)
   if (!CHROME) throw new Error("No Chrome or Chromium was found. Install one, or set WORLDS_CHROME to its path.")
   const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".woff2": "font/woff2", ".woff": "font/woff", ".png": "image/png", ".svg": "image/svg+xml" }
   const srv = http.createServer((q, r) => { const f = path.join(APP, decodeURIComponent(q.url.split("?")[0].split("#")[0]).replace(/^\/+/, "") || "index.html")

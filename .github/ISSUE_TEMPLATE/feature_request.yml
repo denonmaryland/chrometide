@@ -1,0 +1,9 @@
+name: An idea
+description: Something the tool should be able to do
+labels: [idea]
+body:
+  - type: textarea
+    attributes: { label: What do you want to make?, description: "Describe the picture or the moment, not the feature. A reference image helps a lot." }
+    validations: { required: true }
+  - type: textarea
+    attributes: { label: How would you expect to do it? }

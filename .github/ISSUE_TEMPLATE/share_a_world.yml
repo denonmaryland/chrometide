@@ -1,0 +1,17 @@
+name: Share a world
+description: Made something good? Offer it as a ready-made world, sky or design
+labels: [preset]
+body:
+  - type: input
+    attributes: { label: Share link }
+    validations: { required: true }
+  - type: input
+    attributes: { label: A name for it }
+    validations: { required: true }
+  - type: textarea
+    attributes: { label: Picture, description: "Drag the saved picture in here." }
+  - type: checkboxes
+    attributes:
+      label: Yours to give
+      options:
+        - { label: "I made this, it uses no one else's names or artwork, and it may ship under the MIT licence.", required: true }
