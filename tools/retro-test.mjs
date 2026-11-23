@@ -49,6 +49,35 @@ try {
     }
     await ctx.close()
   }
+  if (want("retro")) {
+    const { p, ctx } = await page("?1994"); await p.waitForFunction(() => window.__retro, null, { timeout: 30000 })
+    const cvPix = () => p.evaluate(() => { const c = document.querySelector('[data-testid="retro-canvas"]'), t = document.createElement("canvas"); t.width = 64; t.height = 48; const x = t.getContext("2d"); x.drawImage(c, 0, 0, 64, 48); return Array.from(x.getImageData(0, 0, 64, 48).data).join(",") })
+    await p.waitForTimeout(1500); await p.screenshot({ path: out("retro-1-boot.png") })
+    await p.waitForFunction(() => window.__retro.phase() === "crawl", null, { timeout: 60000 })
+    const t0 = Date.now(); res.colours = await p.evaluate(() => window.__retro.colours())
+    await p.waitForFunction(() => window.__retro.progress() > 0.4, null, { timeout: 60000 }); await p.screenshot({ path: out("retro-2-crawl.png") })
+    const a = await cvPix(), p1 = await p.evaluate(() => window.__retro.progress()); await p.waitForTimeout(1500); const p2 = await p.evaluate(() => window.__retro.progress())
+    res.crawlMoves = p2 > p1 && (await cvPix()) !== a; res.secsFor10pct = +((1.5 / (p2 - p1)) / 10).toFixed(1)
+    await p.waitForFunction(() => window.__retro.phase() === "done", null, { timeout: 90000 }); res.crawlSeconds = Math.round((Date.now() - t0) / 100) / 10
+    await p.screenshot({ path: out("retro-3-done.png") }); await p.waitForTimeout(3800); await p.screenshot({ path: out("retro-4-clean.png") })
+    const cv = await p.locator('[data-testid="retro-canvas"]').boundingBox(); await p.screenshot({ path: out("retro-5-closeup.png"), clip: { x: cv.x + cv.width * 0.35, y: cv.y + cv.height * 0.3, width: 360, height: 270 } })
+    for (const k of ["glow", "lines", "curve"]) await p.click(`[aria-label="${k}"]`); await p.waitForTimeout(300); await p.screenshot({ path: out("retro-6-plain.png"), clip: { x: cv.x + cv.width * 0.35, y: cv.y + cv.height * 0.3, width: 360, height: 270 } })
+    for (const k of ["glow", "lines", "curve"]) await p.click(`[aria-label="${k}"]`)
+    const [dl] = await Promise.all([p.waitForEvent("download"), p.click('[data-testid="retro-png"]')]); const f = out("retro-out.png"); await dl.saveAs(f)
+    const png = fs.readFileSync(f); res.pngBytes = png.length; res.pngSize = `${png.readUInt32BE(16)}x${png.readUInt32BE(20)}`
+    await p.click('[data-testid="retro-film"]'); await p.waitForTimeout(6000); await p.screenshot({ path: out("retro-7-filming.png") })
+    await p.waitForSelector('[data-testid="retro-clip"]', { timeout: 60000 })
+    const [dl2] = await Promise.all([p.waitForEvent("download"), p.click('[data-testid="retro-clip"]')]); const fv = out("retro-out.webm"); await dl2.saveAs(fv); res.clipBytes = fs.statSync(fv).size
+    try { const pr = JSON.parse(execFileSync("ffprobe", ["-v", "error", "-count_frames", "-show_entries", "stream=codec_name,width,height,nb_read_frames:format=duration", "-of", "json", fv]).toString()); res.clip = { codec: pr.streams[0].codec_name, size: `${pr.streams[0].width}x${pr.streams[0].height}`, frames: +pr.streams[0].nb_read_frames, seconds: +(+pr.format.duration).toFixed(1) } } catch (e) { res.clip = "ffprobe failed " + e.message.slice(0, 100) }
+    // a new world while open crawls again; Escape goes back to the normal app, which renders as before
+    await p.keyboard.press(" "); await p.waitForFunction(() => window.__retro.phase() === "warm", null, { timeout: 5000 }).then(() => (res.spaceRerolls = true)).catch(() => (res.spaceRerolls = false))
+    await p.keyboard.press("Escape"); await p.waitForTimeout(300); res.closed = (await p.locator('[data-testid="retro"]').count()) === 0
+    await done(p); res.normalDone = await p.evaluate(() => window.__engine.done); await p.screenshot({ path: out("retro-8-back.png") })
+    await ctx.close()
+  }
+  if (want("phone")) {
+    const { p, ctx } = await page("?1994", { width: 390, height: 844 }); await p.waitForFunction(() => window.__retro && window.__retro.progress() > 0.3, null, { timeout: 90000 }); await p.screenshot({ path: out("retro-phone.png") }); await ctx.close()
+  }
 } catch (e) { logs.push("TEST ERROR " + String(e.stack || e).slice(0, 600)) }
 console.log(JSON.stringify(res, null, 1)); console.log(logs.slice(0, 12).join("\n") || "no errors")
 await b.close(); s.close()
