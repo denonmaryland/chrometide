@@ -1,0 +1,51 @@
+name: Untitled Worlds profile island
+description: Your last year of GitHub contributions as a ray-traced island, saved as a banner picture and committed.
+author: Untitled Worlds
+branding: { icon: image, color: orange }
+
+inputs:
+  user:
+    description: Whose year. Defaults to the owner of the repository the workflow runs in.
+    default: ${{ github.repository_owner }}
+  path:
+    description: Where to save the picture, relative to the repository.
+    default: images/island.png
+  size:
+    description: Picture size, WIDTHxHEIGHT. Wide pictures are seen from the front, square ones from a corner.
+    default: 1500x500
+  quality:
+    description: draft, good or fine.
+    default: fine
+  commit:
+    description: '"true" to commit and push the picture when it has changed.'
+    default: "true"
+  message:
+    description: The commit message.
+    default: Update my year as an island
+  token:
+    description: Reads public contribution data. The workflow's own token is enough; no secret needs adding.
+    default: ${{ github.token }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with: { node-version: 22 }
+    - name: Build the renderer
+      shell: bash
+      working-directory: ${{ github.action_path }}/../../..
+      run: |
+        npm ci --no-audit --no-fund
+        npm run build
+        cd mcp && npm ci --no-audit --no-fund
+    - name: Render the island
+      shell: bash
+      env:
+        ISLAND_USER: ${{ inputs.user }}
+        ISLAND_PATH: ${{ github.workspace }}/${{ inputs.path }}
+        ISLAND_SIZE: ${{ inputs.size }}
+        ISLAND_QUALITY: ${{ inputs.quality }}
+        ISLAND_COMMIT: ${{ inputs.commit }}
+        ISLAND_MESSAGE: ${{ inputs.message }}
+        GITHUB_TOKEN: ${{ inputs.token }}
+      run: node "${{ github.action_path }}/island.mjs"

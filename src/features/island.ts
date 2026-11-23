@@ -76,7 +76,7 @@ export interface IslandOpts { aspect?: number }
 export function islandWorld(c: Calendar, o: IslandOpts = {}): World {
   const st = stats(c), mood = moodOf(st.total), aspect = o.aspect ?? 4 / 3, seed = hash(c.user || "year")
   // ---- the land: one mountain per busy day on the sculpt grid ----
-  const R = 13.5, H = 5, Hm = Math.max(H, 2), x0 = 10, x1 = 118, cw = (x1 - x0) / st.weeks, ch = 4.2, y0 = N / 2 - (7 * ch) / 2
+  const R = 13.5, H = 5, Hm = Math.max(H, 2), x0 = 12, x1 = 116, cw = (x1 - x0) / st.weeks, ch = 4.2, y0 = N / 2 - (7 * ch) / 2
   const toV = (y: number) => 127.5 + ((y + 0.12 * Hm) * 255) / (2.4 * Hm) // world height -> grid value (flat land sits 0.12 Hm under the sea)
   const nz = c.days.filter((d) => d.count > 0).map((d) => d.count).sort((a, b) => a - b), ref = Math.max(1, nz[Math.floor(nz.length * 0.93)] ?? 1)
   const wd0 = new Date(dayNo(c.days[0].date) * 86400000).getUTCDay()
