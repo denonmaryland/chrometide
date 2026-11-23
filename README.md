@@ -51,8 +51,8 @@ original could, because it lives in a browser tab.
   reflections, soft focus and bloom. The picture arrives in blocks and sharpens while you watch.
 - **46 worlds, 45 skies, 22 materials.** Skies bring their own weather: stars, a moon with phases,
   aurora, fog, rainbows, light rays, a comet.
-- **12 shapes that cut and melt.** Spheres, rings, cones, stones, trees, floating rocks. Any shape can
-  carve a hole in another, and blobs melt together.
+- **16 shapes that cut and melt.** Spheres, rings, cones, gems, stars, twisted columns, stones, trees, floating
+  rocks. Any shape can carve a hole in another, and blobs melt together. A new shape is one small file.
 - **Land you can sculpt.** Grown islands and mountain rings with terraces, plateaus and channels. Raise,
   lower, smooth and erode by hand, or turn any picture into land.
 - **3D lettering.** Seven typefaces or your own font file. Solid, outline or neon tube. Around a ring, up
@@ -62,6 +62,18 @@ original could, because it lives in a browser tab.
 - **Timeline.** Set keys and every number and colour glides between them.
 - **Bring things in, take things out.** Import `.glb` and `.obj` models; export the world as `.glb`,
   `.obj` or a height map.
+
+### Modes
+
+- **1994 mode.** The picture arrives line by line on a glowing 640×480 tube in 256 colours. Film the crawl.
+- **A world from any word.** Type your name, your band, your city. The same word grows the same world on every computer.
+- **Your GitHub year as an island.** Every day of your year becomes a peak. Save it as a profile banner, or let the
+  [profile banner Action](docs/profile-island.md) refresh it every day.
+- **Photo to world.** Drop in any photo and the sky, sea, land and colours follow it.
+- **Screensaver.** Drifts slowly through worlds forever, and moves to music if any is playing.
+- **Fly and look around.** Walk through the world first person, or look all around a 360° picture, with phone tilt
+  and VR where the browser offers it.
+- **Time-lapse.** Every change you make is remembered; play the making of your world back as a short video.
 
 ### Designs
 
@@ -81,6 +93,13 @@ Drop in a song. It is read once, start to finish, so the world knows every beat 
 swell with the bass, water ripples, neon glows, stars twinkle, the camera steps on the beat. Watch it
 live, or **film the whole song** frame by frame into one video file with the sound in it. The song
 never leaves your computer.
+
+### Share it anywhere
+
+- **Embed.** One line puts a live, draggable world on any web page: an iframe, or an `<untitled-world>` tag.
+- **Community gallery.** A page of worlds people made. Offer yours with the "Share a world" form.
+- **Render from the terminal.** `node mcp/cli.mjs render "Red Moons" -o moons.png` turns any world or share code
+  into a picture without opening the app.
 
 ### For agents
 
@@ -112,6 +131,9 @@ design system. A world is one small JSON document, which is why it fits in a lin
 | Folder | What is in it |
 |---|---|
 | `src/engine/` | The ray tracer, the world format, the ready-made worlds and skies |
+| `src/engine/shapes/` | One file per shape: add yours here |
+| `src/features/` | The modes: 1994, word worlds, screensaver, island, photo, fly, time-lapse, embed |
+| `src/embed/`, `gallery/` | The embed viewer and the community gallery |
 | `src/design/` | Type layouts, mock-ups and the ready-made designs |
 | `src/ui/` | The interface |
 | `src/audio.ts`, `src/sound.ts` | Reading a song, and moving to it |
