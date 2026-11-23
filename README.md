@@ -89,7 +89,7 @@ improve it: 16 tools, running on your own machine.
 
 ## Run it
 
-Needs [Node](https://nodejs.org) 20 or newer.
+Needs [Node](https://nodejs.org) 22 or newer.
 
 ```bash
 git clone https://github.com/denonmaryland/untitled-worlds
