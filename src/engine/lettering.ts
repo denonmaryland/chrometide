@@ -21,7 +21,8 @@ export const fontCss = (id: string, px: number) => (FONTS.find((f) => f.id === i
 export async function loadFonts() { await Promise.all(FONTS.filter((f) => f.id !== "custom").map((f) => document.fonts.load(f.css, "Ag").catch(() => []))) }
 let customKey = ""
 export async function useCustomFont(dataUrl?: string): Promise<boolean> {
-  if (!dataUrl || dataUrl === customKey) return false
+  if (!dataUrl) return false
+  if (dataUrl === customKey) return true
   try { const face = new FontFace("WorldCustomFont", `url(${dataUrl})`); await face.load(); for (const f of [...document.fonts]) if (f.family === "WorldCustomFont") document.fonts.delete(f); document.fonts.add(face); customKey = dataUrl; return true } catch { return false }
 }
 

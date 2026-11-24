@@ -1,5 +1,6 @@
 // Checks the lettering features: words as things, fonts, styles, edges, bends, splitting, neon,
 // carving, writing on land, moves, a font file of your own, old titles, and the cover maker's type.
+import { checkResults } from "./check-results.mjs"
 import path from "path"; import fs from "fs"; import { serve, browser, root } from "./serve.mjs"
 const s = await serve(), b = await browser(); const logs = [], res = {}
 const ctx = await b.newContext({ viewport: { width: 1440, height: 900 }, acceptDownloads: true }); const p = await ctx.newPage()
@@ -52,4 +53,5 @@ await p.click('[data-testid="starter-0"]'); await done(); await p.click('[data-t
 await p.fill('[data-testid="cover-title"]', "Slow Orbit"); await p.click('role=radio[name="Band"]'); await p.click('[data-testid="cover-obi"]'); await p.waitForTimeout(300); await shot("y11-cover-obi.png")
 await p.click('role=radio[name="Tape"]'); await p.fill('[data-testid="cover-tracks"]', "First light\nGlass harbour\nSlow orbit"); await p.click('role=radio[name="Poster"]'); await p.waitForTimeout(300); await shot("y12-cover-tape.png")
 const [dl] = await Promise.all([p.waitForEvent("download"), p.click('[data-testid="cover-save"]')]); const f1 = path.join(root, "shots", "out-cover.png"); await dl.saveAs(f1); res.coverBytes = fs.statSync(f1).size; fs.unlinkSync(f1)
-console.log(JSON.stringify(res, null, 1)); console.log(logs.slice(0, 10).join("\n") || "no errors"); await b.close(); s.close()
+await b.close(); s.close()
+checkResults(res, logs)

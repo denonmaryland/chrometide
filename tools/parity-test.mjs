@@ -1,5 +1,6 @@
 // Checks the features brought over from the original: timeline, picture land, erosion, cloud things,
 // layered and picture textures, spotlights, rays, comet, floating rock, arranging, 3D export and import.
+import { checkResults } from "./check-results.mjs"
 import path from "path"; import fs from "fs"; import { serve, browser, root } from "./serve.mjs"
 const s = await serve(), b = await browser(); const logs = [], res = {}
 const ctx = await b.newContext({ viewport: { width: 1440, height: 900 }, acceptDownloads: true }); const p = await ctx.newPage()
@@ -69,4 +70,5 @@ const a0 = await pix(); const [fc] = await Promise.all([p.waitForEvent("filechoo
 await p.waitForFunction(() => window.__app.get().world.model, null, { timeout: 120000 }).catch(() => logs.push("model never arrived")); await done()
 const w = await world(); res.modelGrid = w.model ? w.model.n : 0; res.modelThing = w.things.some((t) => t.kind === "model"); res.modelShows = (await pix()) !== a0
 await ed(`(w) => { w.cam.yaw = 0.9; w.cam.dist = 13; const t = w.things.find((t) => t.kind === "model"); t.pos = [3, 3.6, 5]; t.size = [3, 3, 3] }`); await done(); await shot("p7-imported.png")
-console.log(JSON.stringify(res, null, 1)); console.log(logs.slice(0, 10).join("\n") || "no errors"); await b.close(); s.close()
+await b.close(); s.close()
+checkResults(res, logs)

@@ -10,3 +10,8 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
+      - name: Check the editor in Chrome
+        timeout-minutes: 5
+        env:
+          CHROME: /usr/bin/google-chrome
+        run: node tools/review-regression.mjs

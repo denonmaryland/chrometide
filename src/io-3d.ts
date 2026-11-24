@@ -11,7 +11,7 @@ import { MeshBVH } from "three-mesh-bvh"
 import { type Thing, type World, MAX_THINGS, mat, thing } from "./engine/scene"
 import { SHAPE_BY_ID } from "./engine/shapes"
 import { Said, save, told } from "./io"
-import { addThing, edit, engine, get } from "./store"
+import { edit, engine, get, patch } from "./store"
 import { fileName } from "./ui/TopBar"
 import { writeGrid } from "./ui/Viewport"
 
@@ -88,9 +88,17 @@ export async function importModel(file: File): Promise<boolean> {
     const merged = mergeGeometries(geos); if (!merged) throw new Said("That model's pieces could not be joined into one shape.")
     merged.computeBoundingBox(); const bb = merged.boundingBox!; if (![bb.min.x, bb.min.y, bb.min.z, bb.max.x, bb.max.y, bb.max.z].every(isFinite)) throw new Said("That model's shape is broken. Try exporting it again.")
     const n = 60, data = await meshToGrid(merged, n)
-    if (get().world.things.filter((t) => t.kind !== "model").length >= MAX_THINGS) throw new Said(`A world holds up to ${MAX_THINGS} things. Remove one to make room for the model.`)
-    edit("import-model", (w) => { w.model = { n, data }; w.things = w.things.filter((t) => t.kind !== "model") })
-    const w = get().world; addThing(thing("model", [w.cam.target[0], Math.max(2.4, w.cam.target[1]), w.cam.target[2]], 2.4, mat("Chrome"), { name: file.name.replace(/\.[^.]+$/, "").slice(0, 30) || "Imported model" }))
+    const world = get().world
+    const remaining = world.things.filter((t) => t.kind !== "model")
+    if (remaining.length >= MAX_THINGS) throw new Said(`A world holds up to ${MAX_THINGS} things. Remove one to make room for the model.`)
+    const [x, y, z] = world.cam.target
+    const name = file.name.replace(/\.[^.]+$/, "").slice(0, 30) || "Imported model"
+    const imported = thing("model", [x, Math.max(2.4, y), z], 2.4, mat("Chrome"), { name })
+    edit(`import-model:${imported.id}`, (w) => {
+      w.model = { n, data }
+      w.things = [...w.things.filter((t) => t.kind !== "model"), imported]
+    })
+    patch({ sel: { type: "thing", id: imported.id } })
     return true
   } catch (e) { return told(e, "That file had no shape that could be read. Try a .glb or .obj model.") }
 }
