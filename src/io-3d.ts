@@ -66,7 +66,10 @@ export async function meshToGrid(geo: THREE.BufferGeometry, n = 44): Promise<str
     p.set(((x + 0.5) / n) * 2 - 1, ((y + 0.5) / n) * 2 - 1, ((z + 0.5) / n) * 2 - 1)
     const dist = bvh.closestPointToPoint(p, hit as any)?.distance ?? 1
     ray.origin.copy(p); const inside = bvh.raycast(ray, THREE.DoubleSide).length % 2 === 1
-    d[(z * n + y) * n + x] = Math.round(Math.max(0, Math.min(1, (inside ? -dist : dist) + 0.5)) * 255)
+    // A thin wall can sit entirely between samples. Give new imports half a
+    // cell of surface thickness so the interpolated field still crosses zero.
+    const surfaceDistance = (inside ? -dist : dist) - 1 / n
+    d[(z * n + y) * n + x] = Math.round(Math.max(0, Math.min(1, surfaceDistance + 0.5)) * 255)
   }
   return writeGrid(d)
 }
