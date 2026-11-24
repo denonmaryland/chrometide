@@ -93,6 +93,7 @@ export function AppSidebar() {
               <div className="grid grid-cols-2 gap-2 px-2">{saved.map((s) => (
                 <div key={s.id} className="group/sv relative">
                   <button onClick={() => { void openSaved(s); if (isMobile) setOpenMobile(false) }} className="block w-full rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"><img src={s.thumb} alt="" className="aspect-[4/3] w-full rounded-md object-cover ring-1 ring-border" /><span className="mt-1 block truncate text-[11.5px] text-muted-foreground">{s.name}</span></button>
+                  <button onClick={() => void saveToShelf(s.id)} aria-label={`Replace ${s.name} with the current world`} title="Replace with the current world" className="absolute top-1 left-1 rounded bg-black/70 px-1.5 py-1 text-[11px] text-white opacity-0 group-hover/sv:opacity-100 group-focus-within/sv:opacity-100 max-md:opacity-100">Replace</button>
                   <button onClick={() => dropFromShelf(s.id)} aria-label={`Remove ${s.name}`} title={`Remove ${s.name} from My worlds`} className="absolute top-1 right-1 grid size-5 place-items-center rounded-full bg-black/60 text-white opacity-0 outline-none group-hover/sv:opacity-100 group-focus-within/sv:opacity-100 focus-visible:ring-2 focus-visible:ring-ring max-md:opacity-100"><X className="size-3" /></button>
                 </div>))}</div>)}
           </SidebarGroupContent>

@@ -21,8 +21,9 @@ export interface State {
   song: { name: string; duration: number; bpm: number; beats: number } | null; sounding: boolean; mic: boolean
 }
 const KEY = "chrometide:saved"
+const SHELF_LIMIT = 40
 const loadSaved = (): Saved[] => {
-  try { const v = recall<unknown>(KEY, []); return Array.isArray(v) ? v.filter((s): s is Saved => !!s && typeof s.id === "string" && typeof s.name === "string" && typeof s.code === "string").map((s) => ({ ...s, thumb: typeof s.thumb === "string" && s.thumb.startsWith("data:image/") ? s.thumb : "", at: +s.at || 0 })).slice(0, 40) : [] }
+  try { const v = recall<unknown>(KEY, []); return Array.isArray(v) ? v.filter((s): s is Saved => !!s && typeof s.id === "string" && typeof s.name === "string" && typeof s.code === "string").map((s) => ({ ...s, thumb: typeof s.thumb === "string" && s.thumb.startsWith("data:image/") ? s.thumb : "", at: +s.at || 0 })).slice(0, SHELF_LIMIT) : [] }
   catch { return [] } // storage blocked (a private window) or spoiled: start with an empty shelf
 }
 
@@ -97,10 +98,19 @@ export function removeKey(i: number) { edit("anim-unkey", (w) => { w.anim?.keys.
 let movesRun = 0
 export function previewMoves(seconds = 4) { const id = ++movesRun, t0 = performance.now(); const tick = (now: number) => { if (id !== movesRun) return; const k = (now - t0) / 1000 / seconds; if (k >= 1) { patch({ phase: null }); return } patch({ phase: k }); requestAnimationFrame(tick) }; requestAnimationFrame(tick) }
 
-export async function saveToShelf() {
-  if (!engine) return
-  const w = state.world, item: Saved = { id: newId(), name: w.name, code: await encodeWorld(w, true), thumb: engine.thumb(w, 192, 144), at: Date.now() }
-  const saved = [item, ...state.saved.filter((s) => s.name !== w.name)].slice(0, 40)
+export async function saveToShelf(replaceId?: string) {
+  const renderer = engine
+  if (!renderer) return
+  const w = state.world
+  const code = await encodeWorld(w, true)
+  const entries = state.saved
+  if (replaceId !== undefined && !entries.some((s) => s.id === replaceId)) return
+  if (replaceId === undefined && entries.length >= SHELF_LIMIT) {
+    notify(`My worlds holds ${SHELF_LIMIT} saves. Replace or remove a saved world to make room.`)
+    return
+  }
+  const item: Saved = { id: replaceId ?? newId(), name: w.name, code, thumb: renderer.thumb(w, 192, 144), at: Date.now() }
+  const saved = replaceId === undefined ? [item, ...entries] : entries.map((s) => s.id === replaceId ? item : s)
   patch({ saved }); if (!keepShelf(saved)) notify("Saved for this visit only: this browser is full or is not letting the page keep things. Remove a few saved worlds, or save the picture instead.", { ms: 9000 })
 }
 /** Write the shelf; false if the browser would not keep it (full, or a private window). */

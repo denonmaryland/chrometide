@@ -71,7 +71,8 @@ export async function loadCustomFont(file: File): Promise<boolean> {
   if (!file.size || file.size > 3_000_000) return false
   const url = await new Promise<string>((ok) => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.onerror = () => ok(""); r.readAsDataURL(file) })
   if (!(await useCustomFont(url))) return false
-  edit("custom-font", (w) => { w.customFont = url }); engine?.resetGlyphs(); return true
+  if (get().world.customFont !== url) edit("custom-font", (w) => { w.customFont = url })
+  engine?.resetGlyphs(); return true
 }
 /** Bring a world's own font to life, and turn a first-version title into a text thing. */
 export async function prepare(w: World): Promise<World> {

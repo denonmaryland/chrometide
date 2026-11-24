@@ -1,4 +1,5 @@
 // Drives the whole app in headless Chromium: every main feature once, with pictures.
+import { checkResults } from "./check-results.mjs"
 import path from "path"; import fs from "fs"; import { serve, browser, root } from "./serve.mjs"
 const s = await serve(), b = await browser(); const logs = [], res = {}
 const ctx = await b.newContext({ viewport: { width: 1440, height: 900 }, acceptDownloads: true, permissions: ["clipboard-read", "clipboard-write"] })
@@ -57,4 +58,5 @@ await p.waitForSelector('[data-testid="loop-video"]', { timeout: 240000 }).catch
 await p.keyboard.press("Escape"); await p.waitForTimeout(300)
 // save the picture at full size
 const [dl2] = await Promise.all([p.waitForEvent("download", { timeout: 120000 }), p.click('[data-testid="save"]')]); const f2 = path.join(root, "shots", "out-save.png"); await dl2.saveAs(f2); res.saveBytes = fs.statSync(f2).size
-console.log(JSON.stringify(res, null, 1)); console.log(logs.slice(0, 10).join("\n") || "no errors"); await b.close(); s.close()
+await b.close(); s.close()
+checkResults(res, logs)

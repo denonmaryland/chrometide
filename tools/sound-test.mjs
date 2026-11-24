@@ -1,4 +1,5 @@
 // Checks the music features with a made-up song: a 120 bpm kick, off-beat hats and a slow pad.
+import { checkResults } from "./check-results.mjs"
 import path from "path"; import fs from "fs"; import { execFileSync } from "child_process"; import { serve, browser, root } from "./serve.mjs"
 const s = await serve(), b = await browser(["--autoplay-policy=no-user-gesture-required", "--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"])
 const logs = [], res = {}; const ctx = await b.newContext({ viewport: { width: 1440, height: 900 }, acceptDownloads: true, permissions: ["microphone"] }); const p = await ctx.newPage()
@@ -48,4 +49,5 @@ if (res.filmBytes) { const [dl] = await Promise.all([p.waitForEvent("download"),
   try { const j = JSON.parse(execFileSync("ffprobe", ["-v", "error", "-show_entries", "stream=codec_type,codec_name,width,height,nb_read_frames,duration:format=duration", "-count_frames", "-of", "json", out]).toString()); res.streams = j.streams.map((x) => `${x.codec_type}:${x.codec_name}${x.width ? ` ${x.width}x${x.height} ${x.nb_read_frames}f` : ""}`); res.fileSeconds = +(+j.format.duration).toFixed(2) } catch (e) { res.probe = "FAILED " + String(e.message).slice(0, 200) }
   execFileSync("ffmpeg", ["-loglevel", "error", "-y", "-i", out, "-vf", "select='eq(n,16)+eq(n,23)+eq(n,52)',tile=3x1", "-frames:v", "1", "-q:v", "3", path.join(root, "shots", "s3-film-frames.jpg")]) }
 await shot("s4-filmed.png")
-console.log(JSON.stringify(res, null, 1)); console.log(logs.slice(0, 10).join("\n") || "no errors"); await b.close(); s.close()
+await b.close(); s.close()
+checkResults(res, logs)
