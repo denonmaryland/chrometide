@@ -10,7 +10,7 @@ import * as sound from "./sound"
 import * as store from "./store"
 import * as text from "./text"
 import { notify } from "./notice"
-import { Notices, Safety, Trouble } from "./ui/Notice"
+import { Notices, Safety } from "./ui/Notice"
 
 // the agent page and the bare engine page are separate, and load only when asked for
 const Api = React.lazy(() => import("./Api").then((m) => ({ default: m.Api })))
@@ -37,14 +37,4 @@ if (import.meta.env.PROD && "serviceWorker" in navigator && location.protocol ==
 const q = new URLSearchParams(location.search), bare = q.get("test") === "engine"
 // a step that fails out of sight still gets a kind word, so nothing just silently does not happen
 addEventListener("unhandledrejection", (e) => { console.warn("Unfinished:", e.reason); if ((e.reason as Error)?.name !== "AbortError") notify("That did not work. Your world is unchanged; try again.") })
-/** Can this browser draw in 3D at all? Asked once, before the app starts, so it can say so plainly. */
-function canDraw() {
-  try { const gl = document.createElement("canvas").getContext("webgl2"); if (!gl) return false; gl.getExtension("WEBGL_lose_context")?.loseContext(); return true } catch { return false }
-}
-const noGraphics = (
-  <Trouble title="This browser cannot draw the worlds" actions={[{ label: "Try again", run: () => location.reload() }]}>
-    <p>Chrometide ray traces its pictures with WebGL2, and this browser or device is not offering it right now.</p>
-    <p className="mt-2">Try a current Chrome, Edge, Firefox or Safari. If you already use one, turn on hardware acceleration (or graphics acceleration) in its settings and restart it, or open the page on another device.</p>
-  </Trouble>
-)
-createRoot(document.getElementById("root")!).render(q.has("api") ? <React.Suspense fallback={null}><Api /></React.Suspense> : bare ? <React.Suspense fallback={null}><EngineTest /></React.Suspense> : canDraw() ? <Safety><App /><Notices /></Safety> : noGraphics)
+createRoot(document.getElementById("root")!).render(q.has("api") ? <React.Suspense fallback={null}><Api /></React.Suspense> : bare ? <React.Suspense fallback={null}><EngineTest /></React.Suspense> : <Safety><App /><Notices /></Safety>)

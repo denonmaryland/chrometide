@@ -269,7 +269,9 @@ export class Engine {
   mode = 0 // 0 picture, 1 distance mask, 2 object mask, 3 height mask
   bounces = 4
   private lowPass(div: number) {
-    const lw = Math.max(2, Math.ceil(this.w / div)), lh = Math.max(2, Math.ceil(this.h / div))
+    // Keep a large viewport from submitting an entire expensive preview in one draw.
+    const scale = Math.max(div, Math.sqrt(this.w * this.h / 40_000))
+    const lw = Math.max(2, Math.ceil(this.w / scale)), lh = Math.max(2, Math.ceil(this.h / scale))
     this.low.setSize(lw, lh); this.pass(this.low, lw, lh, { sample: 0, preview: true, ldr: true, blend: 1 })
   }
   private show() {
@@ -320,7 +322,8 @@ export class Engine {
     if (this.stage < 3) { this.lowPass([12, 6, 3][this.stage]); this.stage++; this.scan = 0; this.show(); this.status(); return }
     // one strip of the current full pass; the strip grows or shrinks to keep the page responsive
     if (dt > 42) this.rows = Math.max(8, Math.round(this.rows * 0.7)); else if (dt < 24) this.rows = Math.min(this.h, Math.round(this.rows * 1.25) + 1)
-    const rows = Math.min(this.rows, this.h - this.scan)
+    // Frame timing measures submission, which can run ahead of the graphics chip.
+    const rows = Math.min(this.rows, Math.max(1, Math.floor(32_768 / this.w)), this.h - this.scan)
     this.pass(this.acc, this.w, this.h, { sample: this.sample, preview: false, ldr: !this.float, blend: 1 / (this.sample + 1), y: this.h - this.scan - rows, rows })
     this.scan += rows
     if (this.scan >= this.h) { this.scan = 0; this.sample++ }

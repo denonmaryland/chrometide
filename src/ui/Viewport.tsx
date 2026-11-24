@@ -69,7 +69,12 @@ export function Viewport() {
   const [css, setCss] = React.useState({ w: 640, h: 480 }); const [err, setErr] = React.useState(""); const [lost, setLost] = React.useState<"" | "lost" | "gone">("")
 
   React.useEffect(() => {
-    const e = new Engine(canvas.current!); (window as any).__engine = e
+    const surface = canvas.current!
+    if (!surface.getContext("webgl2", { antialias: false, alpha: false, preserveDrawingBuffer: true, powerPreference: "high-performance" })) {
+      setErr("Chrometide needs WebGL2 to draw. Check that graphics acceleration is enabled in your browser, then reload.")
+      return
+    }
+    const e = new Engine(surface); (window as any).__engine = e
     if (!e.ok) { setErr(e.error); e.dispose(); return }
     setEngine(e); e.onStatus = (s) => patch({ status: s }); e.setWorld(get().world)
     e.onContext = (s) => setLost(s === "back" ? "" : s)
@@ -158,7 +163,7 @@ export function Viewport() {
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 overflow-hidden rounded-b-[3px]">
           <div className="h-full bg-white/70 transition-[width,opacity] duration-300" style={{ width: `${pct * 100}%`, opacity: status.phase === "done" ? 0 : 1 }} />
         </div>
-        {err && <div className="absolute inset-0 grid place-items-center bg-background p-6 text-center text-sm text-muted-foreground" data-testid="engine-error">{err}</div>}
+        {err && <div className="absolute inset-0 grid place-items-center bg-background p-6 text-center text-sm text-muted-foreground" data-testid="trouble">{err}</div>}
         {lost && <PictureRest gone={lost === "gone"} />}
       </div>
 
