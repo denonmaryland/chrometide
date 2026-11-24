@@ -39,8 +39,8 @@ Free and open source. Built with Fable 5.2. No install, no account.</p>
 <p align="center"><img src="docs/images/hero.jpg" alt="Seven glossy red spheres trailing away over a deep blue sea under a pale sky: a picture made with this tool" width="720"></p>
 
 In 1994 a program called Bryce let anyone make surreal 3D landscapes, and a generation of album covers,
-screensavers and magazine ads came out of it. It no longer runs on current computers. People keep asking
-for it back.
+screensavers and magazine ads came out of it. Daz 3D still sells it for Windows, but it is no longer being
+developed and it does not run on current Macs, phones or in a browser.
 
 Chrometide is a new tool written from scratch with Fable 5.2 that makes that same kind of picture in a
 browser tab. It is not a copy and uses nothing from the original. A picture that took twenty minutes to
