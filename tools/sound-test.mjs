@@ -8,7 +8,7 @@ const pix = () => p.evaluate(() => { const c = document.querySelector("canvas"),
 const shot = (n) => p.screenshot({ path: path.join(root, "shots", n) })
 await p.goto(s.url); await p.waitForFunction(() => window.__engine && window.__engine.done, null, { timeout: 60000 }); await p.waitForTimeout(800)
 const N = await p.locator('[data-testid^="starter-"]').count(); res.worlds = N
-await p.click(`[data-testid="starter-${N - 3}"]`); await p.waitForTimeout(500); await p.click('[data-testid="part-sound"]')
+await p.getByRole("button", { name: "Equalizer Bay", exact: true }).click(); await p.waitForTimeout(500); await p.click('[data-testid="part-sound"]')
 // a 12 second song, made here
 res.song = await p.evaluate(async () => { const sr = 44100, secs = 12, n = sr * secs, d = new Float32Array(n)
   for (let i = 0; i < n; i++) { const t = i / sr, bt = t % 0.5, kick = Math.sin(2 * Math.PI * (45 * bt + 55 * (1 - Math.exp(-bt * 30)) / 30)) * Math.exp(-bt * 9) * 0.9
@@ -39,7 +39,7 @@ res.metersAdded = (await p.evaluate(() => window.__app.get().world.things.filter
 // microphone (a fake one in this browser)
 await p.click('[data-testid="mic"]'); await p.waitForTimeout(1200); res.mic = await p.evaluate(() => window.__app.get().mic && window.__app.get().sounding); res.micHears = await p.evaluate(() => window.__audio.nowLevels().level > 0); await p.click('[data-testid="mic"]'); await p.waitForTimeout(300)
 // film three seconds with the sound
-await p.click(`[data-testid="starter-${N - 3}"]`); await p.waitForTimeout(400); await p.click('[data-testid="part-sound"]')
+await p.getByRole("button", { name: "Equalizer Bay", exact: true }).click(); await p.waitForTimeout(400); await p.click('[data-testid="part-sound"]')
 await p.evaluate(() => { const set = (label, v) => { const el = document.querySelector(`input[aria-label="${label} value"]`); el.focus(); const d = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set; d.call(el, String(v)); el.dispatchEvent(new Event("input", { bubbles: true })); el.blur() }; set("Length", 3) })
 await p.click('role=radio[name="Small"]'); await p.click('[data-testid="film-go"]'); const t0 = Date.now()
 await p.waitForSelector('[data-testid="film-video"]', { timeout: 300000 }).catch(() => logs.push("film never finished: " + "")); res.filmSeconds = +((Date.now() - t0) / 1000).toFixed(1)
