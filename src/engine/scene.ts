@@ -62,9 +62,10 @@ export interface Sky {
 }
 export const SEA_KINDS = ["water", "checker", "lava", "sand", "mirror", "none"] as const
 export type SeaKind = (typeof SEA_KINDS)[number]
-export interface Sea { rippleWidth?: number; rippleAngle?: number; kind: SeaKind; c1: string; c2: string; wave: number; grain: number; reflect: number; scale: number }
+export interface Sea { calmPatches?: number; rippleWidth?: number; rippleAngle?: number; kind: SeaKind; c1: string; c2: string; wave: number; grain: number; reflect: number; scale: number }
 export interface Land {
   on: boolean; mode: "island" | "range"; height: number; radius: number; freq: number; ridge: number; seed: number
+  cliffSnow?: number; snowFacing?: number
   snow: number; c1: string; c2: string; c3: string
   terrace: number; plateau: number; sharp: number
   channel?: { offset: number; angle: number; width: number; bend: number }

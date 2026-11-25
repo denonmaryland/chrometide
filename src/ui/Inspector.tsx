@@ -120,6 +120,7 @@ function SeaPanel() {
       {(s.kind === "water" || s.kind === "sand") && <Dial label={s.kind === "water" ? "Waves" : "Dunes"} value={s.wave} max={1.5} onChange={(v) => set("wave", (k) => { k.wave = v })} />}
       {(s.kind === "water" || s.kind === "sand") && <Dial label="Grain" value={s.grain} onChange={(v) => set("grain", (k) => { k.grain = v })} />}
       {s.kind === "water" && <>
+        <Dial label="Calm patches" value={s.calmPatches ?? 0} onChange={(v) => set("calmPatches", (k) => { k.calmPatches = v })} />
         <Dial label="Ripple width" value={s.rippleWidth ?? 1} min={1} max={10} step={0.1} onChange={(v) => set("rippleWidth", (k) => { k.rippleWidth = v })} />
         <Dial label="Ripple angle" value={s.rippleAngle ?? 0} min={-180} max={180} step={1} onChange={(v) => set("rippleAngle", (k) => { k.rippleAngle = v })} />
       </>}
@@ -144,6 +145,8 @@ function LandPanel() {
     </Section>
     <Section title="Carve">
       {d("Sharpen", "sharp")}{d("Terraces", "terrace")}{d("Flat top", "plateau")}{d("Snow", "snow")}
+      <Dial label="Cliff snow" value={l.cliffSnow ?? 0} onChange={(v) => set("cliffSnow", (k) => { k.cliffSnow = v })} />
+      <Dial label="Snow facing" value={l.snowFacing ?? 0} min={-180} max={180} step={1} onChange={(v) => set("snowFacing", (k) => { k.snowFacing = v })} />
     </Section>
     <Section title="Sculpt by hand" action={l.sculpt ? <Button variant="ghost" size="xs" onClick={() => set("unsculpt", (k) => { delete k.sculpt })}><Eraser /> Clear</Button> : undefined}>
       <Segmented label="Sculpt tool" value={sculpt.tool} options={[{ value: "off", label: "Off" }, { value: "raise", label: "Raise" }, { value: "lower", label: "Lower" }, { value: "smooth", label: "Smooth" }, { value: "erode", label: "Erode" }]} onChange={(v) => patch({ sculpt: { ...sculpt, tool: v } })} />

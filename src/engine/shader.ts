@@ -54,8 +54,8 @@ uniform vec3 uCamPos, uCamFw, uCamRt, uCamUp; uniform float uFocal, uLens, uFocu
 uniform vec3 uZenith, uHorizon, uHazeCol, uSunCol, uSunDir, uCloudCol, uCloud2Col, uFogCol, uMoonDir;
 uniform float uHaze, uCloud, uStreak, uCloudScale, uCloud2, uStars, uSkySeed, uSunSize, uSunGlow, uSunSoft, uAmbient;
 uniform float uFog, uFogH, uMoon, uMoonSize, uMoonPhase, uRainbow, uHalo;
-uniform int uGround; uniform vec3 uG1, uG2; uniform float uRippleWidth, uRippleAngle, uWave, uGrain, uGRefl, uGScale;
-uniform float uTerrOn, uTerrMode, uTerrH, uTerrR, uTerrFreq, uTerrRidge, uTerrSeed, uSnow, uTerrace, uPlateau, uSharp, uChannelBend, uSculptOn;
+uniform int uGround; uniform vec3 uG1, uG2; uniform float uCalmPatches, uRippleWidth, uRippleAngle, uWave, uGrain, uGRefl, uGScale;
+uniform float uTerrOn, uTerrMode, uTerrH, uTerrR, uTerrFreq, uTerrRidge, uTerrSeed, uSnow, uCliffSnow, uSnowFacing, uTerrace, uPlateau, uSharp, uChannelBend, uSculptOn;
 uniform vec4 uChannel; uniform vec3 uT1, uT2, uT3; uniform sampler2D uSculpt;
 uniform int uNObj; uniform vec4 uOP[MAXO], uOS[MAXO], uR0[MAXO], uR1[MAXO], uR2[MAXO];
 uniform sampler2D uMat;
@@ -455,6 +455,15 @@ vec3 trace(vec3 ro, vec3 rd){
         float rock = smoothstep(.82, .55, n.y);
         alb = mix(alb, uT3, max(smoothstep(.42, .8, hh + (sp - .5) * .25), rock * .85));
         alb = mix(alb, vec3(.95, .96, 1.), uSnow * smoothstep(.62, .75, hh + (sp - .5) * .2) * smoothstep(.5, .8, n.y));
+        if (uCliffSnow > 0.) {
+          vec2 facing = vec2(cos(uSnowFacing), sin(uSnowFacing));
+          float exposure = dot(n.xz, facing);
+          float snowline = mix(.54, .12, uCliffSnow);
+          float heightMask = smoothstep(snowline, snowline + .15, hh + (sp - .5) * .16);
+          float edge = mix(.68, .06, uCliffSnow);
+          float windMask = smoothstep(edge, edge + .20, exposure + (sp - .5) * .18);
+          alb = mix(alb, vec3(.95, .96, 1.), uCliffSnow * heightMask * windMask);
+        }
         alb *= .72 + .56 * sp;
         if (uGround == 2) alb = mix(alb, uG1 * 2., smoothstep(.06, 0., hh) * .8);
         pS = p + n * .01; pT = p + n * .02; lampN = n;
@@ -504,12 +513,22 @@ vec3 trace(vec3 ro, vec3 rd){
         float hz = fbm((w + vec2(0., e)) * .55) + .35 * fbm((w + vec2(0., e)) * 2.3 + 3.);
         vec2 g = vec2(hx - h0, hz - h0) / e * uWave * .9 * fade;
         g = stretch * g;
-        g += (vec2(hash(floor(p.xz * 38.)), hash(floor(p.xz * 38.) + 11.)) - .5) * uGrain * .55;
+        float grain = uGrain;
+        if (uCalmPatches > 0.) {
+          // A rising threshold expands the same sheltered pockets across the water.
+          vec2 patchPos = p.xz * .19 + vec2(2.4, 7.1);
+          float field = .75 * noise(patchPos) + .25 * noise(patchPos * 2.7);
+          float edge = mix(-.08, .69, uCalmPatches);
+          float rough = mix(.025, 1., smoothstep(edge, edge + .09, field));
+          g *= rough;
+          grain *= rough;
+        }
+        g += (vec2(hash(floor(p.xz * 38.)), hash(floor(p.xz * 38.) + 11.)) - .5) * grain * .55;
         n = normalize(vec3(-g.x, 1., -g.y));
         float fr = pow(1. - max(dot(-rd, n), 0.), 5.);
         refl = clamp(mix(.04 + .96 * fr, 1., uGRefl), 0., 1.);
         vec3 body = mix(uG2, uG1, smoothstep(0., uTerrH * .22 + .3, depth));
-        float sparkle = 1. + uGrain * (hash(floor(p.xz * 38.) + 5.) - .5) * .9;
+        float sparkle = 1. + grain * (hash(floor(p.xz * 38.) + 5.) - .5) * .9;
         lc = body * sparkle * (amb + uSunCol * .55 * max(uSunDir.y, 0.) * sh + lamp * .6);
         lc += uSunCol * pow(max(dot(reflect(rd, n), uSunDir), 0.), 90.) * .9 * sh * fade;
       } else if (uGround == 1) {
