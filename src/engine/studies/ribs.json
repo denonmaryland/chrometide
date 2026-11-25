@@ -1,0 +1,453 @@
+{
+  "v": 2,
+  "name": "Sounding Gallery",
+  "sky": {
+    "zenith": "#131b29",
+    "horizon": "#997b62",
+    "haze": "#9f7961",
+    "sunColor": "#ffcb98",
+    "cloudColor": "#ffffff",
+    "sun": {
+      "az": -1.28,
+      "el": 0.48
+    },
+    "sunSize": 0.0245,
+    "sunGlow": 1,
+    "sunSoft": 0.012,
+    "hazeAmt": 0.35,
+    "hazeStart": 0,
+    "ambient": 0.55,
+    "fog": 0,
+    "fogHeight": 1.2,
+    "fogColor": "#fff0ec",
+    "cloud": 0,
+    "streak": 0.8,
+    "cloudScale": 1,
+    "seed": 3,
+    "cloud2": 0,
+    "cloud2Color": "#ffffff",
+    "stars": 0,
+    "moon": 0,
+    "moonAz": 2.2,
+    "moonEl": 0.6,
+    "moonSize": 0.06,
+    "moonPhase": 0.5,
+    "rainbow": 0,
+    "halo": 0
+  },
+  "sea": {
+    "kind": "checker",
+    "c1": "#17202b",
+    "c2": "#252e39",
+    "reflect": 0.48,
+    "wave": 0.3,
+    "grain": 0.05,
+    "scale": 0.28
+  },
+  "land": {
+    "on": false,
+    "mode": "island",
+    "height": 4,
+    "radius": 8,
+    "freq": 0.22,
+    "ridge": 0.8,
+    "seed": 1,
+    "snow": 0,
+    "c1": "#e6d3a0",
+    "c2": "#5f7a3a",
+    "c3": "#6d6258",
+    "terrace": 0,
+    "plateau": 0,
+    "sharp": 0
+  },
+  "things": [
+    {
+      "id": "tmwwk1suajr",
+      "name": "Arch 1",
+      "kind": "torus",
+      "pos": [
+        0,
+        0.1,
+        9
+      ],
+      "size": [
+        5,
+        0.9,
+        6.4
+      ],
+      "rot": [
+        0,
+        90,
+        0
+      ],
+      "round": 0.105,
+      "role": "solid",
+      "group": 0,
+      "mat": {
+        "base": "Marble",
+        "name": "Marble",
+        "color": "#e1ba91",
+        "color2": "#39384a",
+        "texture": "marble",
+        "texScale": 1,
+        "diffuse": 1,
+        "reflect": 0.19,
+        "metal": 0,
+        "shine": 0.7,
+        "gloss": 0.9,
+        "clear": 0,
+        "ior": 1.33,
+        "bump": 0,
+        "glow": 0
+      }
+    },
+    {
+      "id": "tmwwk1suekik",
+      "name": "Arch 2",
+      "kind": "torus",
+      "pos": [
+        0,
+        0.1,
+        4.5
+      ],
+      "size": [
+        5,
+        0.9,
+        6.4
+      ],
+      "rot": [
+        0,
+        90,
+        0
+      ],
+      "round": 0.105,
+      "role": "solid",
+      "group": 0,
+      "mat": {
+        "base": "Marble",
+        "name": "Marble",
+        "color": "#e1ba91",
+        "color2": "#39384a",
+        "texture": "marble",
+        "texScale": 1,
+        "diffuse": 1,
+        "reflect": 0.19,
+        "metal": 0,
+        "shine": 0.7,
+        "gloss": 0.9,
+        "clear": 0,
+        "ior": 1.33,
+        "bump": 0,
+        "glow": 0
+      }
+    },
+    {
+      "id": "tmwwk1suhld3",
+      "name": "Arch 3",
+      "kind": "torus",
+      "pos": [
+        0,
+        0.1,
+        0
+      ],
+      "size": [
+        5,
+        0.9,
+        6.4
+      ],
+      "rot": [
+        0,
+        90,
+        0
+      ],
+      "round": 0.105,
+      "role": "solid",
+      "group": 0,
+      "mat": {
+        "base": "Marble",
+        "name": "Marble",
+        "color": "#e1ba91",
+        "color2": "#39384a",
+        "texture": "marble",
+        "texScale": 1,
+        "diffuse": 1,
+        "reflect": 0.19,
+        "metal": 0,
+        "shine": 0.7,
+        "gloss": 0.9,
+        "clear": 0,
+        "ior": 1.33,
+        "bump": 0,
+        "glow": 0
+      }
+    },
+    {
+      "id": "tmwwk1sukmng",
+      "name": "Arch 4",
+      "kind": "torus",
+      "pos": [
+        0,
+        0.1,
+        -4.5
+      ],
+      "size": [
+        5,
+        0.9,
+        6.4
+      ],
+      "rot": [
+        0,
+        90,
+        0
+      ],
+      "round": 0.105,
+      "role": "solid",
+      "group": 0,
+      "mat": {
+        "base": "Marble",
+        "name": "Marble",
+        "color": "#e1ba91",
+        "color2": "#39384a",
+        "texture": "marble",
+        "texScale": 1,
+        "diffuse": 1,
+        "reflect": 0.19,
+        "metal": 0,
+        "shine": 0.7,
+        "gloss": 0.9,
+        "clear": 0,
+        "ior": 1.33,
+        "bump": 0,
+        "glow": 0
+      }
+    },
+    {
+      "id": "tmwwk1sumn2z",
+      "name": "Arch 5",
+      "kind": "torus",
+      "pos": [
+        0,
+        0.1,
+        -9
+      ],
+      "size": [
+        5,
+        0.9,
+        6.4
+      ],
+      "rot": [
+        0,
+        90,
+        0
+      ],
+      "round": 0.105,
+      "role": "solid",
+      "group": 0,
+      "mat": {
+        "base": "Marble",
+        "name": "Marble",
+        "color": "#e1ba91",
+        "color2": "#39384a",
+        "texture": "marble",
+        "texScale": 1,
+        "diffuse": 1,
+        "reflect": 0.19,
+        "metal": 0,
+        "shine": 0.7,
+        "gloss": 0.9,
+        "clear": 0,
+        "ior": 1.33,
+        "bump": 0,
+        "glow": 0
+      }
+    },
+    {
+      "id": "tmwwk1suoomk",
+      "name": "Arch 6",
+      "kind": "torus",
+      "pos": [
+        0,
+        0.1,
+        -13.5
+      ],
+      "size": [
+        5,
+        0.9,
+        6.4
+      ],
+      "rot": [
+        0,
+        90,
+        0
+      ],
+      "round": 0.105,
+      "role": "solid",
+      "group": 0,
+      "mat": {
+        "base": "Marble",
+        "name": "Marble",
+        "color": "#e1ba91",
+        "color2": "#39384a",
+        "texture": "marble",
+        "texScale": 1,
+        "diffuse": 1,
+        "reflect": 0.19,
+        "metal": 0,
+        "shine": 0.7,
+        "gloss": 0.9,
+        "clear": 0,
+        "ior": 1.33,
+        "bump": 0,
+        "glow": 0
+      }
+    },
+    {
+      "id": "tmwwk1sutp4c",
+      "name": "Arch 7",
+      "kind": "torus",
+      "pos": [
+        0,
+        0.1,
+        -18
+      ],
+      "size": [
+        5,
+        0.9,
+        6.4
+      ],
+      "rot": [
+        0,
+        90,
+        0
+      ],
+      "round": 0.105,
+      "role": "solid",
+      "group": 0,
+      "mat": {
+        "base": "Marble",
+        "name": "Marble",
+        "color": "#e1ba91",
+        "color2": "#39384a",
+        "texture": "marble",
+        "texScale": 1,
+        "diffuse": 1,
+        "reflect": 0.19,
+        "metal": 0,
+        "shine": 0.7,
+        "gloss": 0.9,
+        "clear": 0,
+        "ior": 1.33,
+        "bump": 0,
+        "glow": 0
+      }
+    },
+    {
+      "id": "tmwwk1suuq1d",
+      "name": "Arch 8",
+      "kind": "torus",
+      "pos": [
+        0,
+        0.1,
+        -22.5
+      ],
+      "size": [
+        5,
+        0.9,
+        6.4
+      ],
+      "rot": [
+        0,
+        90,
+        0
+      ],
+      "round": 0.105,
+      "role": "solid",
+      "group": 0,
+      "mat": {
+        "base": "Marble",
+        "name": "Marble",
+        "color": "#e1ba91",
+        "color2": "#39384a",
+        "texture": "marble",
+        "texScale": 1,
+        "diffuse": 1,
+        "reflect": 0.19,
+        "metal": 0,
+        "shine": 0.7,
+        "gloss": 0.9,
+        "clear": 0,
+        "ior": 1.33,
+        "bump": 0,
+        "glow": 0
+      }
+    },
+    {
+      "id": "tmwwk1suvrv9",
+      "name": "Listening bell",
+      "kind": "sphere",
+      "pos": [
+        -1.4,
+        1.45,
+        -8
+      ],
+      "size": [
+        1.45,
+        1.45,
+        1.45
+      ],
+      "rot": [
+        0,
+        0,
+        0
+      ],
+      "round": 0.9287150879561148,
+      "role": "solid",
+      "group": 0,
+      "mat": {
+        "base": "Jade",
+        "name": "Jade",
+        "color": "#57aba9",
+        "color2": "#0f4f3c",
+        "texture": "clouded",
+        "texScale": 1,
+        "diffuse": 1,
+        "reflect": 0.14,
+        "metal": 0,
+        "shine": 0.7,
+        "gloss": 0.9,
+        "clear": 0,
+        "ior": 1.33,
+        "bump": 0,
+        "glow": 0
+      }
+    }
+  ],
+  "cam": {
+    "yaw": 0.075,
+    "pitch": 0.025,
+    "dist": 15,
+    "target": [
+      0.15,
+      2,
+      -4
+    ],
+    "fov": 66,
+    "roll": 0,
+    "lens": 0,
+    "focus": 16
+  },
+  "views": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+  ],
+  "frame": {
+    "name": "Standard 1024 \u00d7 768",
+    "w": 1024,
+    "h": 768
+  }
+}

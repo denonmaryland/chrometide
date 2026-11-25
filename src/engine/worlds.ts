@@ -1,4 +1,9 @@
 // The worlds you can start from. All original.
+import { makeRelief } from "./relief-world"
+import { tidyWorld } from "./scene"
+import galleryStudy from "./studies/ribs.json"
+import lunarStudy from "./studies/lunar.json"
+import mineralStudy from "./studies/mineral.json"
 import { textAspect } from "./lettering"
 
 /** A colour along the rainbow: low notes warm, high notes cool. */
@@ -142,5 +147,7 @@ export const WORLDS: Starter[] = [
     camFrom({ yaw: 0.1, pitch: 0.1, dist: 16, target: [0, 2.6, 0] }), { bloom: 0.55, sound: soundSet({ pulse: 0.2, float: 0.1, meters: 1, glow: 0.6, orbit: 0.2, punch: 0.4, journey: "sunset", every: 32 }) })),
   S("Sound", "Bass Moons", () => world("Bass Moons", sky("Deep teal", { sun: { az: -0.9, el: 0.7 }, cloud: 0.35 }), sea("Teal", { wave: 0.3 }), off(),
     arrange("trail", 7, 11, m("Chrome")), camFrom({ yaw: 0.3, pitch: 0.19, dist: 15.5, target: [0, 3.1, 0] }), { bloom: 0.55, sound: soundSet({ pulse: 0.9, float: 0.6, ripple: 0.9, glow: 0.5, orbit: 0.3, punch: 0.3 }) })),
+  ...[galleryStudy, lunarStudy, mineralStudy].map(study => S("Artist studies", study.name, () => tidyWorld(study))),
+  S("Artist studies", "Tidal Tablet", makeRelief),
 ]
 export const WORLD_GROUPS = [...new Set(WORLDS.map((w) => w.group))]

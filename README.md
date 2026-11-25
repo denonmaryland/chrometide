@@ -12,7 +12,7 @@ Free and open source. Built with Fable 5.2. No install, no account.</p>
 <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-ff6a4a?style=flat-square&labelColor=14141a"></a>
 <img alt="Runs in the browser" src="https://img.shields.io/badge/runs%20in-the%20browser-39d0c6?style=flat-square&labelColor=14141a">
 <img alt="three.js" src="https://img.shields.io/badge/three.js-WebGL2-8a7ad0?style=flat-square&labelColor=14141a">
-<img alt="46 worlds, 45 skies, 70 designs" src="https://img.shields.io/badge/ready--made-46%20worlds%20·%2045%20skies%20·%2070%20designs-f5b83a?style=flat-square&labelColor=14141a">
+<img alt="50 worlds, 45 skies, 70 designs" src="https://img.shields.io/badge/ready--made-50%20worlds%20·%2045%20skies%20·%2070%20designs-f5b83a?style=flat-square&labelColor=14141a">
 <a href="mcp/README.md"><img alt="MCP server for agents" src="https://img.shields.io/badge/agents-MCP%20server-39d0c6?style=flat-square&labelColor=14141a"></a>
 </p>
 
@@ -63,7 +63,7 @@ that draws the picture line by line on a glowing 640×480 screen.
 
 - **A real ray tracer, live.** Mirror reflections, glass that bends light, soft shadows, blurry
   reflections, soft focus and bloom. The picture arrives in blocks and sharpens while you watch.
-- **46 worlds, 45 skies, 22 materials.** Skies bring their own weather: stars, a moon with phases,
+- **50 worlds, 45 skies, 22 materials.** Skies bring their own weather: stars, a moon with phases,
   aurora, fog, rainbows, light rays, a comet.
 - **16 shapes that cut and melt.** Spheres, rings, cones, gems, stars, twisted columns, stones, trees, floating
   rocks. Any shape can carve a hole in another, and blobs melt together. A new shape is one small file.
