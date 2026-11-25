@@ -1,5 +1,5 @@
 // The left sidebar: the parts of this world, its things, and worlds to start from.
-import * as React from "react"
+import type * as React from "react"
 import { Aperture, AudioLines, BookmarkPlus, Camera, Eye, EyeOff, Image, LayoutGrid, Lock, LockOpen, Mountain, Plus, Sun, Type, Waves, X } from "lucide-react"
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -8,8 +8,8 @@ import {
   SidebarMenuButton, SidebarMenuItem, SidebarRail, useSidebar,
 } from "@/components/ui/sidebar"
 import { type LockKey, KIND_LABEL } from "@/engine/scene"
-import { type Starter, WORLDS, WORLD_GROUPS } from "@/engine/worlds"
-import { type Sel, dropFromShelf, editThing, engine, openSaved, patch, replaceWorld, saveToShelf, toggleLock, useApp } from "@/store"
+import { WORLDS, WORLD_GROUPS } from "@/engine/worlds"
+import { type Sel, dropFromShelf, editThing, openSaved, patch, replaceWorld, saveToShelf, toggleLock, useApp } from "@/store"
 
 import { pickCutout } from "@/io"
 import { setSheet } from "./sheet"
@@ -19,15 +19,6 @@ const PARTS: { type: Exclude<Sel["type"], "thing">; label: string; icon: React.C
   { type: "sky", label: "Sky", icon: Sun, lock: "sky" }, { type: "sea", label: "Sea & floor", icon: Waves, lock: "sea" }, { type: "land", label: "Land", icon: Mountain, lock: "land" },
   { type: "title", label: "Lettering", icon: Type }, { type: "camera", label: "Camera", icon: Camera, lock: "camera" }, { type: "picture", label: "Picture", icon: Image }, { type: "sound", label: "Sound", icon: AudioLines },
 ]
-/** A starting world's little picture: drawn by the engine itself, once the fonts have arrived. */
-function Thumb({ starter, order }: { starter: Starter; order: number }) {
-  const [src, setSrc] = React.useState<string>()
-  React.useEffect(() => { let live = true, id = 0
-    const go = () => { if (!live) return; if (!engine) { id = window.setTimeout(go, 150); return } setSrc(engine.thumb(starter.make(), 128, 96)) }
-    void document.fonts.ready.then(() => { id = window.setTimeout(go, 500 + order * 70) }); return () => { live = false; clearTimeout(id) } }, [starter, order])
-  return <span className="block aspect-[4/3] w-full overflow-hidden rounded-md bg-muted ring-1 ring-border">{src && <img src={src} alt="" className="size-full object-cover" />}</span>
-}
-
 export function AppSidebar() {
   const sel = useApp((s) => s.sel), things = useApp((s) => s.world.things), locks = useApp((s) => s.locks), saved = useApp((s) => s.saved)
   const sky = useApp((s) => s.world.sky), sea = useApp((s) => s.world.sea)
@@ -81,7 +72,7 @@ export function AppSidebar() {
             <SidebarGroupContent><div className="grid grid-cols-2 gap-2 px-2">
               {WORLDS.map((w, i) => w.group !== g ? null : (
                 <button key={w.name} onClick={() => { replaceWorld(w.make(), "starter"); if (isMobile) setOpenMobile(false) }} className="group/st rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring" data-testid={`starter-${i}`}>
-                  <span className="block transition-transform group-hover/st:scale-[1.03] group-active/st:scale-[.98]"><Thumb starter={w} order={i} /></span>
+                  <span className="block transition-transform group-hover/st:scale-[1.03] group-active/st:scale-[.98]"><img src={`./presets/${encodeURIComponent(w.name)}.jpg`} alt="" width={192} height={144} loading="lazy" decoding="async" className="block aspect-[4/3] w-full rounded-md bg-muted object-cover ring-1 ring-border" /></span>
                   <span className="mt-1 block truncate text-[11.5px] text-muted-foreground group-hover/st:text-foreground">{w.name}</span>
                 </button>))}
             </div></SidebarGroupContent>
