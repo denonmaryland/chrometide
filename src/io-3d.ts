@@ -40,11 +40,13 @@ export function toMeshes(w: World): THREE.Scene {
     const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: t.mat.color, metalness: Math.min(1, t.mat.reflect * 0.9 + t.mat.metal * 0.3), roughness: Math.max(0.03, 1 - t.mat.gloss * (0.4 + 0.6 * t.mat.reflect)), transparent: t.mat.clear > 0.2, opacity: 1 - t.mat.clear * 0.75,
       emissive: t.mat.glow > 0 ? t.mat.color : "#000000", emissiveIntensity: t.mat.glow }))
     m.name = t.name; m.position.set(...t.pos); m.scale.set(...t.size); m.rotation.set(rad(t.rot[1]), rad(t.rot[0]), rad(t.rot[2]), "YXZ"); scene.add(m) }
-  if (w.land.on && engine) { const n = 160, half = w.land.radius * (w.land.mode === "range" ? 9 : 1.7), h = engine.heights(n, half)
+  for (const land of [w.land, ...(w.terrains ?? [])]) {
+    if (!land.on || !engine) continue
+    const n = 160, half = land.radius * (land.mode === "range" ? 9 : 1.7), h = engine.heights(n, half, land)
     const g = new THREE.PlaneGeometry(half * 2, half * 2, n - 1, n - 1).rotateX(-Math.PI / 2), p = g.attributes.position
     for (let k = 0; k < n * n; k++) p.setY(k, h[k] > 0 ? h[k] : -0.05) // row 0 of both the plane and the grid is the far edge (z = -half)
     g.computeVertexNormals()
-    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: w.land.c2, roughness: 0.95 })); m.name = "Land"; scene.add(m) }
+    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: land.c2, roughness: 0.95 })); m.name = "name" in land ? String(land.name) : "Land"; m.position.set(land.pos?.[0] ?? 0, 0, land.pos?.[2] ?? 0); scene.add(m) }
   if (w.sea.kind !== "none") { const m = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: w.sea.c2, roughness: 0.15, metalness: 0.2 })); m.name = "Sea"; scene.add(m) }
   return scene
 }

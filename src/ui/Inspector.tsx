@@ -12,7 +12,7 @@ import {
   type Camera, type Kind, type LockKey, type Material, type Thing, type Vec3, type World, FRAMES, KINDS, KIND_LABEL, LANDS, MATERIALS, SEAS, SEA_KINDS, SKIES, TEXTURES,
   applySky, camFrom, clone, mat, newId, seaFrom, skyFrom, thing,
 } from "@/engine/scene"
-import { edit, editThing, engine, get, patch, previewMoves, removeThing, rollDice, selectedThing, useApp } from "@/store"
+import { rollTerrain, addTerrain, editTerrain, removeTerrain, selectedTerrainId, terrainById, edit, editThing, engine, get, patch, previewMoves, removeThing, rollDice, selectedThing, useApp } from "@/store"
 
 import { exportHeightmap, photoToLand, pickFile, setPicture } from "@/io"
 import { FONTS, addCarved, addNeon, addRing, addWord, floatApart, loadCustomFont, refit, setMotion, splitLetters, writeOnLand } from "@/text"
@@ -48,7 +48,7 @@ export function Inspector() {
         <h2 className="truncate text-[13px] font-medium">{title}</h2>
         <div className="flex shrink-0 items-center gap-0.5">
           {sel.type !== "thing" && sel.type !== "picture" && sel.type !== "title" && sel.type !== "sound" && (
-            <Tip label={`A new ${TITLES[sel.type].toLowerCase()}, the rest stays`}><Button variant="ghost" size="xs" onClick={() => rollDice(sel.type as LockKey)}><Dices /> Roll this</Button></Tip>
+            <Tip label={`A new ${TITLES[sel.type].toLowerCase()}, the rest stays`}><Button variant="ghost" size="xs" onClick={() => sel.type === "land" && sel.id ? rollTerrain(sel.id) : rollDice(sel.type as LockKey)}><Dices /> Roll this</Button></Tip>
           )}
           <Button variant="ghost" size="icon-xs" className="md:hidden" onClick={() => setSheet(false)} aria-label="Close the dials"><X /></Button>
         </div>
@@ -132,16 +132,30 @@ function SeaPanel() {
 
 // ---------- land ----------
 function LandPanel() {
-  const l = useApp((x) => x.world.land), sculpt = useApp((x) => x.sculpt); const set = (label: string, fn: (k: World["land"]) => void) => edit("land:" + label, (w) => fn(w.land))
+  const id = useApp(selectedTerrainId), pieces = useApp(s => s.world.terrains)
+  const l = useApp(s => terrainById(s.world, id) ?? s.world.land), sculpt = useApp(s => s.sculpt)
+  const set = (label: string, fn: (k: World["land"]) => void) => editTerrain(id, label, fn)
   const d = (label: string, key: keyof World["land"], o: { min?: number; max?: number; step?: number } = {}) => <Dial label={label} value={l[key] as number} {...o} onChange={(v) => set(key, (k) => { (k as any)[key] = v })} />
   const look = LANDS.find((x) => x.c1 === l.c1 && x.c2 === l.c2)?.name
   return (<>
+    <Section title="Terrain pieces" action={<Button variant="glass" size="xs" data-testid="terrain-add" onClick={addTerrain}>Add terrain</Button>}>
+      <div className="flex items-center gap-2">
+        <select className="min-w-0 flex-1 rounded border bg-background p-1 text-sm" aria-label="Terrain piece" value={id ?? ""} onChange={e => patch({ sel: { type: "land", id: e.target.value || undefined } })}>
+          <option value="">Original terrain</option>
+          {pieces?.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+        {id && <Button variant="ghost" size="icon-xs" aria-label="Remove selected terrain" onClick={() => removeTerrain(id)}><Trash2 /></Button>}
+      </div>
+    </Section>
+    <Section title="Position">
+      {["X", "Y", "Z"].map((axis, i) => <Dial key={axis} label={axis} min={-60} max={60} step={0.1} value={l.pos?.[i] ?? 0} onChange={v => set("position-" + axis, t => { (t.pos ??= [0, 0, 0])[i] = v })} />)}
+    </Section>
     <Section title="Land" action={<Switch checked={l.on} onCheckedChange={(v) => set("on", (k) => { k.on = v })} aria-label="Show land" />}>
       <Looks items={LANDS} active={look} paint={(x) => grad(x.snow ? "#fff" : x.c3, x.c2 + " 55%, " + x.c1)} onPick={(x) => set("look", (k) => Object.assign(k, { c1: x.c1, c2: x.c2, c3: x.c3, snow: x.snow, on: true }))} />
     </Section>
     <Section title="Shape" action={<Button variant="ghost" size="xs" onClick={() => set("seed", (k) => { k.seed = Math.random() * 50; k.on = true })}><Dices /> New land</Button>}>
       <Segmented label="Shape" value={l.mode} options={[{ value: "island", label: "Island" }, { value: "range", label: "Mountain ring" }]} onChange={(v) => set("mode", (k) => { k.mode = v })} />
-      {d("Height", "height", { max: 16, step: 0.1 })}{d("Width", "radius", { min: 2, max: 24, step: 0.1 })}{d("Detail", "freq", { min: 0.05, max: 1.2 })}{d("Ridges", "ridge")}
+      {d("Height", "height", { max: 16, step: 0.1 })}{d("Width", "radius", { min: 1, max: 60, step: 0.1 })}{d("Detail", "freq", { min: 0.05, max: 1.2 })}{d("Ridges", "ridge")}
     </Section>
     <Section title="Carve">
       {d("Sharpen", "sharp")}{d("Terraces", "terrace")}{d("Flat top", "plateau")}{d("Snow", "snow")}
@@ -155,9 +169,9 @@ function LandPanel() {
     </Section>
     <Section title="From a picture">
       <div className="flex flex-wrap gap-1.5">
-        <Button variant="glass" size="xs" data-testid="photo-land" onClick={async () => { const f = await pickFile("image/*"); if (f) await photoToLand(f) }}>Picture → land</Button>
+        <Button variant="glass" size="xs" data-testid="photo-land" onClick={async () => { const f = await pickFile("image/*"); if (f) await photoToLand(f, id) }}>Picture → land</Button>
         {l.flat && <Button variant="glass" size="xs" onClick={() => set("unflat", (k) => { delete k.flat; delete k.sculpt })}>Back to grown land</Button>}
-        <Button variant="glass" size="xs" onClick={exportHeightmap}>Save land as picture</Button>
+        <Button variant="glass" size="xs" onClick={() => exportHeightmap(id)}>Save land as picture</Button>
       </div>
       <p className="text-[11.5px] text-muted-foreground">Bright parts of the picture rise, dark parts sink under the water.</p>
     </Section>

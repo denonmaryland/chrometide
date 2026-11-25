@@ -16,7 +16,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 import { StatusGlyph } from "@/components/ui/status-glyph"
 import { QUALITY } from "@/engine/engine"
 import { notify } from "@/notice"
-import { edit, engine, get, patch, redo, shareLink, undo, useApp } from "@/store"
+import { selectedTerrainId, edit, engine, get, patch, redo, shareLink, undo, useApp } from "@/store"
 
 import { Tip } from "./Viewport"
 
@@ -31,13 +31,13 @@ function FileItems({ say }: { say: (s: string) => void }) {
     <DropdownMenuGroup><DropdownMenuLabel>Bring in</DropdownMenuLabel>
       <DropdownMenuItem data-testid="import-model" onClick={async () => { const f = await pickFile(".glb,.gltf,.obj"); if (f) { say("Reading the model…"); const ok = await importModel(f).catch(() => false); say(ok ? "" : "That file had no shape I could read."); if (!ok) setTimeout(() => say(""), 4000) } }}>A 3D model (.glb, .obj)…</DropdownMenuItem>
       <DropdownMenuItem data-testid="photo-world" onClick={() => void pickPhoto()}>A photo, to make a whole world…</DropdownMenuItem>
-      <DropdownMenuItem onClick={async () => { const f = await pickFile("image/*"); if (f) { await photoToLand(f); patch({ sel: { type: "land" } }) } }}>A picture, to make land…</DropdownMenuItem>
+      <DropdownMenuItem onClick={async () => { const f = await pickFile("image/*"); if (f) { const id = selectedTerrainId(get()); await photoToLand(f, id); patch({ sel: { type: "land", id } }) } }}>A picture, to make land…</DropdownMenuItem>
       <DropdownMenuItem onClick={async () => { const f = await pickFile("image/*"); if (f) await setPicture(f) }}>A picture, to paint things with…</DropdownMenuItem>
     </DropdownMenuGroup><DropdownMenuSeparator />
     <DropdownMenuGroup><DropdownMenuLabel>Take out</DropdownMenuLabel>
       <DropdownMenuItem data-testid="export-glb" onClick={() => void exportGLB()}>This world as 3D (.glb)</DropdownMenuItem>
       <DropdownMenuItem data-testid="export-obj" onClick={() => exportOBJ()}>This world as 3D (.obj)</DropdownMenuItem>
-      <DropdownMenuItem onClick={exportHeightmap}>The land as a height picture</DropdownMenuItem>
+      <DropdownMenuItem onClick={() => exportHeightmap(selectedTerrainId(get()))}>The land as a height picture</DropdownMenuItem>
     </DropdownMenuGroup>
   </>
 }

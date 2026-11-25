@@ -16,7 +16,7 @@ import { type Kind, type LockKey, type Vec3, KINDS, KIND_LABEL, mat, thing } fro
 import { WordBox } from "@/features/word-world"
 import { SHAPE_BY_ID, SHAPES } from "@/engine/shapes"
 import { useIsMobile } from "@/hooks/use-mobile"
-import { addThing, duplicateThing, edit, editThing, engine, get, patch, removeThing, rollDice, selectedThing, setEngine, shareLink, toggleLock, useApp } from "@/store"
+import { addTerrain, selectedTerrainId, editTerrain, addThing, duplicateThing, edit, editThing, engine, get, patch, removeThing, rollDice, selectedThing, setEngine, shareLink, toggleLock, useApp } from "@/store"
 
 import { WELCOME_KEY, toggleSheet, useSheet } from "./sheet"
 
@@ -38,10 +38,10 @@ export function newThing(kind: Kind) {
 export function readGrid(sculpt?: string) { const d = new Uint8Array(GRID * GRID).fill(128); if (sculpt) { try { const raw = atob(sculpt); for (let i = 0; i < Math.min(raw.length, d.length); i++) d[i] = raw.charCodeAt(i) } catch { /* start again from flat */ } } return d }
 export function writeGrid(d: Uint8Array) { let s = ""; for (let i = 0; i < d.length; i += 0x4000) s += String.fromCharCode(...d.subarray(i, i + 0x4000)); return btoa(s) }
 export type SculptTool = "raise" | "lower" | "smooth" | "erode"
-function sculptAt(x: number, z: number, tool: SculptTool, size: number) {
-  edit("sculpt", (w) => {
-    const N = GRID, d = readGrid(w.land.sculpt)
-    const u = x / (w.land.radius * 3.2) + 0.5, v = z / (w.land.radius * 3.2) + 0.5, r = size * N
+function sculptAt(id: string | undefined, x: number, z: number, tool: SculptTool, size: number) {
+  editTerrain(id, "sculpt", (land) => {
+    const N = GRID, d = readGrid(land.sculpt)
+    const u = (x - (land.pos?.[0] ?? 0)) / (land.radius * 3.2) + 0.5, v = (z - (land.pos?.[2] ?? 0)) / (land.radius * 3.2) + 0.5, r = size * N
     const src = d.slice(), cl = (n: number) => Math.max(0, Math.min(N - 1, n))
     if (tool === "erode") {
       // water drops: each lands in the brush, runs downhill and away from the middle, and wears a gully as it goes
@@ -57,7 +57,7 @@ function sculptAt(x: number, z: number, tool: SculptTool, size: number) {
         if (tool === "smooth") { const a = (src[at] + src[Math.max(0, at - 1)] + src[Math.min(N * N - 1, at + 1)] + src[Math.max(0, at - N)] + src[Math.min(N * N - 1, at + N)]) / 5; d[at] = Math.round(src[at] + (a - src[at]) * f) }
         else d[at] = Math.max(0, Math.min(255, Math.round(src[at] + (tool === "raise" ? 9 : -9) * f)))
       }
-    w.land.sculpt = writeGrid(d); w.land.on = true
+    land.sculpt = writeGrid(d); land.on = true
   })
 }
 
@@ -118,12 +118,12 @@ export function Viewport() {
     canvas.current!.setPointerCapture(e.pointerId); pts.current.set(e.pointerId, [e.clientX, e.clientY]); pinch.current = 0
     if (pts.current.size > 1) { drag.current = null; return }
     const [nx, ny] = at(e), w = get().world, hit = engine.pick(nx, ny)
-    const d = { x: e.clientX, y: e.clientY, moved: false, planeY: 0, off: [0, 0] as [number, number], hit: hit?.kind ?? "sky" }
+    const d = { x: e.clientX, y: e.clientY, moved: false, planeY: 0, off: [0, 0] as [number, number], hit: hit?.kind ?? "sky", id: hit?.id }
     if (hit?.kind === "thing" && hit.id) {
       const t = w.things.find((x) => x.id === hit.id)!; patch({ sel: { type: "thing", id: t.id } })
       const p = onPlane(nx, ny, t.pos[1]); drag.current = { ...d, mode: "thing", id: t.id, planeY: t.pos[1], off: p ? [t.pos[0] - p.x, t.pos[2] - p.z] : [0, 0] }; return
     }
-    if (hit?.kind === "land" && get().sel.type === "land" && get().sculpt.tool !== "off") { drag.current = { ...d, mode: "sculpt" }; sculptAt(hit.point[0], hit.point[2], get().sculpt.tool as SculptTool, get().sculpt.size); return }
+    if (hit?.kind === "land" && get().sel.type === "land" && hit.id === selectedTerrainId(get()) && get().sculpt.tool !== "off") { drag.current = { ...d, mode: "sculpt" }; sculptAt(hit.id, hit.point[0], hit.point[2], get().sculpt.tool as SculptTool, get().sculpt.size); return }
     if (hit?.kind === "sky") { const { rd } = engine.ray(nx, ny), s = w.sky.sun
       const sd = new THREE.Vector3(Math.cos(s.el) * Math.sin(s.az), Math.sin(s.el), Math.cos(s.el) * Math.cos(s.az))
       if (rd.dot(sd) > Math.cos(0.09)) { drag.current = { ...d, mode: "sun" }; patch({ sel: { type: "sky" } }); return } }
@@ -144,11 +144,11 @@ export function Viewport() {
       else { const q = onPlane(nx, ny, d.planeY); if (q) editThing(d.id, "move", (t) => { t.pos[0] = q.x + d.off[0]; t.pos[2] = q.z + d.off[1] }) }
     }
     else if (d.mode === "sun") { const { rd } = engine.ray(nx, ny); edit("sun", (w) => { w.sky.sun = { az: Math.atan2(rd.x, rd.z), el: Math.max(0.02, Math.asin(Math.max(-1, Math.min(1, rd.y)))) } }) }
-    else if (d.mode === "sculpt") { const h = engine.pick(nx, ny); if (h && (h.kind === "land" || h.kind === "sea")) sculptAt(h.point[0], h.point[2], get().sculpt.tool as SculptTool, get().sculpt.size) }
+    else if (d.mode === "sculpt") { const h = engine.pick(nx, ny); if (h && ((h.kind === "land" && h.id === d.id) || h.kind === "sea")) sculptAt(d.id, h.point[0], h.point[2], get().sculpt.tool as SculptTool, get().sculpt.size) }
   }
   const up = (e: React.PointerEvent) => {
     pts.current.delete(e.pointerId); pinch.current = 0; const d = drag.current; drag.current = null
-    if (d && !d.moved && d.mode === "orbit") { const k = d.hit; if (k === "sky" || k === "sea" || k === "land" || k === "title") patch({ sel: { type: k } }) }
+    if (d && !d.moved && d.mode === "orbit") { const k = d.hit; if (k === "land") patch({ sel: { type: "land", id: d.id } }); else if (k === "sky" || k === "sea" || k === "title") patch({ sel: { type: k } }) }
   }
   const wheel = React.useCallback((e: WheelEvent) => { e.preventDefault(); edit("zoom", (w) => { w.cam.dist = Math.max(3, Math.min(120, w.cam.dist * Math.exp(e.deltaY * 0.0012))) }) }, [])
   React.useEffect(() => { const c = canvas.current!; c.addEventListener("wheel", wheel, { passive: false }); return () => c.removeEventListener("wheel", wheel) }, [wheel])
@@ -187,6 +187,7 @@ export function Viewport() {
             <DropdownMenuContent side="top" align="start" className="max-h-[min(30rem,70dvh)] w-48">
               {ADDABLE.map((k) => { const I = KIND_ICON[k]; return <DropdownMenuItem key={k} onClick={() => newThing(k)}><I className="size-4" /> {KIND_LABEL[k]}</DropdownMenuItem> })}
               <DropdownMenuSeparator />
+              <DropdownMenuItem data-testid="add-terrain" onClick={addTerrain}><Mountain className="size-4" /> Add terrain</DropdownMenuItem>
               <DropdownMenuItem onClick={toggleIsland}><Mountain className="size-4" /> {world.land.on ? "Island (take it away)" : "An island"}</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

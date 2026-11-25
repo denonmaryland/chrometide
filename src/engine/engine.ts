@@ -4,7 +4,7 @@
 import * as THREE from "three"
 
 import { LH, LW, glyphLayer, titleField } from "./lettering"
-import { type Camera, type Material, type Thing, type World, KINDS, ROLES, SEA_KINDS, TEXTURES } from "./scene"
+import { type Land, type Camera, MAX_TERRAINS, type Material, type Thing, type World, KINDS, ROLES, SEA_KINDS, TEXTURES } from "./scene"
 import { DISPLAY_FRAG, MAT_COLS, MAXO, TRACE_FRAG, VERT } from "./shader"
 import { SHAPES, SHAPE_BY_ID } from "./shapes"
 
@@ -64,7 +64,8 @@ export class Engine {
   private low!: THREE.WebGLRenderTarget; private acc!: THREE.WebGLRenderTarget; private pickRT: THREE.WebGLRenderTarget | null = null
   private matTex!: THREE.DataTexture; private matData = new Float32Array(MAT_COLS * (MAXO + 1) * 4)
   private letterTex: THREE.DataTexture | null = null; private letterKey = ""
-  private sculptTex!: THREE.DataTexture; private sculptKey = ""
+  private sculptTex!: THREE.DataArrayTexture; private sculptKeys: (string | undefined)[] = []
+  private terrainIds: (string | undefined)[] = []
   private glyphTex!: THREE.DataArrayTexture; private glyphs = new Map<string, { layer: number; uw: number; uh: number }>()
   /** when set, things with a move (rise, wave) and bobbing things follow this moment of the loop, 0 to 1 */
   livePhase: number | null = null
@@ -93,12 +94,18 @@ export class Engine {
     canvas.addEventListener("webglcontextlost", this.onLost); canvas.addEventListener("webglcontextrestored", this.onRestored)
     const r = this.r; r.setPixelRatio(1); r.autoClear = false; r.outputColorSpace = THREE.LinearSRGBColorSpace
     this.float = !!r.getContext().getExtension("EXT_color_buffer_float")
-    const V3 = ["uCamPos", "uCamFw", "uCamRt", "uCamUp", "uZenith", "uHorizon", "uHazeCol", "uSunCol", "uSunDir", "uCloudCol", "uCloud2Col", "uFogCol", "uMoonDir", "uG1", "uG2", "uT1", "uT2", "uT3", "uTitleBox", "uCometDir", "uPRo", "uPRd"]
+    const V3 = ["uCamPos", "uCamFw", "uCamRt", "uCamUp", "uZenith", "uHorizon", "uHazeCol", "uSunCol", "uSunDir", "uCloudCol", "uCloud2Col", "uFogCol", "uMoonDir", "uG1", "uG2", "uTitleBox", "uCometDir", "uPRo", "uPRd"]
     const F1 = ["uSample", "uPreview", "uMode", "uLDR", "uBounces", "uBlend", "uTime", "uFocal", "uLens", "uFocus", "uPanoYaw", "uProj", "uHaze", "uCloud", "uStreak", "uCloudScale", "uCloud2", "uStars", "uSkySeed", "uSunSize", "uSunGlow", "uSunSoft", "uAmbient",
-      "uFog", "uFogH", "uMoon", "uMoonSize", "uMoonPhase", "uRainbow", "uHalo", "uGround", "uWave", "uCalmPatches", "uRippleWidth", "uRippleAngle", "uGrain", "uGRefl", "uGScale", "uTerrOn", "uTerrMode", "uTerrH", "uTerrR", "uTerrFreq", "uTerrRidge", "uTerrSeed", "uSnow", "uCliffSnow", "uSnowFacing", "uTerrace", "uPlateau", "uSharp", "uChannelBend", "uSculptOn", "uNObj", "uNLight", "uRays", "uComet", "uTerrFlat", "uGridHalf"]
+      "uFog", "uFogH", "uMoon", "uMoonSize", "uMoonPhase", "uRainbow", "uHalo", "uGround", "uWave", "uCalmPatches", "uRippleWidth", "uRippleAngle", "uGrain", "uGRefl", "uGScale", "uTerrainCount", "uNObj", "uNLight", "uRays", "uComet", "uGridHalf"]
     V3.forEach((n) => (this.u[n] = { value: new THREE.Vector3() })); F1.forEach((n) => (this.u[n] = { value: 0 }))
     this.u.uRes = { value: new THREE.Vector2(2, 2) }; this.u.uPickUV = { value: new THREE.Vector2() }
-    this.u.uChannel = { value: new THREE.Vector4() }; this.u.uTitlePose = { value: new THREE.Vector4() }
+    this.u.uGridCenter = { value: new THREE.Vector2() }
+    this.u.uTerrains = { value: Array.from({ length: MAX_TERRAINS }, () => ({
+      centerRadius: new THREE.Vector4(), shape: new THREE.Vector4(), carve: new THREE.Vector4(),
+      snow: new THREE.Vector4(), channel: new THREE.Vector4(), flags: new THREE.Vector4(),
+      sand: new THREE.Vector3(), grass: new THREE.Vector3(), rock: new THREE.Vector3(),
+    })) }
+    this.u.uTitlePose = { value: new THREE.Vector4() }
     for (const n of ["uOP", "uOS", "uR0", "uR1", "uR2"]) this.u[n] = { value: Array.from({ length: MAXO }, () => new THREE.Vector4()) }
     this.u.uLP = { value: Array.from({ length: 4 }, () => new THREE.Vector4()) }; this.u.uLC = { value: Array.from({ length: 4 }, () => new THREE.Vector3()) }; this.u.uLD = { value: Array.from({ length: 4 }, () => new THREE.Vector4(0, -1, 0, -2)) }
     this.matTex = new THREE.DataTexture(this.matData, MAT_COLS, MAXO + 1, THREE.RGBAFormat, THREE.FloatType); this.matTex.needsUpdate = true
@@ -108,7 +115,8 @@ export class Engine {
     this.glyphTex = new THREE.DataArrayTexture(new Uint8Array(LW * LH * GLYPHS).fill(255), LW, LH, GLYPHS); this.glyphTex.format = THREE.RedFormat; this.glyphTex.minFilter = this.glyphTex.magFilter = THREE.LinearFilter; this.glyphTex.unpackAlignment = 1; this.glyphTex.needsUpdate = true; this.u.uGlyph = { value: this.glyphTex }
     this.picTex = blank; this.u.uPic = { value: blank }
     this.modelTex = new THREE.Data3DTexture(new Uint8Array([255]), 1, 1, 1); this.modelTex.format = THREE.RedFormat; this.modelTex.unpackAlignment = 1; this.modelTex.needsUpdate = true; this.u.uModel = { value: this.modelTex }
-    this.sculptTex = new THREE.DataTexture(new Uint8Array(GRID * GRID * 4).fill(128), GRID, GRID, THREE.RGBAFormat)
+    this.sculptTex = new THREE.DataArrayTexture(new Uint8Array(GRID * GRID * MAX_TERRAINS).fill(128), GRID, GRID, MAX_TERRAINS)
+    this.sculptTex.format = THREE.RedFormat
     this.sculptTex.magFilter = this.sculptTex.minFilter = THREE.LinearFilter; this.sculptTex.needsUpdate = true
     this.u.uSculpt = { value: this.sculptTex }
     const tri = new THREE.BufferGeometry(); tri.setAttribute("position", new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 3, -1, 0, -1, 3, 0]), 3))
@@ -195,19 +203,31 @@ export class Engine {
     u.uRippleWidth.value = num(g.rippleWidth, 1, 1, 10)
     u.uRippleAngle.value = num(g.rippleAngle, 0, -180, 180) * Math.PI / 180
     u.uWave.value = num(g.wave, 0.3, 0, 2); u.uGrain.value = num(g.grain, 0, 0, 1); u.uGRefl.value = num(g.reflect, 0, 0, 1); u.uGScale.value = num(g.scale, 1, 0.05, 20)
-    const t = w.land, on = t.on && t.height > 0.05
-    u.uTerrOn.value = on ? 1 : 0; u.uTerrMode.value = t.mode === "range" ? 1 : 0; u.uTerrH.value = Math.max(num(t.height, 4, 0, 40), 0.05); u.uTerrR.value = num(t.radius, 8, 1, 60)
-    u.uCliffSnow.value = num(t.cliffSnow, 0, 0, 1)
-    u.uSnowFacing.value = num(t.snowFacing, 0, -180, 180) * Math.PI / 180
-    u.uTerrFreq.value = num(t.freq, 0.22, 0.02, 3) * (8 / Math.max(t.radius, 2)) * (t.mode === "range" ? 1.2 : 1); u.uTerrRidge.value = num(t.ridge, 0.8, 0, 1); u.uTerrSeed.value = num(t.seed, 1) * 13.7; u.uSnow.value = num(t.snow, 0, 0, 1)
-    u.uTerrace.value = num(t.terrace, 0, 0, 1); u.uPlateau.value = num(t.plateau, 0, 0, 1); u.uSharp.value = num(t.sharp, 0, 0, 1)
-    const cut = t.channel; u.uChannelBend.value = cut?.bend ?? 0
-    if (cut && t.mode !== "range") { const a = THREE.MathUtils.degToRad(cut.angle); u.uChannel.value.set(Math.cos(a), Math.sin(a), cut.offset, cut.width) } else u.uChannel.value.set(0, 0, 0, 0)
-    v3("uT1", hex(t.c1)); v3("uT2", hex(t.c2)); v3("uT3", hex(t.c3))
-    u.uTerrFlat.value = t.flat ? 1 : 0; u.uRays.value = num(s.rays, 0, 0, 2); u.uComet.value = num(s.comet, 0, 0, 2); v3("uCometDir", dir(s.seed * 1.3 + 0.7, 0.42 + 0.25 * Math.sin(s.seed * 2.1)))
+    const lands = [w.land, ...(w.terrains ?? [])].slice(0, MAX_TERRAINS).filter(t => t.on && t.height > 0.05)
+    this.terrainIds = lands.map(t => "id" in t ? t.id as string : undefined)
+    u.uTerrainCount.value = lands.length
+    lands.forEach((t, i) => {
+      const row = u.uTerrains.value[i], radius = num(t.radius, 8, 1, 60)
+      row.centerRadius.set(...(t.pos ?? [0, 0, 0]), radius)
+      row.shape.set(num(t.height, 4, 0.05, 40), num(t.freq, .22, .02, 3) * 8 / Math.max(radius, 2) * (t.mode === "range" ? 1.2 : 1), num(t.ridge, .8, 0, 1), num(t.seed, 1) * 13.7)
+      row.carve.set(num(t.terrace, 0, 0, 1), num(t.plateau, 0, 0, 1), num(t.sharp, 0, 0, 1), t.channel?.bend ?? 0)
+      row.snow.set(num(t.snow, 0, 0, 1), num(t.cliffSnow, 0, 0, 1), THREE.MathUtils.degToRad(num(t.snowFacing, 0, -180, 180)), 0)
+      row.flags.set(t.mode === "range" ? 1 : 0, t.flat ? 1 : 0, t.sculpt ? 1 : 0, i)
+      const cut = t.channel
+      if (cut && t.mode !== "range") { const a = THREE.MathUtils.degToRad(cut.angle); row.channel.set(Math.cos(a), Math.sin(a), cut.offset, cut.width) }
+      else row.channel.set(0, 0, 0, 0)
+      row.sand.set(...hex(t.c1)); row.grass.set(...hex(t.c2)); row.rock.set(...hex(t.c3))
+      if (this.sculptKeys[i] !== t.sculpt) {
+        this.sculptKeys[i] = t.sculpt
+        const n = GRID * GRID, data = this.sculptTex.image.data as Uint8Array
+        let raw = ""
+        try { raw = t.sculpt ? atob(t.sculpt) : "" } catch { /* use a flat grid */ }
+        for (let j = 0; j < n; j++) data[i * n + j] = j < raw.length ? raw.charCodeAt(j) : 128
+        this.sculptTex.needsUpdate = true
+      }
+    })
+    u.uRays.value = num(s.rays, 0, 0, 2); u.uComet.value = num(s.comet, 0, 0, 2); v3("uCometDir", dir(s.seed * 1.3 + 0.7, 0.42 + 0.25 * Math.sin(s.seed * 2.1)))
     this.pictures(w)
-    u.uSculptOn.value = on && t.sculpt ? 1 : 0
-    if (t.sculpt && t.sculpt !== this.sculptKey) { this.sculptKey = t.sculpt; try { const raw = atob(t.sculpt), d = this.sculptTex.image.data as Uint8Array; for (let i = 0; i < GRID * GRID; i++) d[i * 4] = i < raw.length ? raw.charCodeAt(i) : 128; this.sculptTex.needsUpdate = true } catch { /* a bad sculpt string leaves the land untouched */ } }
     // things
     const things = w.things.filter((x) => !x.hidden).slice(0, MAXO); this.ids = things.map((x) => x.id)
     const m4 = new THREE.Matrix4(), e = new THREE.Euler(); let nl = 0; const risers = things.filter((x) => x.text?.motion && x.text.motion !== "none")
@@ -353,7 +373,7 @@ export class Engine {
     const px = new Float32Array(4); this.r.readRenderTargetPixels(this.pickRT, 0, 0, 1, 1, px); this.r.setRenderTarget(null)
     const kind = (["sky", "sea", "land", "thing", "title"] as const)[Math.round(px[0])] ?? "sky"
     const { ro, rd } = this.ray(nx, ny); const d = kind === "sky" ? 0 : px[2]; const p = ro.clone().addScaledVector(rd, d)
-    return { kind, id: kind === "thing" ? this.ids[Math.round(px[1])] : undefined, point: [p.x, p.y, p.z], dist: d }
+    return { kind, id: kind === "thing" ? this.ids[Math.round(px[1])] : kind === "land" ? this.terrainIds[Math.round(px[1])] : undefined, point: [p.x, p.y, p.z], dist: d }
   }
 
   /** What a ray from anywhere meets: used to rest things on the land and to scatter copies. */
@@ -365,10 +385,11 @@ export class Engine {
     return { kind: (["sky", "sea", "land", "thing", "title"] as const)[Math.round(px[0])] ?? "sky", dist: px[2] }
   }
   /** The land as a square grid of heights, n by n, covering half-width `half` around the middle. */
-  heights(n: number, half: number): Float32Array {
+  heights(n: number, half: number, piece?: Land): Float32Array {
     const out = new Float32Array(n * n); if (!this.float || !this.world) return out
     const rt = new THREE.WebGLRenderTarget(n, n, { depthBuffer: false, type: THREE.FloatType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, generateMipmaps: false })
-    this.upload(this.world, this.w, this.h); this.u.uGridHalf.value = half
+    this.upload(piece ? { ...this.world, land: piece, terrains: [] } : this.world, this.w, this.h); this.u.uGridHalf.value = half
+    this.u.uGridCenter.value.set(piece?.pos?.[0] ?? 0, piece?.pos?.[2] ?? 0)
     const keep = this.traceMat.blending; this.traceMat.blending = THREE.NoBlending
     this.pass(rt, n, n, { sample: 0, preview: true, ldr: false, blend: 1, mode: 11 }); this.traceMat.blending = keep; this.u.uRes.value.set(this.w, this.h)
     const px = new Float32Array(n * n * 4); this.r.readRenderTargetPixels(rt, 0, 0, n, n, px); this.r.setRenderTarget(null); rt.dispose(); this.dirty = true
