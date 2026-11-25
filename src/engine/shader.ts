@@ -48,7 +48,7 @@ precision highp float; precision highp int; precision highp sampler2D; precision
 out vec4 outCol;
 #define MAXO ${MAXO}
 #define MAXG 4
-#define ZERO min(uNObj, 0) // 0, but the compiler cannot know: loops from it are not unrolled into copies
+#define ZERO min(uNObj, 0) // 0, but the compiler cannot know: loops from it are not unrolled into copies (every long loop here starts from it)
 uniform vec2 uRes; uniform int uSample, uPreview, uMode, uLDR, uBounces; uniform float uBlend, uTime; uniform vec2 uPickUV;
 uniform vec3 uCamPos, uCamFw, uCamRt, uCamUp; uniform float uFocal, uLens, uFocus, uPanoYaw; uniform int uProj;
 uniform vec3 uZenith, uHorizon, uHazeCol, uSunCol, uSunDir, uCloudCol, uCloud2Col, uFogCol, uMoonDir;
@@ -72,14 +72,14 @@ float hash(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32);
 float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
   return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y); }
 const mat2 M2 = mat2(.8, .6, -.6, .8);
-float fbm(vec2 p){ float a = .5, s = 0.; for (int i = 0; i < 5; i++) { s += a * noise(p); p = M2 * p * 2.02; a *= .5; } return s; }
+float fbm(vec2 p){ float a = .5, s = 0.; for (int i = ZERO; i < 5; i++) { s += a * noise(p); p = M2 * p * 2.02; a *= .5; } return s; }
 float n3(vec3 p){ return (noise(p.xy) + noise(p.yz + 7.3) + noise(p.zx + 3.1)) / 3.; }
 
 // ---------- land ----------
 float terr(vec2 p, int oct){
   vec2 q = p * uTerrFreq + uTerrSeed * vec2(1., -.73);
   float a = .5, s = 0., w = 1.;
-  for (int i = 0; i < 9; i++) { if (i >= oct) break;
+  for (int i = ZERO; i < 9; i++) { if (i >= oct) break;
     float n = noise(q); float r = 1. - abs(2. * n - 1.); r *= r;
     float v = mix(n, r, uTerrRidge); s += a * v * w; w = mix(1., clamp(v * 1.7, 0., 1.), uTerrRidge * .85);
     q = M2 * q * 2.03; a *= .5; }
@@ -103,28 +103,31 @@ float terr(vec2 p, int oct){
   return h;
 }
 float terrTop(){ return uTerrH * 1.45 + uSculptOn * 1.25 * max(uTerrH, 2.); }
-float marchTerr(vec3 ro, vec3 rd, float tmax){
-  float top = terrTop(); float t = 0.;
-  if (ro.y > top) { if (rd.y >= 0.) return -1.; t = (ro.y - top) / (-rd.y); }
-  float rr = uTerrMode < .5 ? uTerrR * (1. + uSculptOn * 1.3) : uTerrR * 9.;
-  float a = dot(rd.xz, rd.xz), b = dot(ro.xz, rd.xz), c = dot(ro.xz, ro.xz) - rr * rr;
-  float tEnd = tmax;
-  if (a > 1e-6) { float h = b * b - a * c; if (h < 0.) return -1.; h = sqrt(h); t = max(t, (-b - h) / a); tEnd = min(tEnd, (-b + h) / a); }
-  else if (c > 0.) return -1.;
-  if (t > tEnd) return -1.;
-  for (int i = 0; i < 150; i++) {
-    vec3 p = ro + rd * t; float h = p.y - terr(p.xz, 6);
-    if (h < .0015 * t + .002) return t;
-    t += h * .42 + .002 * t; if (t > tEnd) break; if (rd.y > 0. && p.y > top) break;
+// One march over the land for both rays that need one, so the land is written out once (see trace). mode 0: the ray's
+// own march, to where it meets the land within tmax, or -1. mode 1: from a point toward the sun, for how much of its
+// light the land lets by, 0 to 1.
+float marchLand(vec3 ro, vec3 rd, float tmax, int mode){
+  float top = terrTop(); float t = .08, tEnd = tmax, res = 1.;
+  if (mode == 0) {
+    t = 0.;
+    if (ro.y > top) { if (rd.y >= 0.) return -1.; t = (ro.y - top) / (-rd.y); }
+    float rr = uTerrMode < .5 ? uTerrR * (1. + uSculptOn * 1.3) : uTerrR * 9.;
+    float a = dot(rd.xz, rd.xz), b = dot(ro.xz, rd.xz), c = dot(ro.xz, ro.xz) - rr * rr;
+    if (a > 1e-6) { float h = b * b - a * c; if (h < 0.) return -1.; h = sqrt(h); t = max(t, (-b - h) / a); tEnd = min(tEnd, (-b + h) / a); }
+    else if (c > 0.) return -1.;
+    if (t > tEnd) return -1.;
   }
-  return -1.;
+  for (int i = ZERO; i < 150; i++) {
+    vec3 p = ro + rd * t; float h = p.y - terr(p.xz, mode == 0 ? 6 : 5);
+    if (mode == 0) {
+      if (h < .0015 * t + .002) return t;
+      t += h * .42 + .002 * t; if (t > tEnd) break; if (rd.y > 0. && p.y > top) break;
+    } else {
+      res = min(res, 10. * h / t); if (res < .02 || p.y > top || i >= 27) break; t += clamp(h * .6, .06, 1.2);
+    }
+  }
+  return mode == 0 ? -1. : clamp(res, 0., 1.);
 }
-vec3 terrN(vec3 p, float t){ float e = max(.012, .0025 * t); float h[4];
-  for (int i = ZERO; i < 4; i++) h[i] = terr(p.xz + (i == 0 ? vec2(-e, 0.) : i == 1 ? vec2(e, 0.) : i == 2 ? vec2(0., -e) : vec2(0., e)), 9);
-  return normalize(vec3(h[0] - h[1], 2. * e, h[2] - h[3])); }
-float terrShadow(vec3 p, vec3 L){ float res = 1., t = .08; float top = terrTop();
-  for (int i = 0; i < 28; i++) { vec3 q = p + L * t; float h = q.y - terr(q.xz, 5); res = min(res, 10. * h / t); if (res < .02 || q.y > top) break; t += clamp(h * .6, .06, 1.2); }
-  return clamp(res, 0., 1.); }
 
 // ---------- things: signed distances, so shapes can be cut out of each other and melted together ----------
 vec3 toLocal(int i, vec3 p){ vec3 q = p - uOP[i].xyz; return vec3(dot(uR0[i].xyz, q), dot(uR1[i].xyz, q), dot(uR2[i].xyz, q)); }
@@ -175,7 +178,7 @@ float sdThing(int i, vec3 p){
   ${shapeBranches((id) => KINDS.indexOf(id))}
   else {
     d = capped(vec2(length(u.xz) - .08, abs(u.y + .7) - .3)); float rr = length(u.xz);
-    for (int j = 0; j < 3; j++) { float fj = float(j); float top = 1. - fj * .36, h = .78, rad = .4 + fj * .2;
+    for (int j = ZERO; j < 3; j++) { float fj = float(j); float top = 1. - fj * .36, h = .78, rad = .4 + fj * .2;
       vec2 nrm = normalize(vec2(h, rad)); d = min(d, max(dot(vec2(rr, u.y - top), nrm), top - h - u.y)); }
   }
   return d * m;
@@ -184,8 +187,8 @@ float smin(float a, float b, float k){ float h = clamp(.5 + .5 * (b - a) / k, 0.
 int gMask;
 float map(vec3 p, out int id){
   float dp[MAXG]; float dn[MAXG]; float dk[MAXG]; float db[MAXG]; int ip[MAXG]; int ic[MAXG]; int ik[MAXG]; int ib[MAXG]; float bn[MAXG];
-  for (int g = 0; g < MAXG; g++) { dp[g] = 1e9; dn[g] = 1e9; dk[g] = -1e9; db[g] = 1e9; bn[g] = 1e9; ip[g] = 0; ic[g] = 0; ik[g] = 0; ib[g] = 0; }
-  for (int i = 0; i < MAXO; i++) { if (i >= uNObj) break; if (((gMask >> i) & 1) == 0) continue;
+  for (int g = ZERO; g < MAXG; g++) { dp[g] = 1e9; dn[g] = 1e9; dk[g] = -1e9; db[g] = 1e9; bn[g] = 1e9; ip[g] = 0; ic[g] = 0; ik[g] = 0; ib[g] = 0; }
+  for (int i = ZERO; i < MAXO; i++) { if (i >= uNObj) break; if (((gMask >> i) & 1) == 0) continue;
     float d = sdThing(i, p); int g = int(uR1[i].w + .5); int role = int(uR0[i].w + .5);
     if (role == 1) { if (d < dn[g]) { dn[g] = d; ic[g] = i; } }
     else if (role == 2) { if (d > dk[g]) { dk[g] = d; ik[g] = i; } }
@@ -193,7 +196,7 @@ float map(vec3 p, out int id){
     else if (d < dp[g]) { dp[g] = d; ip[g] = i; }
   }
   float res = 1e9; id = 0;
-  for (int g = 0; g < MAXG; g++) {
+  for (int g = ZERO; g < MAXG; g++) {
     float d = dp[g]; int j = ip[g];
     if (db[g] < d) { d = db[g]; j = ib[g]; }
     if (d > 1e8) continue;
@@ -203,23 +206,49 @@ float map(vec3 p, out int id){
   }
   return res;
 }
-float marchThings(vec3 ro, vec3 rd, float tmax, out int id){
-  int mask = 0; float t0 = 1e9, t1 = -1.; id = 0;
-  for (int i = 0; i < MAXO; i++) { if (i >= uNObj) break;
-    int role = int(uR0[i].w + .5);
-    if (role == 2) { mask |= 1 << i; continue; }
-    vec3 oc = ro - uOP[i].xyz; float R = uR2[i].w; float b = dot(oc, rd), c = dot(oc, oc) - R * R, h = b * b - c;
-    if (h < 0.) continue; h = sqrt(h); float tb = -b + h; if (tb < 0.) continue;
-    mask |= 1 << i; if (role == 0) { t0 = min(t0, max(-b - h, 0.)); t1 = max(t1, tb); }
+// One march through the things for every ray there is, so that map(), with every shape's distance in it, is written
+// out once: Direct3D's compiler (Chrome and Edge on Windows) copies a function out in full wherever it is called.
+//   what 0: a ray from outside, to the first surface within tmax (-1 if it meets none);
+//   what 1: a ray inside a thing, as it goes through glass, to where it comes out (among the things in gMask);
+//   what 2: a walk through a thing made of cloud from tmax along the ray, gathering its light into gCloud*.
+// With wantN, the way the surface faces where the ray stopped is left in gNormal: the four looks about the point that
+// find it are taken in this same loop.
+vec3 gNormal;
+vec3 gCloudAlb, gCloudAmb, gCloudAt, gCloudAcc; float gCloudDen, gCloudSoft, gCloudStep, gCloudSun, gCloudTr;
+float marchThings(vec3 ro, vec3 rd, float tmax, int what, bool wantN, out int id){
+  id = 0; gNormal = vec3(0., 1., 0.);
+  float t = what == 2 ? tmax : 0., t1 = tmax;
+  if (what == 0) {
+    int mask = 0; float t0 = 1e9; t1 = -1.;
+    for (int i = ZERO; i < MAXO; i++) { if (i >= uNObj) break;
+      int role = int(uR0[i].w + .5);
+      if (role == 2) { mask |= 1 << i; continue; }
+      vec3 oc = ro - uOP[i].xyz; float R = uR2[i].w; float b = dot(oc, rd), c = dot(oc, oc) - R * R, h = b * b - c;
+      if (h < 0.) continue; h = sqrt(h); float tb = -b + h; if (tb < 0.) continue;
+      mask |= 1 << i; if (role == 0) { t0 = min(t0, max(-b - h, 0.)); t1 = max(t1, tb); }
+    }
+    gMask = mask; if (t1 < 0.) return -1.;
+    t = max(t0, 1e-3); t1 = min(t1, tmax);
   }
-  gMask = mask; if (t1 < 0.) return -1.;
-  float t = max(t0, 1e-3); t1 = min(t1, tmax);
-  for (int s = 0; s < 120; s++) { if (t > t1) break; float d = map(ro + rd * t, id); if (d < .0005 * t + .0004) return t; t += d; }
-  return -1.;
+  const vec2 e = vec2(.0012, -.0012);
+  int tap = -1, tmp = 0; float hitT = -1.; vec3 hp = ro, ns = vec3(0.);
+  for (int s = ZERO; s < 126; s++) {
+    if (tap < 0 && ((what == 0 && t > t1) || (what == 2 && s >= 26))) break;
+    vec3 o = tap <= 0 ? e.xyy : tap == 1 ? e.yyx : tap == 2 ? e.yxy : e.xxx;
+    vec3 q = tap < 0 ? ro + rd * t : hp + o;
+    float d = map(q, tmp);
+    if (tap >= 0) { ns += o * d; tap++; if (tap == 4) { gNormal = normalize(ns); break; } continue; }
+    bool stop = false;
+    if (what == 0) { id = tmp; if (d < .0005 * t + .0004) stop = true; else { if (s >= 119) break; t += d; } }
+    else if (what == 1) { d = -d; if (d < .0015) stop = true; else { t += max(d, .004); if (t > 40. || s >= 47) stop = true; } }
+    else { d = -d; if (d < 0.) break;
+      float den = gCloudDen * smoothstep(0., gCloudSoft, d) * (.25 + 1.5 * n3(q * 1.4 + 3.) * n3(q * 4.1));
+      float a = 1. - exp(-den * gCloudStep * 3.2); float lit = .5 + .5 * smoothstep(-.3, .7, dot(normalize(q - gCloudAt), uSunDir));
+      gCloudAcc += gCloudTr * a * gCloudAlb * (gCloudAmb * 1.5 + uSunCol * lit * (.35 + .65 * gCloudSun)); gCloudTr *= 1. - a; t += gCloudStep; if (gCloudTr < .03) break; }
+    if (stop) { hitT = t; if (!wantN) break; hp = ro + rd * t; tap = 0; }
+  }
+  return what == 2 ? t : hitT;
 }
-vec3 thingN(vec3 p){ int id; const vec2 e = vec2(.0012, -.0012); vec3 s = vec3(0.);
-  for (int i = ZERO; i < 4; i++) { vec3 o = i == 0 ? e.xyy : i == 1 ? e.yyx : i == 2 ? e.yxy : e.xxx; s += o * map(p + o, id); }
-  return normalize(s); }
 
 // ---------- lettering: an extruded distance field read from a texture ----------
 vec3 rotY(vec3 v, float a){ float c = cos(a), s = sin(a); return vec3(c * v.x - s * v.z, v.y, s * v.x + c * v.z); }
@@ -238,7 +267,7 @@ float hitLetters(vec3 ro, vec3 rd, float limit, out vec3 normal){
   vec3 a = (-uTitleBox - o) / safe, b = (uTitleBox - o) / safe;
   vec3 lo = min(a, b), hi = max(a, b);
   float t = max(.002, max(lo.x, max(lo.y, lo.z))), end = min(limit, min(hi.x, min(hi.y, hi.z)));
-  for (int i = 0; i < 100; i++) {
+  for (int i = ZERO; i < 100; i++) {
     if (t > end + .0002) break;
     vec3 p = o + t * d;
     float h = letterDistance(p);
@@ -253,23 +282,11 @@ float hitLetters(vec3 ro, vec3 rd, float limit, out vec3 normal){
   return -1.;
 }
 
-// ---------- shadows and lamps ----------
-float thingShadow(vec3 p, vec3 L, float maxd){
-  int id; float t = marchThings(p, L, maxd, id); float s = 1.;
-  if (t > 0.) { vec4 m3 = texelFetch(uMat, ivec2(3, id), 0); vec4 m4 = texelFetch(uMat, ivec2(4, id), 0); s = m4.x > 0. ? 1. : m4.y > 0. ? 1. - .6 * m4.y : m3.y * .7; }
-  vec3 n; if (s > 0. && hitLetters(p, L, maxd, n) > 0.) s = 0.;
-  return s;
-}
-vec3 lamps(vec3 p, vec3 n){
-  vec3 sum = vec3(0.);
-  for (int l = 0; l < 4; l++) { if (l >= uNLight) break;
-    vec3 Lv = uLP[l].xyz - p; float d2 = dot(Lv, Lv), d = sqrt(d2); vec3 L = Lv / d; float nl = dot(n, L);
-    if (nl <= 0.) continue;
-    float spot = uLD[l].w > -1.5 ? smoothstep(uLD[l].w, uLD[l].w + .06, dot(-L, uLD[l].xyz)) : 1.; if (spot <= 0.) continue;
-    float reach = d - uLP[l].w - .02; if (reach < 0.) { sum += uLC[l] * nl * spot; continue; }
-    sum += uLC[l] * nl * spot * thingShadow(p + n * .006, L, reach) / (1. + d2 * .06);
-  }
-  return sum;
+// ---------- shadows ----------
+// how much light gets past the thing a shadow ray met (t under 0: it met none)
+float shadowOf(float t, int id){
+  if (t <= 0.) return 1.;
+  vec4 m3 = texelFetch(uMat, ivec2(3, id), 0); vec4 m4 = texelFetch(uMat, ivec2(4, id), 0); return m4.x > 0. ? 1. : m4.y > 0. ? 1. - .6 * m4.y : m3.y * .7;
 }
 
 // ---------- sky ----------
@@ -327,19 +344,8 @@ vec3 pattern(int kind, vec3 p, vec3 a, vec3 b){
   return a;
 }
 
-// ---------- what a ray meets ----------
+// ---------- the ray ----------
 // kind: 0 sky, 1 sea or floor, 2 land, 3 a thing, 4 lettering
-float meet(vec3 ro, vec3 rd, out int kind, out int id, out vec3 n){
-  float t = 1e9; kind = 0; id = -1; n = vec3(0., 1., 0.);
-  if (uGround != 5 && rd.y < -1e-5) { float tw = -ro.y / rd.y; if (tw > 1e-3) { t = tw; kind = 1; } }
-  int oid; float to = marchThings(ro, rd, min(t, 900.), oid);
-  if (to > 0. && to < t) { t = to; kind = 3; id = oid; n = thingN(ro + rd * to); }
-  if (uTerrOn > .5) { float tt = marchTerr(ro, rd, min(t, 600.)); if (tt > 0. && tt < t) { t = tt; kind = 2; } }
-  vec3 nn; float tl = hitLetters(ro, rd, t, nn);
-  if (tl > 0.) { t = tl; kind = 4; n = nn; id = MAXO; }
-  return t;
-}
-
 void groundFog(inout vec3 col, inout vec3 thr, vec3 ro, vec3 rd, float t){
   if (uFog <= 0.) return; float k = 1. / uFogH; float a = exp(-max(ro.y, 0.) * k);
   float od = uFog * .22 * a * (abs(rd.y) < 1e-4 ? t : (1. - exp(-rd.y * k * t)) / (rd.y * k));
@@ -347,66 +353,145 @@ void groundFog(inout vec3 col, inout vec3 thr, vec3 ro, vec3 rd, float t){
 }
 
 vec4 gOut; // what a pick or mask pass writes (uMode != 0)
+// The tracer is a loop of steps, and every step has the one march through the things in it (marchThings), the one
+// march over the land (marchLand) and the one test of the lettering (hitLetters): the eye's ray and each bounce, the
+// ray through a glass, the walk through a cloud, and the shadow rays toward the sun and each lamp all go that way, and
+// the sky is looked up in one place after the loop. Each of those is a long function, and Direct3D's compiler (Chrome
+// and Edge on Windows) writes a function out in full wherever it is called: called where each was wanted, they took
+// over two minutes to compile there. What a step does is its stage:
+//   0 what the ray meets (or, inside a glass, where it comes out);   1 the light rays' look toward the sun;
+//   2 the sun's shadow on the surface;   3 to 6 a lamp's;   7 the walk through a thing made of cloud;
+// then the surface is lit and the ray sent on.
 vec3 trace(vec3 ro, vec3 rd){
   vec3 col = vec3(0.), thr = vec3(1.);
-  float sunOn = 1., skySun = 0.;
-  for (int b = 0; b < 6; b++) { if (b >= uBounces) break;
-    int kind, id; vec3 n; float t = meet(ro, rd, kind, id, n); int primMask = gMask;
-    if (uMode != 0) { // a pick or a mask: only what the first ray meets
-      if (uMode == 9 || uMode == 10) { gOut = vec4(float(kind), float(id), t, 1.); return col; }
-      vec3 m = vec3(0.);
-      if (uMode == 1) m = vec3(kind == 0 ? 0. : exp(-t * .035));
-      else if (uMode == 2) m = vec3(kind >= 3 ? 1. : 0.);
-      else m = vec3(kind == 0 ? 0. : clamp((ro + rd * t).y / 12., 0., 1.));
-      gOut = vec4(uLDR == 1 ? m : pow(m, vec3(2.2)) * 1.2, uBlend); return col; }
-    if (b == 0 && uRays > 0. && uPreview == 0) { float reach = min(t, 70.); vec3 q = ro + rd * reach * rnd();
-      float vis = thingShadow(q, uSunDir, 600.); if (vis > 0. && uTerrOn > .5) vis = min(vis, terrShadow(q, uSunDir));
-      col += thr * uRays * uSunCol * vis * (.22 + 1.6 * pow(max(dot(rd, uSunDir), 0.), 6.)) * .55 * (1. - exp(-reach * .04)); gMask = primMask; }
-    if (kind == 0) { groundFog(col, thr, ro, rd, 2000.); skySun = sunOn; break; }
-    vec3 p = ro + rd * t;
-    float T = exp(-t * uHaze * uHaze * .02);
-    col += thr * (1. - T) * fogCol(); thr *= T;
-    groundFog(col, thr, ro, rd, t);
-    vec3 amb = (mix(uHorizon, uZenith, .5) * .55 + .12) * uAmbient * 2.;
-    float refl = 0.; vec3 tint = vec3(1.); vec3 lc = vec3(0.); float gloss = 1.;
-    // the surface: which way it faces, what it is made of, and where its shadows are looked for
-    vec3 alb = vec3(0.), lp = vec3(0.); vec4 m0 = vec4(0.), m1 = vec4(0.), m2 = vec4(0.), m3 = vec4(0.), m4 = vec4(0.); float glow = 0.;
-    vec3 pS = p + vec3(0., .003, 0.), pT = pS + vec3(0., .01, 0.), lampN = vec3(0., 1., 0.); bool wantLamps = uNLight > 0, cloud = false;
-    if (kind == 2) {
-      n = terrN(p, t);
-      float hh = clamp(p.y / (uTerrH * 1.1), 0., 1.);
-      float sp = n3(p * vec3(5., 5., 5.));
-      alb = mix(uT1, uT2, smoothstep(.03, .2, hh + (sp - .5) * .08));
-      float rock = smoothstep(.82, .55, n.y);
-      alb = mix(alb, uT3, max(smoothstep(.42, .8, hh + (sp - .5) * .25), rock * .85));
-      alb = mix(alb, vec3(.95, .96, 1.), uSnow * smoothstep(.62, .75, hh + (sp - .5) * .2) * smoothstep(.5, .8, n.y));
-      alb *= .72 + .56 * sp;
-      if (uGround == 2) alb = mix(alb, uG1 * 2., smoothstep(.06, 0., hh) * .8);
-      pS = p + n * .01; pT = p + n * .02; lampN = n;
-    } else if (kind >= 3) {
-      m0 = texelFetch(uMat, ivec2(0, id), 0); m1 = texelFetch(uMat, ivec2(1, id), 0); m2 = texelFetch(uMat, ivec2(2, id), 0); m3 = texelFetch(uMat, ivec2(3, id), 0);
-      m4 = texelFetch(uMat, ivec2(4, id), 0); glow = m4.x;
-      lp = kind == 3 ? toLocal(id, p) : rotY(p - uTitlePose.xyz, -uTitlePose.w);
-      int tex = int(m0.w + .5);
-      if (tex == 8) { vec3 u = kind == 3 ? lp / uOS[id].xyz : lp / uTitleBox; int k = kind == 3 ? int(uOP[id].w + .5) : 1;
-        vec2 uv = (k == 1 || k == 2 || k == 6 || k == 13) ? u.xy * .5 + .5 : vec2(atan(u.x, u.z) / 6.2831853 + .5, u.y * .5 + .5);
-        alb = pow(texture(uPic, fract(uv * m1.w)).rgb, vec3(2.2)) * m0.rgb * 1.6; }
-      else alb = pattern(tex, lp * m1.w, m0.rgb, m1.rgb);
-      if (m4.w > 0.) alb = mix(alb, pattern(int(m4.z + .5), lp * m1.w * 2.3 + 5., alb, texelFetch(uMat, ivec2(5, id), 0).rgb), m4.w);
-      if (kind == 3) { int k = int(uOP[id].w + .5); vec3 u = lp / uOS[id].xyz;
-        if (k == 9 && u.y < -.12 && length(u.xz) < .16) alb = vec3(.13, .07, .035);
-        if (k == 10 && u.y < -.42 && length(u.xz) < .12) alb = vec3(.11, .06, .03); }
-      if (m3.w > 0.) { vec3 q = lp * m1.w * 6.; float e = .02; float b0 = n3(q);
-        n = normalize(n + m3.w * 1.6 * (vec3(n3(q + vec3(e, 0., 0.)), n3(q + vec3(0., e, 0.)), n3(q + vec3(0., 0., e))) - b0) / e * .06); }
-      cloud = kind == 3 && m4.y > 0.; pS = p + n * (cloud ? .02 : .004); pT = pS + vec3(0., .01, 0.); lampN = n; wantLamps = wantLamps && !cloud && glow <= 0.;
+  float sunOn = 1.;
+  vec3 skyDir[7]; vec3 skyW[7]; float skySun[7]; float skyK[7]; int nSky = 0; // looks at the sky that are owed
+  int stage = 0, bounce = 0, primMask = 0; bool inside = false, ended = false;
+  // the surface the ray met, kept for the stages after
+  int kind = 0, id = -1; float t = 0.; vec3 p = vec3(0.), n = vec3(0., 1., 0.);
+  vec3 alb = vec3(0.), lp = vec3(0.), pS = vec3(0.), pT = vec3(0.), lampN = vec3(0., 1., 0.), amb = vec3(0.), lamp = vec3(0.), L = uSunDir;
+  vec4 m0 = vec4(0.), m1 = vec4(0.), m2 = vec4(0.), m3 = vec4(0.), m4 = vec4(0.); float glow = 0., sh = 1., depth = 1e3; bool wantLamps = false, cloud = false;
+  vec3 rayQ = vec3(0.), cloudPin = vec3(0.); float rayReach = 0., cloudT0 = 0.;
+  for (int it = ZERO; it < 56; it++) {
+    // ---- this step's march through the things
+    vec3 qo = ro, qd = rd; float qmax = 900., tsea = 1e9; int what = 0; bool go = true;
+    float lnl = 0., lspot = 0., ld2 = 0.; int l = max(stage - 3, 0);
+    if (stage == 0) {
+      if (inside) { what = 1; qmax = 40.; gMask = primMask; }
+      else { if (uGround != 5 && rd.y < -1e-5) { float tw = -ro.y / rd.y; if (tw > 1e-3) tsea = tw; } qmax = min(tsea, 900.); }
+    } else if (stage == 1) { qo = rayQ; qd = uSunDir; qmax = 600.; }
+    else if (stage == 2) { qo = pS; qd = L; qmax = 600.; }
+    else if (stage == 7) { what = 2; qo = cloudPin; qmax = cloudT0; gMask = primMask; }
+    else {
+      vec3 Lv = uLP[l].xyz - p; ld2 = dot(Lv, Lv); float d = sqrt(ld2); vec3 Ll = Lv / d; lnl = dot(lampN, Ll);
+      lspot = uLD[l].w > -1.5 ? smoothstep(uLD[l].w, uLD[l].w + .06, dot(-Ll, uLD[l].xyz)) : 1.;
+      float reach = d - uLP[l].w - .02;
+      if (lnl <= 0. || lspot <= 0.) { go = false; lnl = 0.; }
+      else if (reach < 0.) { go = false; ld2 = 0.; } // within the lamp itself: lit in full
+      else { qo = p + lampN * .006; qd = Ll; qmax = reach; }
     }
-    // the sun's shadow and the lamps, in one place for every kind of surface: each is a whole march
-    // through the things, and the graphics driver copies a function out in full wherever it is called
-    vec3 L = uSunDir; if (uPreview == 0 && uSunSoft > 0.) L = normalize(L + rndBall() * uSunSoft);
-    float sh = thingShadow(pS, L, 600.); if (sh > 0. && uTerrOn > .5) sh = min(sh, terrShadow(pT, L));
-    vec3 lamp = wantLamps ? lamps(p, lampN) : vec3(0.);
+    int hid = 0; float th = -1.;
+    if (go) th = marchThings(qo, qd, qmax, what, stage == 0, hid);
+    bool hitThing = stage == 0 && (inside || (th > 0. && th < tsea));
+    float sFar = (stage == 0 || stage == 7) ? 1. : shadowOf(th, hid); // a shadow ray: what the things let by
+    // ---- its march over the land: the ray's own, or toward the sun for the land's shadow
+    bool landRay = uTerrOn > .5 && stage == 0 && !inside, landShadow = uTerrOn > .5 && (stage == 1 || stage == 2) && sFar > 0.;
+    float tl = -1.;
+    if (landRay || landShadow) tl = marchLand(landRay ? ro : stage == 1 ? rayQ : pT, qd, min(hitThing ? th : tsea, 600.), landRay ? 0 : 1);
+    // ---- and the lettering in its way
+    float tNear = tsea; if (hitThing) tNear = th; if (landRay && tl > 0. && tl < tNear) tNear = tl;
+    vec3 ln = vec3(0.); float tw = -1.;
+    if (go && what == 0 && (stage == 0 || sFar > 0.)) tw = hitLetters(qo, qd, stage == 0 ? tNear : qmax, ln);
+    float s = tw > 0. ? 0. : sFar; if (landShadow) s = min(s, tl); // a shadow ray: what gets by all three
+
+    bool met = false; // the ray has met something, and the light rays (if any) are in: the surface comes next
+    if (stage == 0) {
+      vec3 hp = ro + rd * max(th, 0.); vec3 hn = gNormal;
+      if (inside) { // out of the glass again, bent
+        vec3 r2 = refract(rd, -hn, m3.z); if (dot(r2, r2) < .01) r2 = rd;
+        ro = hp + hn * .01; rd = normalize(r2); sunOn = 1.; inside = false;
+        bounce++; if (bounce >= uBounces) break; continue;
+      }
+      t = tsea; kind = tsea < 1e8 ? 1 : 0; id = -1; n = vec3(0., 1., 0.);
+      if (hitThing) { t = th; kind = 3; id = hid; n = hn; }
+      if (tl > 0. && tl < t) { t = tl; kind = 2; }
+      if (tw > 0.) { t = tw; kind = 4; n = ln; id = MAXO; }
+      primMask = gMask;
+      if (uMode != 0) { // a pick or a mask: only what the first ray meets
+        ended = true;
+        if (uMode == 9 || uMode == 10) { gOut = vec4(float(kind), float(id), t, 1.); break; }
+        vec3 m = vec3(0.);
+        if (uMode == 1) m = vec3(kind == 0 ? 0. : exp(-t * .035));
+        else if (uMode == 2) m = vec3(kind >= 3 ? 1. : 0.);
+        else m = vec3(kind == 0 ? 0. : clamp((ro + rd * t).y / 12., 0., 1.));
+        gOut = vec4(uLDR == 1 ? m : pow(m, vec3(2.2)) * 1.2, uBlend); break; }
+      if (bounce == 0 && uRays > 0. && uPreview == 0) { rayReach = min(t, 70.); rayQ = ro + rd * rayReach * rnd(); stage = 1; continue; }
+      met = true;
+    } else if (stage == 1) {
+      col += thr * uRays * uSunCol * s * (.22 + 1.6 * pow(max(dot(rd, uSunDir), 0.), 6.)) * .55 * (1. - exp(-rayReach * .04));
+      met = true;
+    }
+    if (met) {
+      if (kind == 0) { groundFog(col, thr, ro, rd, 2000.); skyDir[nSky] = rd; skyW[nSky] = thr; skySun[nSky] = sunOn; skyK[nSky] = 1.; nSky++; ended = true; break; }
+      p = ro + rd * t;
+      float T = exp(-t * uHaze * uHaze * .02);
+      col += thr * (1. - T) * fogCol(); thr *= T;
+      groundFog(col, thr, ro, rd, t);
+      amb = (mix(uHorizon, uZenith, .5) * .55 + .12) * uAmbient * 2.;
+      // the land's height about the point, asked in one place: at four spots for which way it faces there (the ray
+      // met land), or at one for how deep the sea is over it (it met the sea)
+      float le = max(.012, .0025 * t); float lh[4]; lh[0] = 0.; lh[1] = 0.; lh[2] = 0.; lh[3] = 0.;
+      int taps = uTerrOn > .5 ? (kind == 2 ? 4 : kind == 1 ? 1 : 0) : 0;
+      for (int i = ZERO; i < taps; i++) lh[i] = terr(p.xz + (kind != 2 ? vec2(0.) : i == 0 ? vec2(-le, 0.) : i == 1 ? vec2(le, 0.) : i == 2 ? vec2(0., -le) : vec2(0., le)), kind == 2 ? 9 : 5);
+      depth = taps == 1 ? -lh[0] : 1e3;
+      // the surface: which way it faces, what it is made of, and where its shadows are looked for
+      alb = vec3(0.); lp = vec3(0.); m0 = vec4(0.); m1 = vec4(0.); m2 = vec4(0.); m3 = vec4(0.); m4 = vec4(0.); glow = 0.;
+      pS = p + vec3(0., .003, 0.); pT = pS + vec3(0., .01, 0.); lampN = vec3(0., 1., 0.); wantLamps = uNLight > 0; cloud = false;
+      if (kind == 2) {
+        n = normalize(vec3(lh[0] - lh[1], 2. * le, lh[2] - lh[3]));
+        float hh = clamp(p.y / (uTerrH * 1.1), 0., 1.);
+        float sp = n3(p * vec3(5., 5., 5.));
+        alb = mix(uT1, uT2, smoothstep(.03, .2, hh + (sp - .5) * .08));
+        float rock = smoothstep(.82, .55, n.y);
+        alb = mix(alb, uT3, max(smoothstep(.42, .8, hh + (sp - .5) * .25), rock * .85));
+        alb = mix(alb, vec3(.95, .96, 1.), uSnow * smoothstep(.62, .75, hh + (sp - .5) * .2) * smoothstep(.5, .8, n.y));
+        alb *= .72 + .56 * sp;
+        if (uGround == 2) alb = mix(alb, uG1 * 2., smoothstep(.06, 0., hh) * .8);
+        pS = p + n * .01; pT = p + n * .02; lampN = n;
+      } else if (kind >= 3) {
+        m0 = texelFetch(uMat, ivec2(0, id), 0); m1 = texelFetch(uMat, ivec2(1, id), 0); m2 = texelFetch(uMat, ivec2(2, id), 0); m3 = texelFetch(uMat, ivec2(3, id), 0);
+        m4 = texelFetch(uMat, ivec2(4, id), 0); glow = m4.x;
+        lp = kind == 3 ? toLocal(id, p) : rotY(p - uTitlePose.xyz, -uTitlePose.w);
+        int tex = int(m0.w + .5);
+        if (tex == 8) { vec3 u = kind == 3 ? lp / uOS[id].xyz : lp / uTitleBox; int k = kind == 3 ? int(uOP[id].w + .5) : 1;
+          vec2 uv = (k == 1 || k == 2 || k == 6 || k == 13) ? u.xy * .5 + .5 : vec2(atan(u.x, u.z) / 6.2831853 + .5, u.y * .5 + .5);
+          alb = pow(texture(uPic, fract(uv * m1.w)).rgb, vec3(2.2)) * m0.rgb * 1.6; }
+        // its pattern (unless it shows a picture), then the second laid over it if it has one: both through one call
+        for (int lay = (tex == 8 ? 1 : ZERO); lay < (m4.w > 0. ? 2 : 1); lay++) {
+          vec3 c = pattern(lay == 0 ? tex : int(m4.z + .5), lay == 0 ? lp * m1.w : lp * m1.w * 2.3 + 5., lay == 0 ? m0.rgb : alb, lay == 0 ? m1.rgb : texelFetch(uMat, ivec2(5, id), 0).rgb);
+          alb = lay == 0 ? c : mix(alb, c, m4.w); }
+        if (kind == 3) { int k = int(uOP[id].w + .5); vec3 u = lp / uOS[id].xyz;
+          if (k == 9 && u.y < -.12 && length(u.xz) < .16) alb = vec3(.13, .07, .035);
+          if (k == 10 && u.y < -.42 && length(u.xz) < .12) alb = vec3(.11, .06, .03); }
+        if (m3.w > 0.) { vec3 q = lp * m1.w * 6.; float e = .02; float b0 = n3(q);
+          n = normalize(n + m3.w * 1.6 * (vec3(n3(q + vec3(e, 0., 0.)), n3(q + vec3(0., e, 0.)), n3(q + vec3(0., 0., e))) - b0) / e * .06); }
+        cloud = kind == 3 && m4.y > 0.; pS = p + n * (cloud ? .02 : .004); pT = pS + vec3(0., .01, 0.); lampN = n; wantLamps = wantLamps && !cloud && glow <= 0.;
+      }
+      L = uSunDir; if (uPreview == 0 && uSunSoft > 0.) L = normalize(L + rndBall() * uSunSoft);
+      stage = 2; continue;
+    }
+    if (stage == 2) { sh = s; lamp = vec3(0.); stage = wantLamps ? 3 : 9; }
+    else if (stage == 7) { // through the cloud: its light is gathered, and the ray goes on from its far side
+      col += thr * gCloudAcc; thr *= gCloudTr; if (max(thr.r, max(thr.g, thr.b)) < .012) { ended = true; break; }
+      ro = cloudPin + rd * (th + .02); stage = 0;
+      bounce++; if (bounce >= uBounces) break; continue;
+    } else { lamp += uLC[l] * lnl * lspot * s / (1. + ld2 * .06); stage = l + 1 < uNLight ? stage + 1 : 9; }
+    if (stage != 9) continue;
+
+    // ---- the sun's shadow and the lamps are known: light the surface, and send the ray on
+    stage = 0;
+    float refl = 0.; vec3 tint = vec3(1.); vec3 lc = vec3(0.); float gloss = 1.;
     if (kind == 1) {
-      float depth = 1e3; if (uTerrOn > .5) depth = -terr(p.xz, 5);
       if (uGround == 0) {
         float fade = 1. / (1. + t * .035);
         vec2 w = p.xz + uTime * vec2(.35, .12); float e = .06;
@@ -445,16 +530,12 @@ vec3 trace(vec3 ro, vec3 rd){
       lc = alb * (amb * (.6 + .4 * n.y) + uSunCol * max(dot(n, uSunDir), 0.) * sh + lamp);
     } else {
       gloss = m3.x; float clear = kind == 3 ? m3.y : 0.;
-      if (kind == 3 && m4.y > 0.) { // a thing made of cloud: walk through it, gathering light
-        vec3 sz = uOS[id].xyz; float span = max(sz.x, max(sz.y, sz.z)), stp = span * 2.2 / 22., soft = min(sz.x, min(sz.y, sz.z)) * .45;
-        float sunVis = sh; gMask = primMask;
-        vec3 pin = p + rd * .01; float ti = stp * (uPreview == 1 ? .5 : rnd()), Tr = 1.; vec3 acc = vec3(0.); int tmp;
-        for (int s = 0; s < 26; s++) { vec3 q = pin + rd * ti; float d = -map(q, tmp); if (d < 0.) break;
-          float den = m4.y * smoothstep(0., soft, d) * (.25 + 1.5 * n3(q * 1.4 + 3.) * n3(q * 4.1));
-          float a = 1. - exp(-den * stp * 3.2); float lit = .5 + .5 * smoothstep(-.3, .7, dot(normalize(q - uOP[id].xyz), uSunDir));
-          acc += Tr * a * alb * (amb * 1.5 + uSunCol * lit * (.35 + .65 * sunVis)); Tr *= 1. - a; ti += stp; if (Tr < .03) break; }
-        col += thr * acc; thr *= Tr; if (max(thr.r, max(thr.g, thr.b)) < .012) return col;
-        ro = pin + rd * (ti + .02); continue; }
+      if (cloud) { // a thing made of cloud: walk through it, gathering light (the next step's march)
+        vec3 sz = uOS[id].xyz; float span = max(sz.x, max(sz.y, sz.z));
+        gCloudStep = span * 2.2 / 22.; gCloudSoft = min(sz.x, min(sz.y, sz.z)) * .45; gCloudDen = m4.y; gCloudAlb = alb; gCloudAmb = amb; gCloudSun = sh; gCloudAt = uOP[id].xyz;
+        gCloudAcc = vec3(0.); gCloudTr = 1.;
+        cloudPin = p + rd * .01; cloudT0 = gCloudStep * (uPreview == 1 ? .5 : rnd());
+        stage = 7; continue; }
       float nl = max(dot(n, uSunDir), 0.) * sh;
       vec3 rf = reflect(rd, n);
       float fr = pow(1. - max(dot(-rd, n), 0.), 5.);
@@ -466,30 +547,30 @@ vec3 trace(vec3 ro, vec3 rd){
       if (clear > .001) {
         col += thr * (1. - refl) * (1. - clear) * dif;
         bool through;
-        if (uPreview == 1) { col += thr * refl * tint * sky(rf, 0.) * .9; thr *= (1. - refl) * clear * mix(vec3(1.), alb, .5); through = true; }
+        if (uPreview == 1) { skyDir[nSky] = rf; skyW[nSky] = thr * refl * tint; skySun[nSky] = 0.; skyK[nSky] = .9; nSky++; thr *= (1. - refl) * clear * mix(vec3(1.), alb, .5); through = true; }
         else { float w = (1. - refl) * clear + refl; through = rnd() * w < (1. - refl) * clear; thr *= w * (through ? mix(vec3(1.), alb, .5) : tint); }
-        if (max(thr.r, max(thr.g, thr.b)) < .012) return col;
-        if (through) {
+        if (max(thr.r, max(thr.g, thr.b)) < .012) { ended = true; break; }
+        if (through) { // into the glass: the next step marches through it and comes out bent
           vec3 r1 = refract(rd, n, 1. / m3.z); if (dot(r1, r1) < .01) r1 = rf;
-          vec3 pin = p - n * .008; float ti = 0.; int tmp; gMask = primMask;
-          for (int s = 0; s < 48; s++) { float d = -map(pin + r1 * ti, tmp); if (d < .0015) break; ti += max(d, .004); if (ti > 40.) break; }
-          vec3 p2 = pin + r1 * ti; vec3 n2 = thingN(p2);
-          vec3 r2 = refract(r1, -n2, m3.z); if (dot(r2, r2) < .01) r2 = r1;
-          ro = p2 + n2 * .01; rd = normalize(r2); sunOn = 1.; continue;
+          ro = p - n * .008; rd = r1; inside = true; continue;
         }
-        ro = p + n * .004; rd = rf; sunOn = .6; continue;
+        ro = p + n * .004; rd = rf; sunOn = .6;
+        bounce++; if (bounce >= uBounces) break; continue;
       }
       lc = dif;
     }
     col += thr * (1. - refl) * lc;
     thr *= refl * tint;
-    if (max(thr.r, max(thr.g, thr.b)) < .012) return col;
+    if (max(thr.r, max(thr.g, thr.b)) < .012) { ended = true; break; }
     ro = p + n * .004; rd = reflect(rd, n);
     if (uPreview == 0 && gloss < .98) { float rough = (1. - gloss) * (1. - gloss) * .6; rd = normalize(rd + rndBall() * rough); if (dot(rd, n) < 0.) rd = reflect(rd, n); }
     if (kind == 1 && rd.y < .002) { rd.y = .002; rd = normalize(rd); }
     sunOn = .6;
+    bounce++; if (bounce >= uBounces) break;
   }
-  col += thr * sky(rd, skySun);
+  // a ray out of bounces takes the sky's color, without its sun
+  if (!ended) { skyDir[nSky] = rd; skyW[nSky] = thr; skySun[nSky] = 0.; skyK[nSky] = 1.; nSky++; }
+  if (uMode == 0) for (int k = ZERO; k < nSky; k++) col += skyW[k] * sky(skyDir[k], skySun[k]) * skyK[k];
   return col;
 }
 
@@ -499,7 +580,7 @@ void main(){
   vec2 jit = uPreview == 1 ? vec2(.5) : vec2(rnd(), rnd());
   vec2 uv = (floor(fc) + jit - .5 * uRes) / min(uRes.x, uRes.y) * 2.;
   if (uMode == 9) uv = uPickUV;
-  if (uMode == 11) { vec2 g = (fc / uRes - .5) * 2. * uGridHalf; float h = 0.; if (uTerrOn > .5) { float tt = marchTerr(vec3(g.x, 200., g.y), vec3(0., -1., 0.), 400.); if (tt > 0.) h = 200. - tt; } outCol = vec4(max(h, 0.), 0., 0., 1.); return; }
+  if (uMode == 11) { vec2 g = (fc / uRes - .5) * 2. * uGridHalf; float h = 0.; if (uTerrOn > .5) { float tt = marchLand(vec3(g.x, 200., g.y), vec3(0., -1., 0.), 400., 0); if (tt > 0.) h = 200. - tt; } outCol = vec4(max(h, 0.), 0., 0., 1.); return; }
   vec3 ro = uCamPos, rd;
   if (uProj == 1) { vec2 a = (floor(fc) + jit) / uRes; float lon = uPanoYaw - (a.x - .5) * 6.2831853, lat = (a.y - .5) * 3.14159265;
     rd = vec3(cos(lat) * sin(lon), sin(lat), cos(lat) * cos(lon)); }
