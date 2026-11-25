@@ -120,6 +120,7 @@ function SeaPanel() {
       {(s.kind === "water" || s.kind === "sand") && <Dial label={s.kind === "water" ? "Waves" : "Dunes"} value={s.wave} max={1.5} onChange={(v) => set("wave", (k) => { k.wave = v })} />}
       {(s.kind === "water" || s.kind === "sand") && <Dial label="Grain" value={s.grain} onChange={(v) => set("grain", (k) => { k.grain = v })} />}
       {s.kind === "water" && <>
+        <Dial label="Calm patches" value={s.calmPatches ?? 0} onChange={(v) => set("calmPatches", (k) => { k.calmPatches = v })} />
         <Dial label="Ripple width" value={s.rippleWidth ?? 1} min={1} max={10} step={0.1} onChange={(v) => set("rippleWidth", (k) => { k.rippleWidth = v })} />
         <Dial label="Ripple angle" value={s.rippleAngle ?? 0} min={-180} max={180} step={1} onChange={(v) => set("rippleAngle", (k) => { k.rippleAngle = v })} />
       </>}

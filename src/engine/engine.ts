@@ -95,7 +95,7 @@ export class Engine {
     this.float = !!r.getContext().getExtension("EXT_color_buffer_float")
     const V3 = ["uCamPos", "uCamFw", "uCamRt", "uCamUp", "uZenith", "uHorizon", "uHazeCol", "uSunCol", "uSunDir", "uCloudCol", "uCloud2Col", "uFogCol", "uMoonDir", "uG1", "uG2", "uT1", "uT2", "uT3", "uTitleBox", "uCometDir", "uPRo", "uPRd"]
     const F1 = ["uSample", "uPreview", "uMode", "uLDR", "uBounces", "uBlend", "uTime", "uFocal", "uLens", "uFocus", "uPanoYaw", "uProj", "uHaze", "uCloud", "uStreak", "uCloudScale", "uCloud2", "uStars", "uSkySeed", "uSunSize", "uSunGlow", "uSunSoft", "uAmbient",
-      "uFog", "uFogH", "uMoon", "uMoonSize", "uMoonPhase", "uRainbow", "uHalo", "uGround", "uWave", "uRippleWidth", "uRippleAngle", "uGrain", "uGRefl", "uGScale", "uTerrOn", "uTerrMode", "uTerrH", "uTerrR", "uTerrFreq", "uTerrRidge", "uTerrSeed", "uSnow", "uTerrace", "uPlateau", "uSharp", "uChannelBend", "uSculptOn", "uNObj", "uNLight", "uRays", "uComet", "uTerrFlat", "uGridHalf"]
+      "uFog", "uFogH", "uMoon", "uMoonSize", "uMoonPhase", "uRainbow", "uHalo", "uGround", "uWave", "uCalmPatches", "uRippleWidth", "uRippleAngle", "uGrain", "uGRefl", "uGScale", "uTerrOn", "uTerrMode", "uTerrH", "uTerrR", "uTerrFreq", "uTerrRidge", "uTerrSeed", "uSnow", "uTerrace", "uPlateau", "uSharp", "uChannelBend", "uSculptOn", "uNObj", "uNLight", "uRays", "uComet", "uTerrFlat", "uGridHalf"]
     V3.forEach((n) => (this.u[n] = { value: new THREE.Vector3() })); F1.forEach((n) => (this.u[n] = { value: 0 }))
     this.u.uRes = { value: new THREE.Vector2(2, 2) }; this.u.uPickUV = { value: new THREE.Vector2() }
     this.u.uChannel = { value: new THREE.Vector4() }; this.u.uTitlePose = { value: new THREE.Vector4() }
@@ -191,6 +191,7 @@ export class Engine {
     u.uAmbient.value = num(s.ambient, 0.5, 0, 1.5); u.uFog.value = num(s.fog, 0, 0, 1); u.uFogH.value = num(s.fogHeight, 1.2, 0.1, 20); u.uMoon.value = num(s.moon, 0, 0, 2); u.uMoonSize.value = num(s.moonSize, 0.06, 0.01, 0.4)
     u.uMoonPhase.value = num(s.moonPhase, 0.5, 0, 1); u.uRainbow.value = num(s.rainbow, 0, 0, 1); u.uHalo.value = num(s.halo, 0, 0, 1); u.uTime.value = time
     const g = w.sea; u.uGround.value = Math.max(0, SEA_KINDS.indexOf(g.kind)); v3("uG1", hex(g.c1)); v3("uG2", hex(g.c2))
+    u.uCalmPatches.value = num(g.calmPatches, 0, 0, 1)
     u.uRippleWidth.value = num(g.rippleWidth, 1, 1, 10)
     u.uRippleAngle.value = num(g.rippleAngle, 0, -180, 180) * Math.PI / 180
     u.uWave.value = num(g.wave, 0.3, 0, 2); u.uGrain.value = num(g.grain, 0, 0, 1); u.uGRefl.value = num(g.reflect, 0, 0, 1); u.uGScale.value = num(g.scale, 1, 0.05, 20)

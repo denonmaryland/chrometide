@@ -54,7 +54,7 @@ uniform vec3 uCamPos, uCamFw, uCamRt, uCamUp; uniform float uFocal, uLens, uFocu
 uniform vec3 uZenith, uHorizon, uHazeCol, uSunCol, uSunDir, uCloudCol, uCloud2Col, uFogCol, uMoonDir;
 uniform float uHaze, uCloud, uStreak, uCloudScale, uCloud2, uStars, uSkySeed, uSunSize, uSunGlow, uSunSoft, uAmbient;
 uniform float uFog, uFogH, uMoon, uMoonSize, uMoonPhase, uRainbow, uHalo;
-uniform int uGround; uniform vec3 uG1, uG2; uniform float uRippleWidth, uRippleAngle, uWave, uGrain, uGRefl, uGScale;
+uniform int uGround; uniform vec3 uG1, uG2; uniform float uCalmPatches, uRippleWidth, uRippleAngle, uWave, uGrain, uGRefl, uGScale;
 uniform float uTerrOn, uTerrMode, uTerrH, uTerrR, uTerrFreq, uTerrRidge, uTerrSeed, uSnow, uTerrace, uPlateau, uSharp, uChannelBend, uSculptOn;
 uniform vec4 uChannel; uniform vec3 uT1, uT2, uT3; uniform sampler2D uSculpt;
 uniform int uNObj; uniform vec4 uOP[MAXO], uOS[MAXO], uR0[MAXO], uR1[MAXO], uR2[MAXO];
@@ -504,12 +504,22 @@ vec3 trace(vec3 ro, vec3 rd){
         float hz = fbm((w + vec2(0., e)) * .55) + .35 * fbm((w + vec2(0., e)) * 2.3 + 3.);
         vec2 g = vec2(hx - h0, hz - h0) / e * uWave * .9 * fade;
         g = stretch * g;
-        g += (vec2(hash(floor(p.xz * 38.)), hash(floor(p.xz * 38.) + 11.)) - .5) * uGrain * .55;
+        float grain = uGrain;
+        if (uCalmPatches > 0.) {
+          // A rising threshold expands the same sheltered pockets across the water.
+          vec2 patchPos = p.xz * .19 + vec2(2.4, 7.1);
+          float field = .75 * noise(patchPos) + .25 * noise(patchPos * 2.7);
+          float edge = mix(-.08, .69, uCalmPatches);
+          float rough = mix(.025, 1., smoothstep(edge, edge + .09, field));
+          g *= rough;
+          grain *= rough;
+        }
+        g += (vec2(hash(floor(p.xz * 38.)), hash(floor(p.xz * 38.) + 11.)) - .5) * grain * .55;
         n = normalize(vec3(-g.x, 1., -g.y));
         float fr = pow(1. - max(dot(-rd, n), 0.), 5.);
         refl = clamp(mix(.04 + .96 * fr, 1., uGRefl), 0., 1.);
         vec3 body = mix(uG2, uG1, smoothstep(0., uTerrH * .22 + .3, depth));
-        float sparkle = 1. + uGrain * (hash(floor(p.xz * 38.) + 5.) - .5) * .9;
+        float sparkle = 1. + grain * (hash(floor(p.xz * 38.) + 5.) - .5) * .9;
         lc = body * sparkle * (amb + uSunCol * .55 * max(uSunDir.y, 0.) * sh + lamp * .6);
         lc += uSunCol * pow(max(dot(reflect(rd, n), uSunDir), 0.), 90.) * .9 * sh * fade;
       } else if (uGround == 1) {
