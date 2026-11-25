@@ -54,7 +54,7 @@ uniform vec3 uCamPos, uCamFw, uCamRt, uCamUp; uniform float uFocal, uLens, uFocu
 uniform vec3 uZenith, uHorizon, uHazeCol, uSunCol, uSunDir, uCloudCol, uCloud2Col, uFogCol, uMoonDir;
 uniform float uHaze, uCloud, uStreak, uCloudScale, uCloud2, uStars, uSkySeed, uSunSize, uSunGlow, uSunSoft, uAmbient;
 uniform float uFog, uFogH, uMoon, uMoonSize, uMoonPhase, uRainbow, uHalo;
-uniform int uGround; uniform vec3 uG1, uG2; uniform float uWave, uGrain, uGRefl, uGScale;
+uniform int uGround; uniform vec3 uG1, uG2; uniform float uRippleWidth, uRippleAngle, uWave, uGrain, uGRefl, uGScale;
 uniform float uTerrOn, uTerrMode, uTerrH, uTerrR, uTerrFreq, uTerrRidge, uTerrSeed, uSnow, uTerrace, uPlateau, uSharp, uChannelBend, uSculptOn;
 uniform vec4 uChannel; uniform vec3 uT1, uT2, uT3; uniform sampler2D uSculpt;
 uniform int uNObj; uniform vec4 uOP[MAXO], uOS[MAXO], uR0[MAXO], uR1[MAXO], uR2[MAXO];
@@ -495,10 +495,15 @@ vec3 trace(vec3 ro, vec3 rd){
       if (uGround == 0) {
         float fade = 1. / (1. + t * .035);
         vec2 w = p.xz + uTime * vec2(.35, .12); float e = .06;
+        // Stretch the height field along a world-space axis. The transpose maps its slope back to world space.
+        vec2 axis = vec2(cos(uRippleAngle), sin(uRippleAngle));
+        mat2 stretch = mat2(1.) + (1. / uRippleWidth - 1.) * outerProduct(axis, axis);
+        w = stretch * w;
         float h0 = fbm(w * .55) + .35 * fbm(w * 2.3 + 3.);
         float hx = fbm((w + vec2(e, 0.)) * .55) + .35 * fbm((w + vec2(e, 0.)) * 2.3 + 3.);
         float hz = fbm((w + vec2(0., e)) * .55) + .35 * fbm((w + vec2(0., e)) * 2.3 + 3.);
         vec2 g = vec2(hx - h0, hz - h0) / e * uWave * .9 * fade;
+        g = stretch * g;
         g += (vec2(hash(floor(p.xz * 38.)), hash(floor(p.xz * 38.) + 11.)) - .5) * uGrain * .55;
         n = normalize(vec3(-g.x, 1., -g.y));
         float fr = pow(1. - max(dot(-rd, n), 0.), 5.);

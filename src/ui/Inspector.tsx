@@ -119,6 +119,10 @@ function SeaPanel() {
       <Colors items={[{ label: s.kind === "water" ? "Deep" : "First", value: s.c1, onChange: (v) => set("c1", (k) => { k.c1 = v }) }, { label: s.kind === "water" ? "Shallow" : "Second", value: s.c2, onChange: (v) => set("c2", (k) => { k.c2 = v }) }]} />
       {(s.kind === "water" || s.kind === "sand") && <Dial label={s.kind === "water" ? "Waves" : "Dunes"} value={s.wave} max={1.5} onChange={(v) => set("wave", (k) => { k.wave = v })} />}
       {(s.kind === "water" || s.kind === "sand") && <Dial label="Grain" value={s.grain} onChange={(v) => set("grain", (k) => { k.grain = v })} />}
+      {s.kind === "water" && <>
+        <Dial label="Ripple width" value={s.rippleWidth ?? 1} min={1} max={10} step={0.1} onChange={(v) => set("rippleWidth", (k) => { k.rippleWidth = v })} />
+        <Dial label="Ripple angle" value={s.rippleAngle ?? 0} min={-180} max={180} step={1} onChange={(v) => set("rippleAngle", (k) => { k.rippleAngle = v })} />
+      </>}
       <Dial label="Mirror" value={s.reflect} onChange={(v) => set("refl", (k) => { k.reflect = v })} />
       {s.kind !== "water" && s.kind !== "mirror" && <Dial label="Pattern size" value={s.scale} min={0.2} max={4} onChange={(v) => set("scale", (k) => { k.scale = v })} />}
     </Section>}
