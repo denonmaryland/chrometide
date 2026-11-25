@@ -95,7 +95,7 @@ export class Engine {
     const r = this.r; r.setPixelRatio(1); r.autoClear = false; r.outputColorSpace = THREE.LinearSRGBColorSpace
     this.float = !!r.getContext().getExtension("EXT_color_buffer_float")
     const V3 = ["uCamPos", "uCamFw", "uCamRt", "uCamUp", "uZenith", "uHorizon", "uHazeCol", "uSunCol", "uSunDir", "uCloudCol", "uCloud2Col", "uFogCol", "uMoonDir", "uG1", "uG2", "uTitleBox", "uCometDir", "uPRo", "uPRd"]
-    const F1 = ["uSample", "uPreview", "uMode", "uLDR", "uBounces", "uBlend", "uTime", "uFocal", "uLens", "uFocus", "uPanoYaw", "uProj", "uHaze", "uCloud", "uStreak", "uCloudScale", "uCloud2", "uStars", "uSkySeed", "uSunSize", "uSunGlow", "uSunSoft", "uAmbient",
+    const F1 = ["uSample", "uPreview", "uMode", "uLDR", "uBounces", "uBlend", "uTime", "uFocal", "uLens", "uFocus", "uPanoYaw", "uProj", "uHaze", "uHazeStart", "uCloud", "uStreak", "uCloudScale", "uCloud2", "uStars", "uSkySeed", "uSunSize", "uSunGlow", "uSunSoft", "uAmbient",
       "uFog", "uFogH", "uMoon", "uMoonSize", "uMoonPhase", "uRainbow", "uHalo", "uGround", "uWave", "uCalmPatches", "uRippleWidth", "uRippleAngle", "uGrain", "uGRefl", "uGScale", "uTerrainCount", "uNObj", "uNLight", "uRays", "uComet", "uGridHalf"]
     V3.forEach((n) => (this.u[n] = { value: new THREE.Vector3() })); F1.forEach((n) => (this.u[n] = { value: 0 }))
     this.u.uRes = { value: new THREE.Vector2(2, 2) }; this.u.uPickUV = { value: new THREE.Vector2() }
@@ -194,6 +194,7 @@ export class Engine {
     u.uLens.value = num(w.cam.lens, 0, 0, 2); u.uFocus.value = num(w.cam.focus, 16, 0.5, 500); u.uProj.value = w.cam.pano ? 1 : 0; u.uPanoYaw.value = w.cam.yaw + Math.PI
     v3("uZenith", hex(s.zenith)); v3("uHorizon", hex(s.horizon)); v3("uHazeCol", hex(s.haze)); v3("uSunCol", hex(s.sunColor).map((x) => x * night) as [number, number, number])
     v3("uSunDir", dir(s.sun.az, Math.max(0.02, s.sun.el))); v3("uCloudCol", hex(s.cloudColor)); v3("uCloud2Col", hex(s.cloud2Color)); v3("uFogCol", hex(s.fogColor)); v3("uMoonDir", dir(s.moonAz, s.moonEl))
+    u.uHazeStart.value = num(s.hazeStart, 0, 0, 200)
     u.uHaze.value = num(s.hazeAmt, 0.4, 0, 1); u.uCloud.value = num(s.cloud, 0, 0, 1); u.uStreak.value = num(s.streak, 0, 0, 1); u.uCloudScale.value = num(s.cloudScale, 1, 0.2, 4); u.uCloud2.value = num(s.cloud2, 0, 0, 1)
     u.uStars.value = num(s.stars, 0, 0, 3); u.uSkySeed.value = num(s.seed, 0); u.uSunSize.value = num(s.sunSize, 0.0245, 0.004, 0.3); u.uSunGlow.value = num(s.sunGlow, 1, 0, 4); u.uSunSoft.value = num(s.sunSoft, 0, 0, 0.2)
     u.uAmbient.value = num(s.ambient, 0.5, 0, 1.5); u.uFog.value = num(s.fog, 0, 0, 1); u.uFogH.value = num(s.fogHeight, 1.2, 0.1, 20); u.uMoon.value = num(s.moon, 0, 0, 2); u.uMoonSize.value = num(s.moonSize, 0.06, 0.01, 0.4)

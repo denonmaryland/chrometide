@@ -52,7 +52,7 @@ out vec4 outCol;
 uniform vec2 uRes; uniform int uSample, uPreview, uMode, uLDR, uBounces; uniform float uBlend, uTime; uniform vec2 uPickUV;
 uniform vec3 uCamPos, uCamFw, uCamRt, uCamUp; uniform float uFocal, uLens, uFocus, uPanoYaw; uniform int uProj;
 uniform vec3 uZenith, uHorizon, uHazeCol, uSunCol, uSunDir, uCloudCol, uCloud2Col, uFogCol, uMoonDir;
-uniform float uHaze, uCloud, uStreak, uCloudScale, uCloud2, uStars, uSkySeed, uSunSize, uSunGlow, uSunSoft, uAmbient;
+uniform float uHaze, uHazeStart, uCloud, uStreak, uCloudScale, uCloud2, uStars, uSkySeed, uSunSize, uSunGlow, uSunSoft, uAmbient;
 uniform float uFog, uFogH, uMoon, uMoonSize, uMoonPhase, uRainbow, uHalo;
 uniform int uGround; uniform vec3 uG1, uG2; uniform float uCalmPatches, uRippleWidth, uRippleAngle, uWave, uGrain, uGRefl, uGScale;
 struct Terrain { vec4 centerRadius, shape, carve, snow, channel, flags; vec3 sand, grass, rock; };
@@ -381,6 +381,7 @@ vec4 gOut; // what a pick or mask pass writes (uMode != 0)
 // then the surface is lit and the ray sent on.
 vec3 trace(vec3 ro, vec3 rd){
   float waterScale = 1.;
+  float clearDistance = uHazeStart; // Carry the clear interval through reflections and refractions.
   vec3 col = vec3(0.), thr = vec3(1.);
   float sunOn = 1.;
   vec3 skyDir[7]; vec3 skyW[7]; float skySun[7]; float skyK[7]; int nSky = 0; // looks at the sky that are owed
@@ -427,6 +428,7 @@ vec3 trace(vec3 ro, vec3 rd){
       vec3 hp = ro + rd * max(th, 0.); vec3 hn = gNormal;
       if (inside) { // out of the glass again, bent
         vec3 r2 = refract(rd, -hn, m3.z); if (dot(r2, r2) < .01) r2 = rd;
+        clearDistance = max(0., clearDistance - max(th, 0.));
         ro = hp + hn * .01; rd = normalize(r2); sunOn = 1.; inside = false;
         bounce++; if (bounce >= uBounces) break; continue;
       }
@@ -452,7 +454,9 @@ vec3 trace(vec3 ro, vec3 rd){
     if (met) {
       if (kind == 0) { groundFog(col, thr, ro, rd, 2000.); skyDir[nSky] = rd; skyW[nSky] = thr; skySun[nSky] = sunOn; skyK[nSky] = 1.; nSky++; ended = true; break; }
       p = ro + rd * t;
-      float T = exp(-t * uHaze * uHaze * .02);
+      float hazyLength = max(0., t - clearDistance);
+      clearDistance = max(0., clearDistance - t);
+      float T = exp(-hazyLength * uHaze * uHaze * .02);
       col += thr * (1. - T) * fogCol(); thr *= T;
       groundFog(col, thr, ro, rd, t);
       amb = (mix(uHorizon, uZenith, .5) * .55 + .12) * uAmbient * 2.;
@@ -519,6 +523,7 @@ vec3 trace(vec3 ro, vec3 rd){
     if (stage == 2) { sh = s; lamp = vec3(0.); stage = wantLamps ? 3 : 9; }
     else if (stage == 7) { // through the cloud: its light is gathered, and the ray goes on from its far side
       col += thr * gCloudAcc; thr *= gCloudTr; if (max(thr.r, max(thr.g, thr.b)) < .012) { ended = true; break; }
+      clearDistance = max(0., clearDistance - max(th, 0.));
       ro = cloudPin + rd * (th + .02); stage = 0;
       bounce++; if (bounce >= uBounces) break; continue;
     } else { lamp += uLC[l] * lnl * lspot * s / (1. + ld2 * .06); stage = l + 1 < uNLight ? stage + 1 : 9; }

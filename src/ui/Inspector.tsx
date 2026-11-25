@@ -92,7 +92,9 @@ function SkyPanel() {
     <Section title="Look"><Looks items={SKIES} active={look} paint={(l) => grad(l.zenith, l.horizon)} onPick={(l) => set("look", (k) => applySky(k, l))} />
       <p className="text-[11.5px] text-muted-foreground">{look ?? "Your own colours"}</p></Section>
     <Section title="Sun"><DayArc />{d("Size", "sunSize", { min: 0.008, max: 0.2, step: 0.001 })}{d("Glow", "sunGlow", { max: 3 })}{d("Soft shadows", "sunSoft", { max: 0.12, step: 0.002 })}{d("Fill light", "ambient", { max: 1.2 })}</Section>
-    <Section title="Colours"><Colors items={[{ label: "Top", value: s.zenith, onChange: (v) => set("c1", (k) => { k.zenith = v }) }, { label: "Horizon", value: s.horizon, onChange: (v) => set("c2", (k) => { k.horizon = v }) }, { label: "Haze", value: s.haze, onChange: (v) => set("c3", (k) => { k.haze = v }) }, { label: "Sun", value: s.sunColor, onChange: (v) => set("c4", (k) => { k.sunColor = v }) }]} />{d("Haze", "hazeAmt")}</Section>
+    <Section title="Colours"><Colors items={[{ label: "Top", value: s.zenith, onChange: (v) => set("c1", (k) => { k.zenith = v }) }, { label: "Horizon", value: s.horizon, onChange: (v) => set("c2", (k) => { k.horizon = v }) }, { label: "Haze", value: s.haze, onChange: (v) => set("c3", (k) => { k.haze = v }) }, { label: "Sun", value: s.sunColor, onChange: (v) => set("c4", (k) => { k.sunColor = v }) }]} />{d("Haze", "hazeAmt")}
+      {d("Haze starts at", "hazeStart", { max: 200, step: 1 })}
+    </Section>
     <Section title="Clouds" action={<Button variant="ghost" size="xs" onClick={() => set("seed", (k) => { k.seed = Math.random() * 40 })}><Dices /> Reshape</Button>}>
       {d("Cover", "cloud")}{d("Streaks", "streak")}{d("Size", "cloudScale", { min: 0.3, max: 3 })}{d("High veil", "cloud2")}
       <Colors items={[{ label: "Cloud", value: s.cloudColor, onChange: (v) => set("cc", (k) => { k.cloudColor = v }) }, { label: "Veil", value: s.cloud2Color, onChange: (v) => set("cc2", (k) => { k.cloud2Color = v }) }]} />

@@ -51,7 +51,7 @@ export const textSpec = (str: string, o: Partial<TextSpec> = {}): TextSpec => ({
 export interface Sky {
   zenith: string; horizon: string; haze: string; sunColor: string
   sun: { az: number; el: number }; sunSize: number; sunGlow: number; sunSoft: number
-  hazeAmt: number; ambient: number
+  hazeAmt: number; hazeStart: number; ambient: number
   fog: number; fogHeight: number; fogColor: string
   cloud: number; streak: number; cloudScale: number; cloudColor: string; seed: number
   cloud2: number; cloud2Color: string
@@ -264,7 +264,7 @@ export function thing(kind: Kind, pos: Vec3, size: number | Vec3, m: Material, o
 export function skyFrom(look: SkyLook, o: Partial<Sky> = {}): Sky {
   return {
     zenith: look.zenith, horizon: look.horizon, haze: look.haze, sunColor: look.sunColor, cloudColor: look.cloudColor,
-    sun: { az: -1.1, el: 0.9 }, sunSize: 0.0245, sunGlow: 1, sunSoft: 0.012, hazeAmt: 0.4, ambient: 0.5,
+    sun: { az: -1.1, el: 0.9 }, sunSize: 0.0245, sunGlow: 1, sunSoft: 0.012, hazeAmt: 0.4, hazeStart: 0, ambient: 0.5,
     fog: 0, fogHeight: 1.2, fogColor: look.haze, cloud: 0.5, streak: 0.3, cloudScale: 1, seed: 3, cloud2: 0, cloud2Color: "#ffffff",
     stars: look.stars ?? 0, moon: 0, moonAz: 2.2, moonEl: 0.6, moonSize: 0.06, moonPhase: 0.5, rainbow: 0, halo: 0, ...o,
   }
