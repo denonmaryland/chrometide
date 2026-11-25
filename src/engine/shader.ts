@@ -2,7 +2,7 @@
 // Passes are averaged in a float target, so soft shadows, blurry reflections, depth of field and
 // anti-aliasing all come from the same thing: many slightly different samples.
 
-import { KINDS } from "./scene"
+import { KINDS, MAX_TERRAINS } from "./scene"
 import { shapeBranches, shapeFunctions } from "./shapes"
 
 export const MAXO = 20 // things per world
@@ -55,13 +55,15 @@ uniform vec3 uZenith, uHorizon, uHazeCol, uSunCol, uSunDir, uCloudCol, uCloud2Co
 uniform float uHaze, uCloud, uStreak, uCloudScale, uCloud2, uStars, uSkySeed, uSunSize, uSunGlow, uSunSoft, uAmbient;
 uniform float uFog, uFogH, uMoon, uMoonSize, uMoonPhase, uRainbow, uHalo;
 uniform int uGround; uniform vec3 uG1, uG2; uniform float uCalmPatches, uRippleWidth, uRippleAngle, uWave, uGrain, uGRefl, uGScale;
-uniform float uTerrOn, uTerrMode, uTerrH, uTerrR, uTerrFreq, uTerrRidge, uTerrSeed, uSnow, uCliffSnow, uSnowFacing, uTerrace, uPlateau, uSharp, uChannelBend, uSculptOn;
-uniform vec4 uChannel; uniform vec3 uT1, uT2, uT3; uniform sampler2D uSculpt;
+struct Terrain { vec4 centerRadius, shape, carve, snow, channel, flags; vec3 sand, grass, rock; };
+uniform Terrain uTerrains[${MAX_TERRAINS}]; uniform int uTerrainCount;
+uniform highp sampler2DArray uSculpt; uniform vec2 uGridCenter;
+Terrain land;
 uniform int uNObj; uniform vec4 uOP[MAXO], uOS[MAXO], uR0[MAXO], uR1[MAXO], uR2[MAXO];
 uniform sampler2D uMat;
 uniform int uNLight; uniform vec4 uLP[4]; uniform vec3 uLC[4];
 uniform sampler2D uLetters; uniform vec4 uTitlePose; uniform vec3 uTitleBox;
-uniform vec4 uLD[4]; uniform float uRays, uComet, uTerrFlat, uGridHalf; uniform vec3 uCometDir, uPRo, uPRd; uniform sampler2D uPic; uniform sampler3D uModel; uniform highp sampler2DArray uGlyph;
+uniform vec4 uLD[4]; uniform float uRays, uComet, uGridHalf; uniform vec3 uCometDir, uPRo, uPRd; uniform sampler2D uPic; uniform sampler3D uModel; uniform highp sampler2DArray uGlyph;
 
 // ---------- random ----------
 uint rs;
@@ -76,43 +78,47 @@ float fbm(vec2 p){ float a = .5, s = 0.; for (int i = ZERO; i < 5; i++) { s += a
 float n3(vec3 p){ return (noise(p.xy) + noise(p.yz + 7.3) + noise(p.zx + 3.1)) / 3.; }
 
 // ---------- land ----------
-float terr(vec2 p, int oct){
-  vec2 q = p * uTerrFreq + uTerrSeed * vec2(1., -.73);
+float terr(vec2 point, int oct){
+  vec2 p = point - land.centerRadius.xz;
+  vec2 q = p * land.shape.y + land.shape.w * vec2(1., -.73);
   float a = .5, s = 0., w = 1.;
   for (int i = ZERO; i < 9; i++) { if (i >= oct) break;
     float n = noise(q); float r = 1. - abs(2. * n - 1.); r *= r;
-    float v = mix(n, r, uTerrRidge); s += a * v * w; w = mix(1., clamp(v * 1.7, 0., 1.), uTerrRidge * .85);
+    float v = mix(n, r, land.shape.z); s += a * v * w; w = mix(1., clamp(v * 1.7, 0., 1.), land.shape.z * .85);
     q = M2 * q * 2.03; a *= .5; }
-  if (uSharp > 0.) s = mix(s, pow(max(s, 0.), 2.1) * 1.7, uSharp);
-  if (uTerrace > 0.) { float f = s * 8., fl = floor(f); s = mix(s, (fl + smoothstep(.7, 1., f - fl)) / 8., uTerrace); }
-  if (uPlateau > 0.) { float lv = mix(1.1, .2, uPlateau); s = -log(exp(-s * 28.) + exp(-lv * 28.)) / 28.; }
+  if (land.carve.z > 0.) s = mix(s, pow(max(s, 0.), 2.1) * 1.7, land.carve.z);
+  if (land.carve.x > 0.) { float f = s * 8., fl = floor(f); s = mix(s, (fl + smoothstep(.7, 1., f - fl)) / 8., land.carve.x); }
+  if (land.carve.y > 0.) { float lv = mix(1.1, .2, land.carve.y); s = -log(exp(-s * 28.) + exp(-lv * 28.)) / 28.; }
   float mask;
-  if (uTerrMode < .5) { float d = length(p) / uTerrR; mask = smoothstep(1., 0., d); }
-  else { float d = length(p); mask = smoothstep(.36, .7, noise(p * (.6 / uTerrR) + uTerrSeed * .37 + 5.)); mask *= smoothstep(uTerrR * 9., uTerrR * 6., d) * smoothstep(uTerrR * 3.1, uTerrR * 4.6, d); }
-  if (uChannel.w > 0.) {
-    vec2 local = p / uTerrR;
-    float along = dot(local, vec2(-uChannel.y, uChannel.x));
-    float curve = uChannelBend * exp(-5. * along * along);
-    float distanceToCut = abs(dot(local, uChannel.xy) - uChannel.z - curve);
-    mask *= smoothstep(uChannel.w * .55, uChannel.w, distanceToCut);
+  if (land.flags.x < .5) { float d = length(p) / land.centerRadius.w; mask = smoothstep(1., 0., d); }
+  else { float d = length(p); mask = smoothstep(.36, .7, noise(p * (.6 / land.centerRadius.w) + land.shape.w * .37 + 5.)); mask *= smoothstep(land.centerRadius.w * 9., land.centerRadius.w * 6., d) * smoothstep(land.centerRadius.w * 3.1, land.centerRadius.w * 4.6, d); }
+  if (land.channel.w > 0.) {
+    vec2 local = p / land.centerRadius.w;
+    float along = dot(local, vec2(-land.channel.y, land.channel.x));
+    float curve = land.carve.w * exp(-5. * along * along);
+    float distanceToCut = abs(dot(local, land.channel.xy) - land.channel.z - curve);
+    mask *= smoothstep(land.channel.w * .55, land.channel.w, distanceToCut);
   }
-  float h = uTerrH * (s * mask * 1.6 * (.3 + .7 * mask) - .16 * (1. - mask) - .015);
-  if (uTerrFlat > .5) h = -.12 * max(uTerrH, 2.);
-  if (uSculptOn > .5) { vec2 uv = p / (uTerrR * 3.2) + .5; vec2 e = smoothstep(vec2(0.), vec2(.06), uv) * smoothstep(vec2(1.), vec2(.94), uv);
-    h += (texture(uSculpt, uv).r - .5) * 2.4 * max(uTerrH, 2.) * e.x * e.y; }
-  return h;
+  float h = land.shape.x * (s * mask * 1.6 * (.3 + .7 * mask) - .16 * (1. - mask) - .015);
+  if (land.flags.y > .5) h = -.12 * max(land.shape.x, 2.);
+  if (land.flags.z > .5) { vec2 uv = p / (land.centerRadius.w * 3.2) + .5; vec2 e = smoothstep(vec2(0.), vec2(.06), uv) * smoothstep(vec2(1.), vec2(.94), uv);
+    h += (texture(uSculpt, vec3(uv, land.flags.w)).r - .5) * 2.4 * max(land.shape.x, 2.) * e.x * e.y; }
+  // Fade the elevation into the sea at the footprint edge so lifting a hill never lifts the whole seabed.
+  float extent = land.centerRadius.w * (land.flags.x > .5 ? 9. : land.flags.z > .5 ? 2.3 : 1.);
+  return h + land.centerRadius.y * (1. - smoothstep(.8, 1., length(p) / extent));
 }
-float terrTop(){ return uTerrH * 1.45 + uSculptOn * 1.25 * max(uTerrH, 2.); }
+float terrTop(){ return land.shape.x * 1.45 + land.flags.z * 1.25 * max(land.shape.x, 2.); }
 // One march over the land for both rays that need one, so the land is written out once (see trace). mode 0: the ray's
 // own march, to where it meets the land within tmax, or -1. mode 1: from a point toward the sun, for how much of its
 // light the land lets by, 0 to 1.
-float marchLand(vec3 ro, vec3 rd, float tmax, int mode){
-  float top = terrTop(); float t = .08, tEnd = tmax, res = 1.;
+float marchPiece(vec3 ro, vec3 rd, float tmax, int mode){
+  float top = terrTop() + max(land.centerRadius.y, 0.); float t = .08, tEnd = tmax, res = 1.;
   if (mode == 0) {
     t = 0.;
     if (ro.y > top) { if (rd.y >= 0.) return -1.; t = (ro.y - top) / (-rd.y); }
-    float rr = uTerrMode < .5 ? uTerrR * (1. + uSculptOn * 1.3) : uTerrR * 9.;
-    float a = dot(rd.xz, rd.xz), b = dot(ro.xz, rd.xz), c = dot(ro.xz, ro.xz) - rr * rr;
+    float rr = land.flags.x < .5 ? land.centerRadius.w * (1. + land.flags.z * 1.3) : land.centerRadius.w * 9.;
+    vec2 local = ro.xz - land.centerRadius.xz;
+    float a = dot(rd.xz, rd.xz), b = dot(local, rd.xz), c = dot(local, local) - rr * rr;
     if (a > 1e-6) { float h = b * b - a * c; if (h < 0.) return -1.; h = sqrt(h); t = max(t, (-b - h) / a); tEnd = min(tEnd, (-b + h) / a); }
     else if (c > 0.) return -1.;
     if (t > tEnd) return -1.;
@@ -127,6 +133,17 @@ float marchLand(vec3 ro, vec3 rd, float tmax, int mode){
     }
   }
   return mode == 0 ? -1. : clamp(res, 0., 1.);
+}
+
+float marchLand(vec3 ro, vec3 rd, float tmax, int mode, out int piece){
+  float result = mode == 0 ? -1. : 1.; piece = 0;
+  for (int i = ZERO; i < uTerrainCount; i++) {
+    land = uTerrains[i];
+    float hit = marchPiece(ro, rd, tmax, mode);
+    if (mode == 0 && hit > 0. && hit < tmax) { result = hit; tmax = hit; piece = i; }
+    if (mode == 1) { result = min(result, hit); if (result <= 0.) break; }
+  }
+  return result;
 }
 
 // ---------- things: signed distances, so shapes can be cut out of each other and melted together ----------
@@ -363,6 +380,7 @@ vec4 gOut; // what a pick or mask pass writes (uMode != 0)
 //   2 the sun's shadow on the surface;   3 to 6 a lamp's;   7 the walk through a thing made of cloud;
 // then the surface is lit and the ray sent on.
 vec3 trace(vec3 ro, vec3 rd){
+  float waterScale = 1.;
   vec3 col = vec3(0.), thr = vec3(1.);
   float sunOn = 1.;
   vec3 skyDir[7]; vec3 skyW[7]; float skySun[7]; float skyK[7]; int nSky = 0; // looks at the sky that are owed
@@ -395,9 +413,9 @@ vec3 trace(vec3 ro, vec3 rd){
     bool hitThing = stage == 0 && (inside || (th > 0. && th < tsea));
     float sFar = (stage == 0 || stage == 7) ? 1. : shadowOf(th, hid); // a shadow ray: what the things let by
     // ---- its march over the land: the ray's own, or toward the sun for the land's shadow
-    bool landRay = uTerrOn > .5 && stage == 0 && !inside, landShadow = uTerrOn > .5 && (stage == 1 || stage == 2) && sFar > 0.;
-    float tl = -1.;
-    if (landRay || landShadow) tl = marchLand(landRay ? ro : stage == 1 ? rayQ : pT, qd, min(hitThing ? th : tsea, 600.), landRay ? 0 : 1);
+    bool landRay = uTerrainCount > 0 && stage == 0 && !inside, landShadow = uTerrainCount > 0 && (stage == 1 || stage == 2) && sFar > 0.;
+    float tl = -1.; int piece = 0;
+    if (landRay || landShadow) tl = marchLand(landRay ? ro : stage == 1 ? rayQ : pT, qd, min(hitThing ? th : tsea, 600.), landRay ? 0 : 1, piece);
     // ---- and the lettering in its way
     float tNear = tsea; if (hitThing) tNear = th; if (landRay && tl > 0. && tl < tNear) tNear = tl;
     vec3 ln = vec3(0.); float tw = -1.;
@@ -414,7 +432,7 @@ vec3 trace(vec3 ro, vec3 rd){
       }
       t = tsea; kind = tsea < 1e8 ? 1 : 0; id = -1; n = vec3(0., 1., 0.);
       if (hitThing) { t = th; kind = 3; id = hid; n = hn; }
-      if (tl > 0. && tl < t) { t = tl; kind = 2; }
+      if (tl > 0. && tl < t) { t = tl; kind = 2; id = piece; }
       if (tw > 0.) { t = tw; kind = 4; n = ln; id = MAXO; }
       primMask = gMask;
       if (uMode != 0) { // a pick or a mask: only what the first ray meets
@@ -441,28 +459,37 @@ vec3 trace(vec3 ro, vec3 rd){
       // the land's height about the point, asked in one place: at four spots for which way it faces there (the ray
       // met land), or at one for how deep the sea is over it (it met the sea)
       float le = max(.012, .0025 * t); float lh[4]; lh[0] = 0.; lh[1] = 0.; lh[2] = 0.; lh[3] = 0.;
-      int taps = uTerrOn > .5 ? (kind == 2 ? 4 : kind == 1 ? 1 : 0) : 0;
-      for (int i = ZERO; i < taps; i++) lh[i] = terr(p.xz + (kind != 2 ? vec2(0.) : i == 0 ? vec2(-le, 0.) : i == 1 ? vec2(le, 0.) : i == 2 ? vec2(0., -le) : vec2(0., le)), kind == 2 ? 9 : 5);
-      depth = taps == 1 ? -lh[0] : 1e3;
+      int taps = uTerrainCount > 0 ? (kind == 2 ? 4 : kind == 1 ? 1 : 0) : 0;
+      float floorHeight = -1e3; waterScale = 1.;
+      int samples = kind == 1 ? uTerrainCount : taps;
+      if (kind == 2) land = uTerrains[id];
+      for (int i = ZERO; i < samples; i++) {
+        if (kind == 1) land = uTerrains[i];
+        vec2 offset = kind != 2 ? vec2(0.) : i == 0 ? vec2(-le, 0.) : i == 1 ? vec2(le, 0.) : i == 2 ? vec2(0., -le) : vec2(0., le);
+        float height = terr(p.xz + offset, kind == 2 ? 9 : 5);
+        if (kind == 2) lh[i] = height;
+        else if (height > floorHeight) { floorHeight = height; waterScale = land.shape.x; }
+      }
+      depth = -floorHeight;
       // the surface: which way it faces, what it is made of, and where its shadows are looked for
       alb = vec3(0.); lp = vec3(0.); m0 = vec4(0.); m1 = vec4(0.); m2 = vec4(0.); m3 = vec4(0.); m4 = vec4(0.); glow = 0.;
       pS = p + vec3(0., .003, 0.); pT = pS + vec3(0., .01, 0.); lampN = vec3(0., 1., 0.); wantLamps = uNLight > 0; cloud = false;
       if (kind == 2) {
         n = normalize(vec3(lh[0] - lh[1], 2. * le, lh[2] - lh[3]));
-        float hh = clamp(p.y / (uTerrH * 1.1), 0., 1.);
+        float hh = clamp(p.y / (land.shape.x * 1.1), 0., 1.);
         float sp = n3(p * vec3(5., 5., 5.));
-        alb = mix(uT1, uT2, smoothstep(.03, .2, hh + (sp - .5) * .08));
+        alb = mix(land.sand, land.grass, smoothstep(.03, .2, hh + (sp - .5) * .08));
         float rock = smoothstep(.82, .55, n.y);
-        alb = mix(alb, uT3, max(smoothstep(.42, .8, hh + (sp - .5) * .25), rock * .85));
-        alb = mix(alb, vec3(.95, .96, 1.), uSnow * smoothstep(.62, .75, hh + (sp - .5) * .2) * smoothstep(.5, .8, n.y));
-        if (uCliffSnow > 0.) {
-          vec2 facing = vec2(cos(uSnowFacing), sin(uSnowFacing));
+        alb = mix(alb, land.rock, max(smoothstep(.42, .8, hh + (sp - .5) * .25), rock * .85));
+        alb = mix(alb, vec3(.95, .96, 1.), land.snow.x * smoothstep(.62, .75, hh + (sp - .5) * .2) * smoothstep(.5, .8, n.y));
+        if (land.snow.y > 0.) {
+          vec2 facing = vec2(cos(land.snow.z), sin(land.snow.z));
           float exposure = dot(n.xz, facing);
-          float snowline = mix(.54, .12, uCliffSnow);
+          float snowline = mix(.54, .12, land.snow.y);
           float heightMask = smoothstep(snowline, snowline + .15, hh + (sp - .5) * .16);
-          float edge = mix(.68, .06, uCliffSnow);
+          float edge = mix(.68, .06, land.snow.y);
           float windMask = smoothstep(edge, edge + .20, exposure + (sp - .5) * .18);
-          alb = mix(alb, vec3(.95, .96, 1.), uCliffSnow * heightMask * windMask);
+          alb = mix(alb, vec3(.95, .96, 1.), land.snow.y * heightMask * windMask);
         }
         alb *= .72 + .56 * sp;
         if (uGround == 2) alb = mix(alb, uG1 * 2., smoothstep(.06, 0., hh) * .8);
@@ -527,7 +554,7 @@ vec3 trace(vec3 ro, vec3 rd){
         n = normalize(vec3(-g.x, 1., -g.y));
         float fr = pow(1. - max(dot(-rd, n), 0.), 5.);
         refl = clamp(mix(.04 + .96 * fr, 1., uGRefl), 0., 1.);
-        vec3 body = mix(uG2, uG1, smoothstep(0., uTerrH * .22 + .3, depth));
+        vec3 body = mix(uG2, uG1, smoothstep(0., waterScale * .22 + .3, depth));
         float sparkle = 1. + grain * (hash(floor(p.xz * 38.) + 5.) - .5) * .9;
         lc = body * sparkle * (amb + uSunCol * .55 * max(uSunDir.y, 0.) * sh + lamp * .6);
         lc += uSunCol * pow(max(dot(reflect(rd, n), uSunDir), 0.), 90.) * .9 * sh * fade;
@@ -604,7 +631,7 @@ void main(){
   vec2 jit = uPreview == 1 ? vec2(.5) : vec2(rnd(), rnd());
   vec2 uv = (floor(fc) + jit - .5 * uRes) / min(uRes.x, uRes.y) * 2.;
   if (uMode == 9) uv = uPickUV;
-  if (uMode == 11) { vec2 g = (fc / uRes - .5) * 2. * uGridHalf; float h = 0.; if (uTerrOn > .5) { float tt = marchLand(vec3(g.x, 200., g.y), vec3(0., -1., 0.), 400., 0); if (tt > 0.) h = 200. - tt; } outCol = vec4(max(h, 0.), 0., 0., 1.); return; }
+  if (uMode == 11) { vec2 g = (fc / uRes - .5) * 2. * uGridHalf + uGridCenter; int piece; float h = 0.; if (uTerrainCount > 0) { float tt = marchLand(vec3(g.x, 200., g.y), vec3(0., -1., 0.), 400., 0, piece); if (tt > 0.) h = 200. - tt; } outCol = vec4(max(h, 0.), 0., 0., 1.); return; }
   vec3 ro = uCamPos, rd;
   if (uProj == 1) { vec2 a = (floor(fc) + jit) / uRes; float lon = uPanoYaw - (a.x - .5) * 6.2831853, lat = (a.y - .5) * 3.14159265;
     rd = vec3(cos(lat) * sin(lon), sin(lat), cos(lat) * cos(lon)); }

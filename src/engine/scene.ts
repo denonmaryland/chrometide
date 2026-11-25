@@ -63,7 +63,10 @@ export interface Sky {
 export const SEA_KINDS = ["water", "checker", "lava", "sand", "mirror", "none"] as const
 export type SeaKind = (typeof SEA_KINDS)[number]
 export interface Sea { calmPatches?: number; rippleWidth?: number; rippleAngle?: number; kind: SeaKind; c1: string; c2: string; wave: number; grain: number; reflect: number; scale: number }
+export const MAX_TERRAINS = 8
+export type TerrainPiece = Land & { id: string; name: string }
 export interface Land {
+  pos?: Vec3
   on: boolean; mode: "island" | "range"; height: number; radius: number; freq: number; ridge: number; seed: number
   cliffSnow?: number; snowFacing?: number
   snow: number; c1: string; c2: string; c3: string
@@ -77,7 +80,7 @@ export interface Title { text: string; x: number; z: number; yaw: number; width:
 export interface Frame { w: number; h: number; name: string }
 export interface World {
   v: 2; name: string
-  sky: Sky; sea: Sea; land: Land; things: Thing[]; title?: Title
+  sky: Sky; sea: Sea; land: Land; terrains?: TerrainPiece[]; things: Thing[]; title?: Title
   cam: Camera; views: (Camera | null)[]
   frame: Frame
   remixOf?: string
@@ -472,7 +475,8 @@ function tidyThing(x: unknown, ids: Set<string>): Thing | null {
 const tidySky = (x: unknown): Sky => { const s = fit(skyFrom(SKIES[0]), x, true, ["rays", "comet"]); sometimes(s as any, obj(x), ["rays", "comet"], 0, 5); return s }
 const tidySea = (x: unknown): Sea => { const s = fit(seaFrom(SEAS[0]), x); s.kind = oneOf(s.kind, SEA_KINDS, "water"); return s }
 function tidyLand(x: unknown, keepSculpt = true): Land {
-  const src = obj(x), l = fit(off(), src, true, ["channel", "sculpt", "flat"]); l.mode = oneOf(l.mode, ["island", "range"] as const, "island")
+  const src = obj(x), l = fit(off(), src, true, ["channel", "sculpt", "flat", "pos", "id", "name"]); l.mode = oneOf(l.mode, ["island", "range"] as const, "island")
+  if (Array.isArray(src.pos)) l.pos = fit<Vec3>([0, 0, 0], src.pos)
   if (src.channel !== undefined) l.channel = fit({ offset: 0, angle: 0, width: 1, bend: 0 }, src.channel, false)
   const sc = keepSculpt ? b64ok(src.sculpt, 30000) : undefined; if (sc) l.sculpt = sc
   if (typeof src.flat === "boolean") l.flat = src.flat
@@ -485,8 +489,17 @@ const tidyThings = (x: unknown) => { const ids = new Set<string>(); return (Arra
 /** Any value at all in, a world the app can safely show out. */
 export function tidyWorld(x: unknown): World {
   const src = obj(x), base = blankWorld()
-  const w: World = { ...fit({ v: 2, name: base.name }, src, true, ["sky", "sea", "land", "things", "cam", "views", "frame", "remixOf", "title", "bloom", "picture", "customFont", "model", "sound", "anim"]), v: 2, sky: tidySky(src.sky), sea: tidySea(src.sea), land: tidyLand(src.land), things: tidyThings(src.things), cam: tidyCam(src.cam),
+  const w: World = { ...fit({ v: 2, name: base.name }, src, true, ["sky", "sea", "land", "terrains", "things", "cam", "views", "frame", "remixOf", "title", "bloom", "picture", "customFont", "model", "sound", "anim"]), v: 2, sky: tidySky(src.sky), sea: tidySea(src.sea), land: tidyLand(src.land), things: tidyThings(src.things), cam: tidyCam(src.cam),
     views: Array.from({ length: 7 }, (_, i) => { const v = Array.isArray(src.views) ? src.views[i] : null; return v && typeof v === "object" ? tidyCam(v) : null }), frame: fit(FRAMES[1], src.frame) }
+  if (Array.isArray(src.terrains)) {
+    const ids = new Set<string>()
+    w.terrains = src.terrains.slice(0, MAX_TERRAINS - 1).filter((t: unknown): t is Record<string, unknown> => !!t && typeof t === "object" && !Array.isArray(t)).map((t: Record<string, unknown>, i: number) => {
+      let id = typeof t.id === "string" ? t.id.slice(0, 40) : ""
+      if (!id || ids.has(id)) id = newId()
+      ids.add(id)
+      return { ...tidyLand(t), id, name: typeof t.name === "string" ? t.name.slice(0, 60) : `Terrain ${i + 2}` }
+    })
+  }
   w.name = w.name.slice(0, 60) || "Untitled world"; w.frame.w = Math.round(numIn(w.frame.w, 1024, 64, 4096)); w.frame.h = Math.round(numIn(w.frame.h, 768, 64, 4096)); w.frame.name = w.frame.name.slice(0, 60)
   if (typeof src.remixOf === "string") w.remixOf = src.remixOf.slice(0, 60)
   const title = tidyTitle(src.title); if (title) w.title = title

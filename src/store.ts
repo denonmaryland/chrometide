@@ -4,11 +4,11 @@ import * as React from "react"
 import type { Engine, Status } from "./engine/engine"
 import { type DesignOpts, designOpts } from "./design/opts"
 import { at, keyAt, newAnim, pose } from "./engine/anim"
-import { type LockKey, type Thing, type World, MAX_THINGS, STARTERS, clone, decodeWorld, encodeWorld, newId, readCode, roll } from "./engine/scene"
+import { type Land, type LockKey, LANDS, MAX_TERRAINS, landFrom, type Thing, type World, MAX_THINGS, STARTERS, clone, decodeWorld, encodeWorld, newId, readCode, roll } from "./engine/scene"
 import { keep, recall } from "./lib/keep"
 import { notify } from "./notice"
 
-export type Sel = { type: "sky" | "sea" | "land" | "title" | "camera" | "picture" | "sound" } | { type: "thing"; id: string }
+export type Sel = { type: "sky" | "sea" | "title" | "camera" | "picture" | "sound" } | { type: "land"; id?: string } | { type: "thing"; id: string }
 export interface Saved { id: string; name: string; code: string; thumb: string; at: number }
 export interface State {
   world: World; sel: Sel; locks: LockKey[]; past: World[]; future: World[]
@@ -59,6 +59,33 @@ export function edit(label: string, fn: (w: World) => void) {
 export function replaceWorld(w: World, label = "replace") { lastLabel = label; lastAt = 0; state = { ...state, world: w, past: [...state.past.slice(-80), state.world], future: [], sel: { type: "sky" } }; emit(); tap(label) }
 export function undo() { const p = state.past.at(-1); if (!p) return; lastAt = 0; state = { ...state, world: p, past: state.past.slice(0, -1), future: [state.world, ...state.future] }; emit(); tap("undo") }
 export function redo() { const f = state.future[0]; if (!f) return; lastAt = 0; state = { ...state, world: f, past: [...state.past, state.world], future: state.future.slice(1) }; emit(); tap("redo") }
+
+export const terrainById = (w: World, id?: string): Land | undefined => id ? w.terrains?.find(t => t.id === id) : w.land
+export const selectedTerrainId = (s: State) => s.sel.type === "land" && s.sel.id && terrainById(s.world, s.sel.id) ? s.sel.id : undefined
+export function editTerrain(id: string | undefined, label: string, fn: (t: Land) => void) {
+  edit(`land:${id ?? "original"}:${label}`, w => { const t = terrainById(w, id); if (t) fn(t) })
+}
+export function addTerrain() {
+  const w = state.world, count = w.terrains?.length ?? 0
+  if (count >= MAX_TERRAINS - 1) { notify(`A world holds up to ${MAX_TERRAINS} terrain pieces.`); return }
+  const id = newId(), angle = w.cam.yaw + count * 2.4
+  const offset = w.land.on || count ? Math.max(4, w.land.radius * 0.8) : 0
+  const pos: Land["pos"] = [w.cam.target[0] + offset * Math.cos(angle), 0, w.cam.target[2] - offset * Math.sin(angle)]
+  const names = new Set(w.terrains?.map(t => t.name))
+  let number = 2
+  while (names.has(`Terrain ${number}`)) number++
+  const piece = { ...landFrom(LANDS[0], { radius: 4.5, height: 4, seed: Math.random() * 50, pos }), id, name: `Terrain ${number}` }
+  edit("add-terrain:" + id, next => { (next.terrains ??= []).push(piece) })
+  patch({ sel: { type: "land", id } })
+}
+export function rollTerrain(id: string) {
+  const fresh = roll(state.world, new Set(), "land").land
+  editTerrain(id, "roll", t => Object.assign(t, fresh, { on: true, flat: false, sculpt: undefined, channel: fresh.channel }))
+}
+export function removeTerrain(id: string) {
+  edit("remove-terrain:" + id, w => { w.terrains = w.terrains?.filter(t => t.id !== id) })
+  patch({ sel: { type: "land" } })
+}
 
 export const selectedThing = (s: State): Thing | undefined => (s.sel.type === "thing" ? s.world.things.find((t) => t.id === (s.sel as { id: string }).id) : undefined)
 export function editThing(id: string, label: string, fn: (t: Thing) => void) { edit(`${label}:${id}`, (w) => { const t = w.things.find((x) => x.id === id); if (t) fn(t) }) }

@@ -2,7 +2,7 @@
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { KIND_LABEL, LANDS, MATERIALS, SEAS, SKIES, applySky, clone, seaFrom } from "@/engine/scene"
 import { WORLDS } from "@/engine/worlds"
-import { edit, editThing, get, patch, redo, replaceWorld, rollDice, saveToShelf, shareLink, undo, useApp } from "@/store"
+import { addTerrain, editTerrain, selectedTerrainId, edit, editThing, get, patch, redo, replaceWorld, rollDice, saveToShelf, shareLink, undo, useApp } from "@/store"
 import { openEmbed } from "@/features/share"
 
 import { FEATURES } from "@/features"
@@ -20,6 +20,7 @@ export function CommandBar() {
         <CommandEmpty>Nothing by that name. Try “dusk” or “chrome”.</CommandEmpty>
         {FEATURES.some((f) => f.run) && <CommandGroup heading="Modes">{FEATURES.filter((f) => f.run).map((f) => <CommandItem key={f.id} onSelect={run(f.run!)}>{f.label}: {f.about}</CommandItem>)}</CommandGroup>}
         <CommandGroup heading="Do">
+          <CommandItem onSelect={run(addTerrain)}>Add terrain</CommandItem>
           <CommandItem onSelect={run(() => rollDice())}>Roll a new world</CommandItem>
           <CommandItem onSelect={run(() => rollDice("sky"))}>Roll only the sky</CommandItem>
           <CommandItem onSelect={run(() => rollDice("things"))}>Roll only the things</CommandItem>
@@ -37,7 +38,7 @@ export function CommandBar() {
         <CommandGroup heading="Add a thing">{ADDABLE.map((k) => <CommandItem key={k} onSelect={run(() => newThing(k))}>Add a {KIND_LABEL[k].toLowerCase()}</CommandItem>)}</CommandGroup>
         <CommandGroup heading="Sky">{SKIES.map((l) => <CommandItem key={l.name} onSelect={run(() => edit("sky-look", (w) => applySky(w.sky, l)))}>Sky: {l.name}</CommandItem>)}</CommandGroup>
         <CommandGroup heading="Sea & floor">{SEAS.map((l) => <CommandItem key={l.name} onSelect={run(() => edit("sea-look", (w) => { w.sea = seaFrom(l, { wave: w.sea.wave, grain: w.sea.grain }) }))}>Sea: {l.name}</CommandItem>)}</CommandGroup>
-        <CommandGroup heading="Land">{LANDS.map((l) => <CommandItem key={l.name} onSelect={run(() => edit("land-look", (w) => Object.assign(w.land, { c1: l.c1, c2: l.c2, c3: l.c3, snow: l.snow, on: true })))}>Land: {l.name}</CommandItem>)}</CommandGroup>
+        <CommandGroup heading="Land">{LANDS.map((l) => <CommandItem key={l.name} onSelect={run(() => editTerrain(selectedTerrainId(get()), "look", t => Object.assign(t, { c1: l.c1, c2: l.c2, c3: l.c3, snow: l.snow, on: true })))}>Land: {l.name}</CommandItem>)}</CommandGroup>
         <CommandGroup heading={sel.type === "thing" ? "Material for the selected thing" : "Material for every thing"}>{MATERIALS.map((m) => <CommandItem key={m.name} onSelect={run(() => { const s = get().sel
           if (s.type === "thing") editThing(s.id, "mat", (t) => { t.mat = clone(m) }); else edit("mat-all", (w) => w.things.forEach((t) => { t.mat = clone(m) })) })}>Material: {m.name}</CommandItem>)}</CommandGroup>
         <CommandGroup heading="Start from">{WORLDS.map((x) => <CommandItem key={x.name} onSelect={run(() => replaceWorld(x.make(), "starter"))}>World: {x.name}</CommandItem>)}</CommandGroup>
