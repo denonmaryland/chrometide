@@ -55,7 +55,7 @@ uniform vec3 uZenith, uHorizon, uHazeCol, uSunCol, uSunDir, uCloudCol, uCloud2Co
 uniform float uHaze, uCloud, uStreak, uCloudScale, uCloud2, uStars, uSkySeed, uSunSize, uSunGlow, uSunSoft, uAmbient;
 uniform float uFog, uFogH, uMoon, uMoonSize, uMoonPhase, uRainbow, uHalo;
 uniform int uGround; uniform vec3 uG1, uG2; uniform float uCalmPatches, uRippleWidth, uRippleAngle, uWave, uGrain, uGRefl, uGScale;
-uniform float uTerrOn, uTerrMode, uTerrH, uTerrR, uTerrFreq, uTerrRidge, uTerrSeed, uSnow, uTerrace, uPlateau, uSharp, uChannelBend, uSculptOn;
+uniform float uTerrOn, uTerrMode, uTerrH, uTerrR, uTerrFreq, uTerrRidge, uTerrSeed, uSnow, uCliffSnow, uSnowFacing, uTerrace, uPlateau, uSharp, uChannelBend, uSculptOn;
 uniform vec4 uChannel; uniform vec3 uT1, uT2, uT3; uniform sampler2D uSculpt;
 uniform int uNObj; uniform vec4 uOP[MAXO], uOS[MAXO], uR0[MAXO], uR1[MAXO], uR2[MAXO];
 uniform sampler2D uMat;
@@ -455,6 +455,15 @@ vec3 trace(vec3 ro, vec3 rd){
         float rock = smoothstep(.82, .55, n.y);
         alb = mix(alb, uT3, max(smoothstep(.42, .8, hh + (sp - .5) * .25), rock * .85));
         alb = mix(alb, vec3(.95, .96, 1.), uSnow * smoothstep(.62, .75, hh + (sp - .5) * .2) * smoothstep(.5, .8, n.y));
+        if (uCliffSnow > 0.) {
+          vec2 facing = vec2(cos(uSnowFacing), sin(uSnowFacing));
+          float exposure = dot(n.xz, facing);
+          float snowline = mix(.54, .12, uCliffSnow);
+          float heightMask = smoothstep(snowline, snowline + .15, hh + (sp - .5) * .16);
+          float edge = mix(.68, .06, uCliffSnow);
+          float windMask = smoothstep(edge, edge + .20, exposure + (sp - .5) * .18);
+          alb = mix(alb, vec3(.95, .96, 1.), uCliffSnow * heightMask * windMask);
+        }
         alb *= .72 + .56 * sp;
         if (uGround == 2) alb = mix(alb, uG1 * 2., smoothstep(.06, 0., hh) * .8);
         pS = p + n * .01; pT = p + n * .02; lampN = n;

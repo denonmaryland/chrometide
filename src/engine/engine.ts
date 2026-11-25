@@ -95,7 +95,7 @@ export class Engine {
     this.float = !!r.getContext().getExtension("EXT_color_buffer_float")
     const V3 = ["uCamPos", "uCamFw", "uCamRt", "uCamUp", "uZenith", "uHorizon", "uHazeCol", "uSunCol", "uSunDir", "uCloudCol", "uCloud2Col", "uFogCol", "uMoonDir", "uG1", "uG2", "uT1", "uT2", "uT3", "uTitleBox", "uCometDir", "uPRo", "uPRd"]
     const F1 = ["uSample", "uPreview", "uMode", "uLDR", "uBounces", "uBlend", "uTime", "uFocal", "uLens", "uFocus", "uPanoYaw", "uProj", "uHaze", "uCloud", "uStreak", "uCloudScale", "uCloud2", "uStars", "uSkySeed", "uSunSize", "uSunGlow", "uSunSoft", "uAmbient",
-      "uFog", "uFogH", "uMoon", "uMoonSize", "uMoonPhase", "uRainbow", "uHalo", "uGround", "uWave", "uCalmPatches", "uRippleWidth", "uRippleAngle", "uGrain", "uGRefl", "uGScale", "uTerrOn", "uTerrMode", "uTerrH", "uTerrR", "uTerrFreq", "uTerrRidge", "uTerrSeed", "uSnow", "uTerrace", "uPlateau", "uSharp", "uChannelBend", "uSculptOn", "uNObj", "uNLight", "uRays", "uComet", "uTerrFlat", "uGridHalf"]
+      "uFog", "uFogH", "uMoon", "uMoonSize", "uMoonPhase", "uRainbow", "uHalo", "uGround", "uWave", "uCalmPatches", "uRippleWidth", "uRippleAngle", "uGrain", "uGRefl", "uGScale", "uTerrOn", "uTerrMode", "uTerrH", "uTerrR", "uTerrFreq", "uTerrRidge", "uTerrSeed", "uSnow", "uCliffSnow", "uSnowFacing", "uTerrace", "uPlateau", "uSharp", "uChannelBend", "uSculptOn", "uNObj", "uNLight", "uRays", "uComet", "uTerrFlat", "uGridHalf"]
     V3.forEach((n) => (this.u[n] = { value: new THREE.Vector3() })); F1.forEach((n) => (this.u[n] = { value: 0 }))
     this.u.uRes = { value: new THREE.Vector2(2, 2) }; this.u.uPickUV = { value: new THREE.Vector2() }
     this.u.uChannel = { value: new THREE.Vector4() }; this.u.uTitlePose = { value: new THREE.Vector4() }
@@ -197,6 +197,8 @@ export class Engine {
     u.uWave.value = num(g.wave, 0.3, 0, 2); u.uGrain.value = num(g.grain, 0, 0, 1); u.uGRefl.value = num(g.reflect, 0, 0, 1); u.uGScale.value = num(g.scale, 1, 0.05, 20)
     const t = w.land, on = t.on && t.height > 0.05
     u.uTerrOn.value = on ? 1 : 0; u.uTerrMode.value = t.mode === "range" ? 1 : 0; u.uTerrH.value = Math.max(num(t.height, 4, 0, 40), 0.05); u.uTerrR.value = num(t.radius, 8, 1, 60)
+    u.uCliffSnow.value = num(t.cliffSnow, 0, 0, 1)
+    u.uSnowFacing.value = num(t.snowFacing, 0, -180, 180) * Math.PI / 180
     u.uTerrFreq.value = num(t.freq, 0.22, 0.02, 3) * (8 / Math.max(t.radius, 2)) * (t.mode === "range" ? 1.2 : 1); u.uTerrRidge.value = num(t.ridge, 0.8, 0, 1); u.uTerrSeed.value = num(t.seed, 1) * 13.7; u.uSnow.value = num(t.snow, 0, 0, 1)
     u.uTerrace.value = num(t.terrace, 0, 0, 1); u.uPlateau.value = num(t.plateau, 0, 0, 1); u.uSharp.value = num(t.sharp, 0, 0, 1)
     const cut = t.channel; u.uChannelBend.value = cut?.bend ?? 0

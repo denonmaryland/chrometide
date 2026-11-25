@@ -145,6 +145,8 @@ function LandPanel() {
     </Section>
     <Section title="Carve">
       {d("Sharpen", "sharp")}{d("Terraces", "terrace")}{d("Flat top", "plateau")}{d("Snow", "snow")}
+      <Dial label="Cliff snow" value={l.cliffSnow ?? 0} onChange={(v) => set("cliffSnow", (k) => { k.cliffSnow = v })} />
+      <Dial label="Snow facing" value={l.snowFacing ?? 0} min={-180} max={180} step={1} onChange={(v) => set("snowFacing", (k) => { k.snowFacing = v })} />
     </Section>
     <Section title="Sculpt by hand" action={l.sculpt ? <Button variant="ghost" size="xs" onClick={() => set("unsculpt", (k) => { delete k.sculpt })}><Eraser /> Clear</Button> : undefined}>
       <Segmented label="Sculpt tool" value={sculpt.tool} options={[{ value: "off", label: "Off" }, { value: "raise", label: "Raise" }, { value: "lower", label: "Lower" }, { value: "smooth", label: "Smooth" }, { value: "erode", label: "Erode" }]} onChange={(v) => patch({ sculpt: { ...sculpt, tool: v } })} />
