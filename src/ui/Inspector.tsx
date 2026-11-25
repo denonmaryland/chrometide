@@ -252,7 +252,8 @@ function ThingPanel() {
     {t.kind === "text" && t.text && <TextSection t={t} />}
     <Section title="Shape" action={<Button variant="ghost" size="xs" onClick={() => removeThing(t.id)}><Trash2 /> Remove</Button>}>
       <Input value={t.name} onChange={(e) => set("name", (k) => { k.name = e.target.value.slice(0, 40) })} className="h-7 text-[12.5px]" aria-label="Name" />
-      {t.kind !== "text" && t.kind !== "model" && <Row label="Kind"><select value={t.kind} onChange={(e) => set("kind", (k) => { k.kind = e.target.value as Kind })} className="h-6 rounded-sm bg-muted/60 px-1.5 text-[12px] outline-none">{KINDS.filter((k) => k !== "text" && k !== "model").map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}</select></Row>}
+      {t.kind === "cutout" && <p className="text-[11.5px] text-muted-foreground">One PNG per world. Its copies share the image. Share links include the PNG.</p>}
+      {t.kind !== "cutout" && t.kind !== "text" && t.kind !== "model" && <Row label="Kind"><select value={t.kind} onChange={(e) => set("kind", (k) => { k.kind = e.target.value as Kind })} className="h-6 rounded-sm bg-muted/60 px-1.5 text-[12px] outline-none">{KINDS.filter((k) => k !== "cutout" && k !== "text" && k !== "model").map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}</select></Row>}
       {(t.kind === "box" || t.kind === "torus" || t.kind === "stone") && <Dial label={t.kind === "box" ? "Round edges" : t.kind === "torus" ? "Thickness" : "Shape"} value={t.round} min={t.kind === "box" ? 0 : 0.05} max={t.kind === "box" ? 0.5 : 1} onChange={(v) => set("round", (k) => { k.round = v })} />}
       {SHAPE_BY_ID[t.kind]?.dial && <Dial label={SHAPE_BY_ID[t.kind]!.dial!.label} value={t.round} onChange={(v) => set("round", (k) => { k.round = v })} />}
     </Section>
@@ -265,12 +266,14 @@ function ThingPanel() {
       <Dial label="Roll" value={t.rot[2]} min={-180} max={180} step={1} unit="°" onChange={(v) => set("r2", (k) => { k.rot[2] = v })} />
       <div className="flex flex-wrap gap-1.5"><Button variant="glass" size="xs" onClick={() => { const g = engine?.groundAt(t.pos[0], t.pos[2]) ?? 0; set("ground", (k) => { k.pos[1] = g + k.size[1] }) }}>Rest on ground</Button><Button variant="glass" size="xs" onClick={() => repeat(false)}>Repeat in a row</Button><Button variant="glass" size="xs" onClick={() => repeat(true)}>In a ring</Button></div>
     </Section>
+    {t.kind !== "cutout" && <>
     <Section title="Cut & combine">
       <Segmented label="Role" value={t.role} options={[{ value: "solid", label: "Solid" }, { value: "cut", label: "Cuts" }, { value: "keep", label: "Overlap only" }]} onChange={(v) => set("role", (k) => { k.role = v })} />
       <Row label="Set"><Segmented label="Set" value={String(t.group)} options={[{ value: "0", label: "A" }, { value: "1", label: "B" }, { value: "2", label: "C" }, { value: "3", label: "D" }]} onChange={(v) => set("group", (k) => { k.group = +v })} /></Row>
       <p className="text-[11.5px] text-muted-foreground">A shape that cuts carves a hole in the solid shapes of its own set. Blobs in one set melt together.</p>
     </Section>
     <MaterialLab m={t.mat} set={(label, fn) => set("mat:" + label, (k) => fn(k.mat))} />
+    </>}
     {t.mat.glow > 0 && <Section title="Light"><Dial label="Spotlight" value={t.beam ?? 0} max={140} step={1} unit="°" onChange={(v) => set("beam", (k) => { k.beam = v })} />
       <p className="text-[11.5px] text-muted-foreground">At 0 it shines all around. Above 0 it is a beam pointing down the shape's own axis; use Tilt and Roll to aim it.</p></Section>}
     <Section title="Arrange">

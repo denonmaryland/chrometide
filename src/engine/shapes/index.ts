@@ -33,7 +33,7 @@ export interface Shape {
   dial?: { label: string; value: number }
 }
 
-const BUILT_IN = ["sphere", "box", "pyramid", "cylinder", "cone", "torus", "disc", "stone", "blob", "tree", "pine", "crag", "model", "text"]
+const BUILT_IN = ["sphere", "box", "pyramid", "cylinder", "cone", "torus", "disc", "stone", "blob", "tree", "pine", "crag", "model", "text", "cutout"]
 const files = import.meta.glob<{ default: Shape }>(["./*.ts", "!./index.ts"], { eager: true })
 export const SHAPES: Shape[] = []
 for (const [file, m] of Object.entries(files).sort(([a], [b]) => a.localeCompare(b))) {

@@ -8,9 +8,9 @@ export type Vec3 = [number, number, number]
 const BUILT_IN_KINDS = ["sphere", "box", "pyramid", "cylinder", "cone", "torus", "disc", "stone", "blob", "tree", "pine", "crag", "model", "text"] as const
 // the shapes in src/engine/shapes come after the built-in kinds, so the built-in numbers never move
 export type Kind = (typeof BUILT_IN_KINDS)[number] | (string & {})
-export const KINDS: readonly Kind[] = [...BUILT_IN_KINDS, ...SHAPES.map((s) => s.id)]
+export const KINDS: readonly Kind[] = [...BUILT_IN_KINDS, ...SHAPES.map((s) => s.id), "cutout"]
 export const KIND_LABEL: Record<Kind, string> = {
-  sphere: "Sphere", box: "Box", pyramid: "Pyramid", cylinder: "Cylinder", cone: "Cone", torus: "Ring",
+  cutout: "PNG cutout", sphere: "Sphere", box: "Box", pyramid: "Pyramid", cylinder: "Cylinder", cone: "Cone", torus: "Ring",
   disc: "Disc", stone: "Stone", blob: "Blob", tree: "Tree", pine: "Pine", crag: "Floating rock", model: "Imported model", text: "Lettering",
   ...Object.fromEntries(SHAPES.map((s) => [s.id, s.label])),
 }
@@ -78,6 +78,8 @@ export interface Land {
 export interface Camera { yaw: number; pitch: number; dist: number; target: Vec3; fov: number; roll: number; lens: number; focus: number; pano?: boolean }
 export interface Title { text: string; x: number; z: number; yaw: number; width: number; lift: number; depth: number; mat: Material }
 export interface Frame { w: number; h: number; name: string }
+export const CUTOUT_EDGE = 384
+export interface Cutout { width: number; height: number; rgba: string } // RGBA8, top row first
 export interface World {
   v: 2; name: string
   sky: Sky; sea: Sea; land: Land; terrains?: TerrainPiece[]; things: Thing[]; title?: Title
@@ -85,6 +87,7 @@ export interface World {
   frame: Frame
   remixOf?: string
   anim?: Anim
+  cutout?: Cutout
   picture?: string // a small picture (data URL) that materials with the "picture" pattern show
   model?: { n: number; data: string } // an imported shape, kept as a grid of distances
   sound?: SoundSet // how this world moves to music
@@ -375,6 +378,7 @@ export function roll(w: World, locks: Set<LockKey>, only?: LockKey): World {
     if (out.land.on && out.land.mode === "island") out.things.forEach((t) => (t.pos[1] += out.land.height * 0.55))
   }
   if (does("camera")) out.cam = { ...out.cam, yaw: r() * 6.283, pitch: 0.04 + r() * 0.3, dist: 13 + r() * 10, target: [0, 2.5 + r() * 1.5, 0] }
+  if (out.cutout && !usesCutout(out)) delete out.cutout
   if (!only) out.name = rollName()
   return out
 }
@@ -396,8 +400,13 @@ async function inflate(data: Uint8Array, max: number) {
   for (;;) { const { done, value } = await r.read(); if (done) break; total += value.length; if (total > max) { void r.cancel().catch(() => {}); throw new Error("big") } parts.push(value) }
   const out = new Uint8Array(total); let o = 0; for (const p of parts) { out.set(p, o); o += p.length } return out
 }
+export function usesCutout(w: World): boolean {
+  const hasCard = (t: Thing) => t.kind === "cutout"
+  return w.things.some(hasCard) || !!w.anim?.keys.some(key => key.pose.things.some(hasCard))
+}
 export async function encodeWorld(w: World, full = false): Promise<string> {
   const lean = clone(w); if (!full) { delete lean.model; delete lean.picture; delete lean.customFont; lean.things = lean.things.filter((t) => t.kind !== "model") } lean.things.forEach((t) => { t.pos = t.pos.map(r3) as Vec3; t.size = t.size.map(r3) as Vec3 })
+  if (!usesCutout(lean)) delete lean.cutout
   return "w2." + b64(await pipe(new TextEncoder().encode(JSON.stringify(lean)), new CompressionStream("deflate-raw")))
 }
 /** Read a share code. Never throws: a code that cannot be opened says why, in words for people. */
@@ -489,7 +498,7 @@ const tidyThings = (x: unknown) => { const ids = new Set<string>(); return (Arra
 /** Any value at all in, a world the app can safely show out. */
 export function tidyWorld(x: unknown): World {
   const src = obj(x), base = blankWorld()
-  const w: World = { ...fit({ v: 2, name: base.name }, src, true, ["sky", "sea", "land", "terrains", "things", "cam", "views", "frame", "remixOf", "title", "bloom", "picture", "customFont", "model", "sound", "anim"]), v: 2, sky: tidySky(src.sky), sea: tidySea(src.sea), land: tidyLand(src.land), things: tidyThings(src.things), cam: tidyCam(src.cam),
+  const w: World = { ...fit({ v: 2, name: base.name }, src, true, ["sky", "sea", "land", "terrains", "things", "cam", "views", "frame", "remixOf", "title", "bloom", "picture", "cutout", "customFont", "model", "sound", "anim"]), v: 2, sky: tidySky(src.sky), sea: tidySea(src.sea), land: tidyLand(src.land), things: tidyThings(src.things), cam: tidyCam(src.cam),
     views: Array.from({ length: 7 }, (_, i) => { const v = Array.isArray(src.views) ? src.views[i] : null; return v && typeof v === "object" ? tidyCam(v) : null }), frame: fit(FRAMES[1], src.frame) }
   if (Array.isArray(src.terrains)) {
     const ids = new Set<string>()
@@ -504,6 +513,13 @@ export function tidyWorld(x: unknown): World {
   if (typeof src.remixOf === "string") w.remixOf = src.remixOf.slice(0, 60)
   const title = tidyTitle(src.title); if (title) w.title = title
   if (typeof src.bloom === "number" && isFinite(src.bloom)) w.bloom = numIn(src.bloom, 0, 0, 1.5)
+  const { width, height, rgba } = obj(src.cutout)
+  if ([width, height].every(n => Number.isInteger(n) && n > 0 && n <= CUTOUT_EDGE)) {
+    const bytes = width * height * 4, length = Math.ceil(bytes / 3) * 4
+    const padding = (3 - bytes % 3) % 3
+    if (typeof rgba === "string" && rgba.length === length && /^[A-Za-z0-9+/]+={0,2}$/.test(rgba)
+      && rgba.indexOf("=") === (padding ? length - padding : -1)) w.cutout = { width, height, rgba }
+  }
   const pic = dataUrl(src.picture, /^data:image\/(png|jpeg|webp|gif);/, 3_000_000); if (pic) w.picture = pic
   const font = dataUrl(src.customFont, /^data:(font|application)\/[\w.+-]*;/, 4_200_000); if (font) w.customFont = font
   const md = obj(src.model); if (typeof md.n === "number" && md.n >= 4 && md.n <= 64) { const data = b64ok(md.data, Math.ceil(md.n ** 3 / 3) * 4 + 8); if (data) w.model = { n: Math.round(md.n), data } }

@@ -230,20 +230,49 @@ float map(vec3 p, out int id){
 //   what 2: a walk through a thing made of cloud from tmax along the ray, gathering its light into gCloud*.
 // With wantN, the way the surface faces where the ray stopped is left in gNormal: the four looks about the point that
 // find it are taken in this same loop.
+#ifdef PNG_CUTOUT
+uniform sampler2D uCutout;
+#define CUTOUT_KIND ${KINDS.indexOf("cutout")}
+vec2 cutoutUV(int i, vec3 local){ return .5 + local.xy / (2. * uOS[i].xy) * vec2(1., -1.); }
+#endif
 vec3 gNormal;
 vec3 gCloudAlb, gCloudAmb, gCloudAt, gCloudAcc; float gCloudDen, gCloudSoft, gCloudStep, gCloudSun, gCloudTr;
 float marchThings(vec3 ro, vec3 rd, float tmax, int what, bool wantN, out int id){
   id = 0; gNormal = vec3(0., 1., 0.);
   float t = what == 2 ? tmax : 0., t1 = tmax;
+#ifdef PNG_CUTOUT
+  int card = -1; float cardT = tmax; vec3 cardN = vec3(0.);
+#endif
   if (what == 0) {
     int mask = 0; float t0 = 1e9; t1 = -1.;
     for (int i = ZERO; i < MAXO; i++) { if (i >= uNObj) break;
+#ifdef PNG_CUTOUT
+      // Intersect the double-sided image exactly once along this ray. It never enters the solid distance field.
+      if (int(uOP[i].w + .5) == CUTOUT_KIND) {
+        vec3 axis = uR2[i].xyz; float facing = dot(axis, rd);
+        if (abs(facing) < 1e-6) continue;
+        float at = dot(uOP[i].xyz - ro, axis) / facing;
+        if (at <= .001 || at >= cardT) continue;
+        vec2 uv = cutoutUV(i, toLocal(i, ro + rd * at));
+        if (any(lessThan(uv, vec2(0.))) || any(greaterThan(uv, vec2(1.)))) continue;
+        float a = textureLod(uCutout, uv, 0.).a;
+        if (a <= 0. || (a < 1. && a < (uPreview == 1 || uMode != 0 ? .5 : rnd()))) continue;
+        card = i; cardT = at; cardN = facing > 0. ? -axis : axis;
+        continue;
+      }
+#endif
       int role = int(uR0[i].w + .5);
       if (role == 2) { mask |= 1 << i; continue; }
       vec3 oc = ro - uOP[i].xyz; float R = uR2[i].w; float b = dot(oc, rd), c = dot(oc, oc) - R * R, h = b * b - c;
       if (h < 0.) continue; h = sqrt(h); float tb = -b + h; if (tb < 0.) continue;
       mask |= 1 << i; if (role == 0) { t0 = min(t0, max(-b - h, 0.)); t1 = max(t1, tb); }
     }
+#ifdef PNG_CUTOUT
+    if (card >= 0) {
+      if (t0 > cardT) { id = card; gNormal = cardN; gMask = mask; return cardT; }
+      tmax = cardT;
+    }
+#endif
     gMask = mask; if (t1 < 0.) return -1.;
     t = max(t0, 1e-3); t1 = min(t1, tmax);
   }
@@ -264,6 +293,9 @@ float marchThings(vec3 ro, vec3 rd, float tmax, int what, bool wantN, out int id
       gCloudAcc += gCloudTr * a * gCloudAlb * (gCloudAmb * 1.5 + uSunCol * lit * (.35 + .65 * gCloudSun)); gCloudTr *= 1. - a; t += gCloudStep; if (gCloudTr < .03) break; }
     if (stop) { hitT = t; if (!wantN) break; hp = ro + rd * t; tap = 0; }
   }
+#ifdef PNG_CUTOUT
+  if (card >= 0 && (hitT < 0. || hitT >= cardT)) { id = card; gNormal = cardN; return cardT; }
+#endif
   return what == 2 ? t : hitT;
 }
 
@@ -303,6 +335,9 @@ float hitLetters(vec3 ro, vec3 rd, float limit, out vec3 normal){
 // how much light gets past the thing a shadow ray met (t under 0: it met none)
 float shadowOf(float t, int id){
   if (t <= 0.) return 1.;
+#ifdef PNG_CUTOUT
+  if (int(uOP[id].w + .5) == CUTOUT_KIND) return 0.;
+#endif
   vec4 m3 = texelFetch(uMat, ivec2(3, id), 0); vec4 m4 = texelFetch(uMat, ivec2(4, id), 0); return m4.x > 0. ? 1. : m4.y > 0. ? 1. - .6 * m4.y : m3.y * .7;
 }
 
@@ -459,6 +494,12 @@ vec3 trace(vec3 ro, vec3 rd){
       float T = exp(-hazyLength * uHaze * uHaze * .02);
       col += thr * (1. - T) * fogCol(); thr *= T;
       groundFog(col, thr, ro, rd, t);
+#ifdef PNG_CUTOUT
+      if (kind == 3 && int(uOP[id].w + .5) == CUTOUT_KIND) {
+        vec3 rgb = textureLod(uCutout, cutoutUV(id, toLocal(id, p)), 0.).rgb;
+        col += thr * pow(rgb, vec3(2.2)); ended = true; break;
+      }
+#endif
       amb = (mix(uHorizon, uZenith, .5) * .55 + .12) * uAmbient * 2.;
       // the land's height about the point, asked in one place: at four spots for which way it faces there (the ray
       // met land), or at one for how deep the sea is over it (it met the sea)

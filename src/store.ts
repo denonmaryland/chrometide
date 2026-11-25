@@ -4,7 +4,7 @@ import * as React from "react"
 import type { Engine, Status } from "./engine/engine"
 import { type DesignOpts, designOpts } from "./design/opts"
 import { at, keyAt, newAnim, pose } from "./engine/anim"
-import { type Land, type LockKey, LANDS, MAX_TERRAINS, landFrom, type Thing, type World, MAX_THINGS, STARTERS, clone, decodeWorld, encodeWorld, newId, readCode, roll } from "./engine/scene"
+import { type Land, type LockKey, LANDS, MAX_TERRAINS, landFrom, type Thing, type World, MAX_THINGS, STARTERS, clone, decodeWorld, encodeWorld, newId, readCode, roll, usesCutout } from "./engine/scene"
 import { keep, recall } from "./lib/keep"
 import { notify } from "./notice"
 
@@ -53,6 +53,7 @@ export function edit(label: string, fn: (w: World) => void) {
   const next = clone(state.world); fn(next)
   // editing while the playhead sits on a key changes that key
   const ki = keyAt(next.anim, state.playhead); if (ki >= 0 && !label.startsWith("anim")) next.anim!.keys[ki].pose = pose(next)
+  if (next.cutout && !usesCutout(next)) delete next.cutout
   state = { ...state, world: next, past: fresh ? [...state.past.slice(-80), state.world] : state.past, future: [] }
   lastLabel = label; lastAt = now; emit(); tap(label)
 }

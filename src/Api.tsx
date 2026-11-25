@@ -18,7 +18,7 @@ function material(m: unknown): Material {
   return { ...mat(o.base ?? o.name ?? "Chrome"), ...o, name: o.name ?? o.base ?? "Custom" }
 }
 function makeThing(o: any): Thing {
-  const kind: Kind = KINDS.includes(o.kind) && o.kind !== "model" ? o.kind : "sphere"
+  const kind: Kind = KINDS.includes(o.kind) && o.kind !== "cutout" && o.kind !== "model" ? o.kind : "sphere"
   if (kind === "text") { const str = String(o.text ?? "HELLO").toUpperCase().slice(0, 120), spec = textSpec(str, { font: o.font, style: o.style, edge: o.edge, bend: o.bend, arch: o.arch, motion: o.motion }), h = (typeof o.height === "number" ? o.height : 2.5) / 2
     Object.keys(spec).forEach((k) => (spec as any)[k] === undefined && delete (spec as any)[k]); const full = textSpec(str, spec)
     return { ...thing("text", v3(o.position, [0, h + 0.3, 4]), [h * textAspect(str, full.font), h, typeof o.depth === "number" ? o.depth / 2 : Math.max(0.08, h * 0.28)], material(o.material), { name: String(o.name ?? str).slice(0, 40), round: 0, text: full }), rot: v3(o.rotation, [0, 0, 0]), role: o.role ?? "solid", group: o.group ?? 0, id: newId() } }
@@ -41,7 +41,7 @@ export function Api() {
     const api = {
       ok: e.ok, error: e.error,
       presets: () => ({ worlds: WORLDS.map((w) => ({ name: w.name, group: w.group })), skies: SKIES.map((s) => s.name), seas: SEAS.map((s) => `${s.name} (${s.kind})`), lands: LANDS.map((l) => l.name), materials: MATERIALS.map((m) => m.name),
-        shapes: KINDS.filter((k) => k !== "model"), patterns: [...TEXTURES], fonts: FONTS.filter((f) => f.id !== "custom").map((f) => f.id), frames: FRAMES.map((f) => `${f.name}`) }),
+        shapes: KINDS.filter((k) => k !== "cutout" && k !== "model"), patterns: [...TEXTURES], fonts: FONTS.filter((f) => f.id !== "custom").map((f) => f.id), frames: FRAMES.map((f) => `${f.name}`) }),
       starter: (name: string) => { const w = WORLDS.find((x) => x.name.toLowerCase() === String(name).toLowerCase()); return w ? w.make() : null },
       blank: () => blankWorld(), tidy,
       decode: async (code: string) => { const r = await readCode(String(code)); return r.world ? tidy(r.world) : null },

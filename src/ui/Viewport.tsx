@@ -2,7 +2,7 @@
 // push the land up and down.
 import * as React from "react"
 import * as THREE from "three"
-import { Box, Boxes, Type, Circle, Cone, Copy, Cylinder, Dices, Diamond, Donut, Droplet, Hand, Lock, LockOpen, Mountain, Plus, Scissors, SlidersHorizontal, Sparkles, Trash2, TreeDeciduous, TreePine, Triangle, ArrowDownToLine, Disc, X } from "lucide-react"
+import { ImagePlus, Box, Boxes, Type, Circle, Cone, Copy, Cylinder, Dices, Diamond, Donut, Droplet, Hand, Lock, LockOpen, Mountain, Plus, Scissors, SlidersHorizontal, Sparkles, Trash2, TreeDeciduous, TreePine, Triangle, ArrowDownToLine, Disc, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -13,6 +13,7 @@ import { nowLevels } from "@/audio"
 import { Engine, GRID, QUALITY } from "@/engine/engine"
 import { react } from "@/sound"
 import { type Kind, type LockKey, type Vec3, KINDS, KIND_LABEL, mat, thing } from "@/engine/scene"
+import { pickCutout } from "@/io"
 import { WordBox } from "@/features/word-world"
 import { SHAPE_BY_ID, SHAPES } from "@/engine/shapes"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -21,10 +22,10 @@ import { addTerrain, selectedTerrainId, editTerrain, addThing, duplicateThing, e
 import { WELCOME_KEY, toggleSheet, useSheet } from "./sheet"
 
 export const KIND_ICON: Record<Kind, React.ComponentType<{ className?: string }>> = {
-  sphere: Circle, box: Box, pyramid: Triangle, cylinder: Cylinder, cone: Cone, torus: Donut, disc: Disc, stone: Diamond, blob: Droplet, tree: TreeDeciduous, pine: TreePine, crag: Mountain, model: Boxes, text: Type,
+  cutout: ImagePlus, sphere: Circle, box: Box, pyramid: Triangle, cylinder: Cylinder, cone: Cone, torus: Donut, disc: Disc, stone: Diamond, blob: Droplet, tree: TreeDeciduous, pine: TreePine, crag: Mountain, model: Boxes, text: Type,
   ...Object.fromEntries(SHAPES.map((s) => [s.id, s.icon])),
 }
-export const ADDABLE = KINDS.filter((k) => k !== "model" && k !== "text")
+export const ADDABLE = KINDS.filter((k) => k !== "model" && k !== "text" && k !== "cutout")
 const LOCKS: { key: LockKey; label: string }[] = [{ key: "sky", label: "Sky" }, { key: "sea", label: "Sea" }, { key: "land", label: "Land" }, { key: "things", label: "Things" }, { key: "camera", label: "Camera" }]
 
 export function newThing(kind: Kind) {
@@ -185,6 +186,7 @@ export function Viewport() {
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button title="Add a shape to the world" variant="ghost" size="sm" className="h-8" data-testid="dock-add" />}><Plus /> Add</DropdownMenuTrigger>
             <DropdownMenuContent side="top" align="start" className="max-h-[min(30rem,70dvh)] w-48">
+              <DropdownMenuItem data-testid="add-cutout" onClick={() => void pickCutout()}><ImagePlus className="size-4" /> Add cutout…</DropdownMenuItem>
               {ADDABLE.map((k) => { const I = KIND_ICON[k]; return <DropdownMenuItem key={k} onClick={() => newThing(k)}><I className="size-4" /> {KIND_LABEL[k]}</DropdownMenuItem> })}
               <DropdownMenuSeparator />
               <DropdownMenuItem data-testid="add-terrain" onClick={addTerrain}><Mountain className="size-4" /> Add terrain</DropdownMenuItem>

@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Kbd } from "@/components/ui/kbd"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { exportGLB, exportHeightmap, exportOBJ, importModel, photoToLand, pickFile, setPicture } from "@/io"
+import { exportGLB, exportHeightmap, exportOBJ, importModel, photoToLand, pickCutout, pickFile, setPicture } from "@/io"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { StatusGlyph } from "@/components/ui/status-glyph"
 import { QUALITY } from "@/engine/engine"
@@ -29,6 +29,7 @@ export const fileName = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-
 function FileItems({ say }: { say: (s: string) => void }) {
   return <>
     <DropdownMenuGroup><DropdownMenuLabel>Bring in</DropdownMenuLabel>
+      <DropdownMenuItem onClick={() => void pickCutout()}>Add cutout (transparent PNG)…</DropdownMenuItem>
       <DropdownMenuItem data-testid="import-model" onClick={async () => { const f = await pickFile(".glb,.gltf,.obj"); if (f) { say("Reading the model…"); const ok = await importModel(f).catch(() => false); say(ok ? "" : "That file had no shape I could read."); if (!ok) setTimeout(() => say(""), 4000) } }}>A 3D model (.glb, .obj)…</DropdownMenuItem>
       <DropdownMenuItem data-testid="photo-world" onClick={() => void pickPhoto()}>A photo, to make a whole world…</DropdownMenuItem>
       <DropdownMenuItem onClick={async () => { const f = await pickFile("image/*"); if (f) { const id = selectedTerrainId(get()); await photoToLand(f, id); patch({ sel: { type: "land", id } }) } }}>A picture, to make land…</DropdownMenuItem>

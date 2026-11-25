@@ -48,6 +48,7 @@ const WIRE: Record<string, (r: number) => THREE.BufferGeometry> = {
   tree: () => new THREE.WireframeGeometry(new THREE.IcosahedronGeometry(0.7, 1).translate(0, 0.3, 0)),
   pine: () => new THREE.EdgesGeometry(new THREE.ConeGeometry(0.8, 1.8, 8).translate(0, 0.1, 0), 20),
   crag: () => new THREE.EdgesGeometry(new THREE.CylinderGeometry(1, 0.2, 1.6, 10), 20),
+  cutout: () => new THREE.EdgesGeometry(new THREE.PlaneGeometry(2, 2)),
   model: () => new THREE.EdgesGeometry(new THREE.BoxGeometry(2, 2, 2)),
   text: () => new THREE.EdgesGeometry(new THREE.BoxGeometry(2, 2, 2)),
   ...Object.fromEntries(SHAPES.map((s) => [s.id, s.wire])),
@@ -71,6 +72,8 @@ export class Engine {
   livePhase: number | null = null
   /** live mode, for music: every frame is a quick whole picture, as large as the graphics chip can keep smooth */
   live = false; private liveDiv = 3
+  private cutoutTex?: THREE.DataTexture
+  private cutoutKey?: World["cutout"]
   private picTex!: THREE.Texture; private picKey = ""; private modelTex!: THREE.Data3DTexture; private modelKey = ""
   private wireScene = new THREE.Scene(); private wireCam = new THREE.PerspectiveCamera(); private wires = new Map<string, THREE.LineSegments>()
   private float = false
@@ -113,7 +116,7 @@ export class Engine {
     const blank = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1, THREE.RGBAFormat); blank.needsUpdate = true
     this.u.uLetters = { value: blank }
     this.glyphTex = new THREE.DataArrayTexture(new Uint8Array(LW * LH * GLYPHS).fill(255), LW, LH, GLYPHS); this.glyphTex.format = THREE.RedFormat; this.glyphTex.minFilter = this.glyphTex.magFilter = THREE.LinearFilter; this.glyphTex.unpackAlignment = 1; this.glyphTex.needsUpdate = true; this.u.uGlyph = { value: this.glyphTex }
-    this.picTex = blank; this.u.uPic = { value: blank }
+    this.u.uCutout = { value: null }; this.picTex = blank; this.u.uPic = { value: blank }
     this.modelTex = new THREE.Data3DTexture(new Uint8Array([255]), 1, 1, 1); this.modelTex.format = THREE.RedFormat; this.modelTex.unpackAlignment = 1; this.modelTex.needsUpdate = true; this.u.uModel = { value: this.modelTex }
     this.sculptTex = new THREE.DataArrayTexture(new Uint8Array(GRID * GRID * MAX_TERRAINS).fill(128), GRID, GRID, MAX_TERRAINS)
     this.sculptTex.format = THREE.RedFormat
@@ -139,6 +142,7 @@ export class Engine {
 
   dispose() {
     cancelAnimationFrame(this.raf); clearTimeout(this.lostTimer); this.canvas.removeEventListener("webglcontextlost", this.onLost); this.canvas.removeEventListener("webglcontextrestored", this.onRestored)
+    this.cutoutTex?.dispose()
     this.low?.dispose(); this.acc?.dispose(); this.pickRT?.dispose(); this.matTex?.dispose(); this.glyphTex?.dispose(); this.sculptTex?.dispose(); this.modelTex?.dispose(); this.letterTex?.dispose()
     if (this.picTex !== this.u.uPic?.value) (this.u.uPic?.value as THREE.Texture | undefined)?.dispose()
     for (const l of this.wires.values()) { l.geometry.dispose(); (l.material as THREE.Material).dispose() } this.wires.clear()
@@ -230,7 +234,7 @@ export class Engine {
     u.uRays.value = num(s.rays, 0, 0, 2); u.uComet.value = num(s.comet, 0, 0, 2); v3("uCometDir", dir(s.seed * 1.3 + 0.7, 0.42 + 0.25 * Math.sin(s.seed * 2.1)))
     this.pictures(w)
     // things
-    const things = w.things.filter((x) => !x.hidden).slice(0, MAXO); this.ids = things.map((x) => x.id)
+    const things = w.things.filter((x) => !x.hidden && (x.kind !== "cutout" || !!w.cutout)).slice(0, MAXO); this.ids = things.map((x) => x.id)
     const m4 = new THREE.Matrix4(), e = new THREE.Euler(); let nl = 0; const risers = things.filter((x) => x.text?.motion && x.text.motion !== "none")
     things.forEach((o, i) => {
       const ki = Math.max(0, KINDS.indexOf(o.kind)); const sz = o.size.map((x) => Math.max(0.02, num(x, 1, 0, 200))) as [number, number, number]
@@ -248,7 +252,7 @@ export class Engine {
       this.putMat(i, o.mat)
       if (o.kind === "text") { const t = o.text ?? { str: o.name, font: "sans", style: "solid", edge: "round", bevel: 0.03, stroke: 0.035, bend: 0, arch: 0 }, g = this.glyphFor(t.str || " ", t.font), hgt = sz[1] * 2
         this.matData.set([g.layer, g.uw, g.uh, ["solid", "outline", "tube"].indexOf(t.style) + 10 * ["round", "chisel", "sharp"].indexOf(t.edge), num(t.bevel, 0.03, 0, 0.2) * hgt, num(t.stroke, 0.035, 0.005, 0.2) * hgt, THREE.MathUtils.degToRad(num(t.bend, 0, -360, 360)), THREE.MathUtils.degToRad(num(t.arch, 0, -180, 180))], i * MAT_COLS * 4 + 24) }
-      if (o.mat.glow > 0 && nl < 4 && o.role === "solid") { const c = hex(o.mat.color), p = o.mat.glow * Math.min(40, 2.5 + sz[0] * sz[0] * 4)
+      if (o.kind !== "cutout" && o.mat.glow > 0 && nl < 4 && o.role === "solid") { const c = hex(o.mat.color), p = o.mat.glow * Math.min(40, 2.5 + sz[0] * sz[0] * 4)
         u.uLP.value[nl].set(o.pos[0], o.pos[1] + bob, o.pos[2], Math.max(...sz)); const beam = num(o.beam, 0, 0, 170), k = beam > 0 ? 2.2 : 1; u.uLC.value[nl].set(c[0] * p * k, c[1] * p * k, c[2] * p * k)
         u.uLD.value[nl].set(-el[4], -el[5], -el[6], beam > 0 ? Math.cos(THREE.MathUtils.degToRad(beam / 2)) : -2); nl++ }
     })
@@ -268,6 +272,22 @@ export class Engine {
   }
   /** The world's picture (for materials) and imported shape, loaded into textures when they change. */
   private pictures(w: World) {
+    const img = w.cutout, old = this.cutoutKey
+    if (img?.rgba !== old?.rgba || img?.width !== old?.width || img?.height !== old?.height) {
+      this.cutoutTex?.dispose()
+      this.cutoutTex = undefined
+      this.cutoutKey = img
+      if (img) {
+        const data = Uint8Array.from(atob(img.rgba), c => c.charCodeAt(0))
+        this.cutoutTex = new THREE.DataTexture(data, img.width, img.height)
+        this.cutoutTex.needsUpdate = true
+      }
+      this.u.uCutout.value = this.cutoutTex ?? null
+      if (Boolean(img) !== Boolean(old)) {
+        this.traceMat.defines = img ? { PNG_CUTOUT: 1 } : {}
+        this.traceMat.needsUpdate = true
+      }
+    }
     const pic = w.picture ?? ""
     if (pic !== this.picKey) { this.picKey = pic
       const was = this.u.uPic.value as THREE.Texture; if (was !== this.picTex) { this.u.uPic.value = this.picTex; was.dispose() } // the last picture's texture is let go
