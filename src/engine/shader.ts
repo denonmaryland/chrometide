@@ -52,7 +52,7 @@ out vec4 outCol;
 uniform vec2 uRes; uniform int uSample, uPreview, uMode, uLDR, uBounces; uniform float uBlend, uTime; uniform vec2 uPickUV;
 uniform vec3 uCamPos, uCamFw, uCamRt, uCamUp; uniform float uFocal, uLens, uFocus, uPanoYaw; uniform int uProj;
 uniform vec3 uZenith, uHorizon, uHazeCol, uSunCol, uSunDir, uCloudCol, uCloud2Col, uFogCol, uMoonDir;
-uniform float uHaze, uCloud, uStreak, uCloudScale, uCloud2, uStars, uSkySeed, uSunSize, uSunGlow, uSunSoft, uAmbient;
+uniform float uHaze, uHazeStart, uCloud, uStreak, uCloudScale, uCloud2, uStars, uSkySeed, uSunSize, uSunGlow, uSunSoft, uAmbient;
 uniform float uFog, uFogH, uMoon, uMoonSize, uMoonPhase, uRainbow, uHalo;
 uniform int uGround; uniform vec3 uG1, uG2; uniform float uCalmPatches, uRippleWidth, uRippleAngle, uWave, uGrain, uGRefl, uGScale;
 struct Terrain { vec4 centerRadius, shape, carve, snow, channel, flags; vec3 sand, grass, rock; };
@@ -230,20 +230,49 @@ float map(vec3 p, out int id){
 //   what 2: a walk through a thing made of cloud from tmax along the ray, gathering its light into gCloud*.
 // With wantN, the way the surface faces where the ray stopped is left in gNormal: the four looks about the point that
 // find it are taken in this same loop.
+#ifdef PNG_CUTOUT
+uniform sampler2D uCutout;
+#define CUTOUT_KIND ${KINDS.indexOf("cutout")}
+vec2 cutoutUV(int i, vec3 local){ return .5 + local.xy / (2. * uOS[i].xy) * vec2(1., -1.); }
+#endif
 vec3 gNormal;
 vec3 gCloudAlb, gCloudAmb, gCloudAt, gCloudAcc; float gCloudDen, gCloudSoft, gCloudStep, gCloudSun, gCloudTr;
 float marchThings(vec3 ro, vec3 rd, float tmax, int what, bool wantN, out int id){
   id = 0; gNormal = vec3(0., 1., 0.);
   float t = what == 2 ? tmax : 0., t1 = tmax;
+#ifdef PNG_CUTOUT
+  int card = -1; float cardT = tmax; vec3 cardN = vec3(0.);
+#endif
   if (what == 0) {
     int mask = 0; float t0 = 1e9; t1 = -1.;
     for (int i = ZERO; i < MAXO; i++) { if (i >= uNObj) break;
+#ifdef PNG_CUTOUT
+      // Intersect the double-sided image exactly once along this ray. It never enters the solid distance field.
+      if (int(uOP[i].w + .5) == CUTOUT_KIND) {
+        vec3 axis = uR2[i].xyz; float facing = dot(axis, rd);
+        if (abs(facing) < 1e-6) continue;
+        float at = dot(uOP[i].xyz - ro, axis) / facing;
+        if (at <= .001 || at >= cardT) continue;
+        vec2 uv = cutoutUV(i, toLocal(i, ro + rd * at));
+        if (any(lessThan(uv, vec2(0.))) || any(greaterThan(uv, vec2(1.)))) continue;
+        float a = textureLod(uCutout, uv, 0.).a;
+        if (a <= 0. || (a < 1. && a < (uPreview == 1 || uMode != 0 ? .5 : rnd()))) continue;
+        card = i; cardT = at; cardN = facing > 0. ? -axis : axis;
+        continue;
+      }
+#endif
       int role = int(uR0[i].w + .5);
       if (role == 2) { mask |= 1 << i; continue; }
       vec3 oc = ro - uOP[i].xyz; float R = uR2[i].w; float b = dot(oc, rd), c = dot(oc, oc) - R * R, h = b * b - c;
       if (h < 0.) continue; h = sqrt(h); float tb = -b + h; if (tb < 0.) continue;
       mask |= 1 << i; if (role == 0) { t0 = min(t0, max(-b - h, 0.)); t1 = max(t1, tb); }
     }
+#ifdef PNG_CUTOUT
+    if (card >= 0) {
+      if (t0 > cardT) { id = card; gNormal = cardN; gMask = mask; return cardT; }
+      tmax = cardT;
+    }
+#endif
     gMask = mask; if (t1 < 0.) return -1.;
     t = max(t0, 1e-3); t1 = min(t1, tmax);
   }
@@ -264,6 +293,9 @@ float marchThings(vec3 ro, vec3 rd, float tmax, int what, bool wantN, out int id
       gCloudAcc += gCloudTr * a * gCloudAlb * (gCloudAmb * 1.5 + uSunCol * lit * (.35 + .65 * gCloudSun)); gCloudTr *= 1. - a; t += gCloudStep; if (gCloudTr < .03) break; }
     if (stop) { hitT = t; if (!wantN) break; hp = ro + rd * t; tap = 0; }
   }
+#ifdef PNG_CUTOUT
+  if (card >= 0 && (hitT < 0. || hitT >= cardT)) { id = card; gNormal = cardN; return cardT; }
+#endif
   return what == 2 ? t : hitT;
 }
 
@@ -303,6 +335,9 @@ float hitLetters(vec3 ro, vec3 rd, float limit, out vec3 normal){
 // how much light gets past the thing a shadow ray met (t under 0: it met none)
 float shadowOf(float t, int id){
   if (t <= 0.) return 1.;
+#ifdef PNG_CUTOUT
+  if (int(uOP[id].w + .5) == CUTOUT_KIND) return 0.;
+#endif
   vec4 m3 = texelFetch(uMat, ivec2(3, id), 0); vec4 m4 = texelFetch(uMat, ivec2(4, id), 0); return m4.x > 0. ? 1. : m4.y > 0. ? 1. - .6 * m4.y : m3.y * .7;
 }
 
@@ -381,6 +416,7 @@ vec4 gOut; // what a pick or mask pass writes (uMode != 0)
 // then the surface is lit and the ray sent on.
 vec3 trace(vec3 ro, vec3 rd){
   float waterScale = 1.;
+  float clearDistance = uHazeStart; // Carry the clear interval through reflections and refractions.
   vec3 col = vec3(0.), thr = vec3(1.);
   float sunOn = 1.;
   vec3 skyDir[7]; vec3 skyW[7]; float skySun[7]; float skyK[7]; int nSky = 0; // looks at the sky that are owed
@@ -427,6 +463,7 @@ vec3 trace(vec3 ro, vec3 rd){
       vec3 hp = ro + rd * max(th, 0.); vec3 hn = gNormal;
       if (inside) { // out of the glass again, bent
         vec3 r2 = refract(rd, -hn, m3.z); if (dot(r2, r2) < .01) r2 = rd;
+        clearDistance = max(0., clearDistance - max(th, 0.));
         ro = hp + hn * .01; rd = normalize(r2); sunOn = 1.; inside = false;
         bounce++; if (bounce >= uBounces) break; continue;
       }
@@ -452,9 +489,17 @@ vec3 trace(vec3 ro, vec3 rd){
     if (met) {
       if (kind == 0) { groundFog(col, thr, ro, rd, 2000.); skyDir[nSky] = rd; skyW[nSky] = thr; skySun[nSky] = sunOn; skyK[nSky] = 1.; nSky++; ended = true; break; }
       p = ro + rd * t;
-      float T = exp(-t * uHaze * uHaze * .02);
+      float hazyLength = max(0., t - clearDistance);
+      clearDistance = max(0., clearDistance - t);
+      float T = exp(-hazyLength * uHaze * uHaze * .02);
       col += thr * (1. - T) * fogCol(); thr *= T;
       groundFog(col, thr, ro, rd, t);
+#ifdef PNG_CUTOUT
+      if (kind == 3 && int(uOP[id].w + .5) == CUTOUT_KIND) {
+        vec3 rgb = textureLod(uCutout, cutoutUV(id, toLocal(id, p)), 0.).rgb;
+        col += thr * pow(rgb, vec3(2.2)); ended = true; break;
+      }
+#endif
       amb = (mix(uHorizon, uZenith, .5) * .55 + .12) * uAmbient * 2.;
       // the land's height about the point, asked in one place: at four spots for which way it faces there (the ray
       // met land), or at one for how deep the sea is over it (it met the sea)
@@ -519,6 +564,7 @@ vec3 trace(vec3 ro, vec3 rd){
     if (stage == 2) { sh = s; lamp = vec3(0.); stage = wantLamps ? 3 : 9; }
     else if (stage == 7) { // through the cloud: its light is gathered, and the ray goes on from its far side
       col += thr * gCloudAcc; thr *= gCloudTr; if (max(thr.r, max(thr.g, thr.b)) < .012) { ended = true; break; }
+      clearDistance = max(0., clearDistance - max(th, 0.));
       ro = cloudPin + rd * (th + .02); stage = 0;
       bounce++; if (bounce >= uBounces) break; continue;
     } else { lamp += uLC[l] * lnl * lspot * s / (1. + ld2 * .06); stage = l + 1 < uNLight ? stage + 1 : 9; }

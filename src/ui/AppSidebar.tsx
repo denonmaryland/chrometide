@@ -11,6 +11,7 @@ import { type LockKey, KIND_LABEL } from "@/engine/scene"
 import { type Starter, WORLDS, WORLD_GROUPS } from "@/engine/worlds"
 import { type Sel, dropFromShelf, editThing, engine, openSaved, patch, replaceWorld, saveToShelf, toggleLock, useApp } from "@/store"
 
+import { pickCutout } from "@/io"
 import { setSheet } from "./sheet"
 import { ADDABLE, KIND_ICON, newThing } from "./Viewport"
 
@@ -60,7 +61,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Things <span className="ml-1.5 font-mono text-[10px] text-muted-foreground">{things.length}/20</span></SidebarGroupLabel>
           <DropdownMenu>
             <DropdownMenuTrigger render={<SidebarGroupAction aria-label="Add a thing" />}><Plus /></DropdownMenuTrigger>
-            <DropdownMenuContent side="right" align="start" className="w-44">{ADDABLE.map((k) => { const I = KIND_ICON[k]; return <DropdownMenuItem key={k} onClick={() => newThing(k)}><I className="size-4" /> {KIND_LABEL[k]}</DropdownMenuItem> })}</DropdownMenuContent>
+            <DropdownMenuContent side="right" align="start" className="w-44"><DropdownMenuItem onClick={() => void pickCutout()}><Image className="size-4" /> Add cutout…</DropdownMenuItem>{ADDABLE.map((k) => { const I = KIND_ICON[k]; return <DropdownMenuItem key={k} onClick={() => newThing(k)}><I className="size-4" /> {KIND_LABEL[k]}</DropdownMenuItem> })}</DropdownMenuContent>
           </DropdownMenu>
           <SidebarGroupContent><SidebarMenu>
             {things.length === 0 && <p className="px-2 py-1 text-[12px] text-muted-foreground group-data-[collapsible=icon]:hidden">Nothing floating here yet. Press + to add a shape.</p>}

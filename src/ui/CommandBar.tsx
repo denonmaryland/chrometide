@@ -5,6 +5,7 @@ import { WORLDS } from "@/engine/worlds"
 import { addTerrain, editTerrain, selectedTerrainId, edit, editThing, get, patch, redo, replaceWorld, rollDice, saveToShelf, shareLink, undo, useApp } from "@/store"
 import { openEmbed } from "@/features/share"
 
+import { pickCutout } from "@/io"
 import { FEATURES } from "@/features"
 
 import { ADDABLE, newThing } from "./Viewport"
@@ -20,6 +21,7 @@ export function CommandBar() {
         <CommandEmpty>Nothing by that name. Try “dusk” or “chrome”.</CommandEmpty>
         {FEATURES.some((f) => f.run) && <CommandGroup heading="Modes">{FEATURES.filter((f) => f.run).map((f) => <CommandItem key={f.id} onSelect={run(f.run!)}>{f.label}: {f.about}</CommandItem>)}</CommandGroup>}
         <CommandGroup heading="Do">
+          <CommandItem onSelect={run(pickCutout)}>Add cutout from a transparent PNG</CommandItem>
           <CommandItem onSelect={run(addTerrain)}>Add terrain</CommandItem>
           <CommandItem onSelect={run(() => rollDice())}>Roll a new world</CommandItem>
           <CommandItem onSelect={run(() => rollDice("sky"))}>Roll only the sky</CommandItem>
