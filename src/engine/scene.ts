@@ -1,3 +1,4 @@
+import { tidalCarving } from "./tidal-carving"
 // The world as plain data. Everything the picture shows is in one of these objects, so a world can
 // be saved, shared as a link, undone, randomized and animated by changing numbers.
 
@@ -406,7 +407,17 @@ export function usesCutout(w: World): boolean {
   return w.things.some(hasCard) || !!w.anim?.keys.some(key => key.pose.things.some(hasCard))
 }
 export async function encodeWorld(w: World, full = false): Promise<string> {
-  const lean = clone(w); if (!full) { delete lean.model; delete lean.picture; delete lean.customFont; lean.things = lean.things.filter((t) => t.kind !== "model") } lean.things.forEach((t) => { t.pos = t.pos.map(r3) as Vec3; t.size = t.size.map(r3) as Vec3 })
+  const lean = clone(w)
+  if (!full) {
+    const builtIn = lean.model?.n === 48 && lean.model.data === tidalCarving().data
+    if (!builtIn) {
+      delete lean.model
+      lean.things = lean.things.filter(t => t.kind !== "model")
+    }
+    delete lean.picture
+    delete lean.customFont
+  }
+  lean.things.forEach((t) => { t.pos = t.pos.map(r3) as Vec3; t.size = t.size.map(r3) as Vec3 })
   if (!usesCutout(lean)) delete lean.cutout
   return "w2." + b64(await pipe(new TextEncoder().encode(JSON.stringify(lean)), new CompressionStream("deflate-raw")))
 }
