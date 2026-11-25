@@ -236,6 +236,7 @@ export const FRAMES: Frame[] = [
   { name: "Phone 1080 × 1920", w: 1080, h: 1920 },
   { name: "Poster 2400 × 3000", w: 2400, h: 3000 },
   { name: "360° 2048 × 1024", w: 2048, h: 1024 },
+  { name: "Full color 320 × 240", w: 320, h: 240 },
 ]
 
 // ---------- helpers ----------
