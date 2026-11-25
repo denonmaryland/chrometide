@@ -1,0 +1,253 @@
+{
+  "v": 2,
+  "name": "Mineral Window",
+  "sky": {
+    "zenith": "#ff7a6a",
+    "horizon": "#ffe2a0",
+    "haze": "#fff0c8",
+    "sunColor": "#fff6e0",
+    "cloudColor": "#fff4ea",
+    "sun": {
+      "az": -0.7,
+      "el": 0.5
+    },
+    "sunSize": 0.0245,
+    "sunGlow": 1,
+    "sunSoft": 0.012,
+    "hazeAmt": 0.5,
+    "hazeStart": 0,
+    "ambient": 0.5,
+    "fog": 0,
+    "fogHeight": 1.2,
+    "fogColor": "#fff0c8",
+    "cloud": 0.3,
+    "streak": 0.8,
+    "cloudScale": 1,
+    "seed": 6.1,
+    "cloud2": 0,
+    "cloud2Color": "#ffffff",
+    "stars": 0,
+    "moon": 0,
+    "moonAz": 2.2,
+    "moonEl": 0.6,
+    "moonSize": 0.06,
+    "moonPhase": 0.5,
+    "rainbow": 0,
+    "halo": 0.8
+  },
+  "sea": {
+    "kind": "mirror",
+    "c1": "#20242c",
+    "c2": "#8aa0c0",
+    "reflect": 0.8,
+    "wave": 0.3,
+    "grain": 0.05,
+    "scale": 1
+  },
+  "land": {
+    "on": false,
+    "mode": "island",
+    "height": 4,
+    "radius": 8,
+    "freq": 0.22,
+    "ridge": 0.8,
+    "seed": 1,
+    "snow": 0,
+    "c1": "#e6d3a0",
+    "c2": "#5f7a3a",
+    "c3": "#6d6258",
+    "terrace": 0,
+    "plateau": 0,
+    "sharp": 0
+  },
+  "things": [
+    {
+      "id": "tmwwk348o83g",
+      "name": "Block",
+      "kind": "box",
+      "pos": [
+        0,
+        3,
+        0
+      ],
+      "size": [
+        2.2,
+        2.2,
+        2.2
+      ],
+      "rot": [
+        32,
+        0,
+        0
+      ],
+      "round": 0.04,
+      "role": "solid",
+      "group": 1,
+      "mat": {
+        "base": "Stone",
+        "name": "Stone",
+        "color": "#462f37",
+        "color2": "#d8a17f",
+        "texture": "stone",
+        "texScale": 3,
+        "diffuse": 1,
+        "reflect": 0.1,
+        "metal": 0,
+        "shine": 0.25,
+        "gloss": 0.3,
+        "clear": 0,
+        "ior": 1.33,
+        "bump": 0.33,
+        "glow": 0
+      }
+    },
+    {
+      "id": "tmwwk348o7kz",
+      "name": "Bite",
+      "kind": "sphere",
+      "pos": [
+        0.9,
+        3.9,
+        1.1
+      ],
+      "size": [
+        1.7,
+        1.7,
+        1.7
+      ],
+      "rot": [
+        0,
+        0,
+        0
+      ],
+      "round": 0.5677460599382069,
+      "role": "cut",
+      "group": 1,
+      "mat": {
+        "base": "Marble",
+        "name": "Marble",
+        "color": "#2c6c74",
+        "color2": "#accfc0",
+        "texture": "marble",
+        "texScale": 0.85,
+        "diffuse": 1,
+        "reflect": 0.1,
+        "metal": 0,
+        "shine": 0.25,
+        "gloss": 0.9,
+        "clear": 0,
+        "ior": 1.33,
+        "bump": 0.33,
+        "glow": 0
+      }
+    },
+    {
+      "id": "tmwwk348o9p7",
+      "name": "Orbit",
+      "kind": "torus",
+      "pos": [
+        0,
+        3,
+        0
+      ],
+      "size": [
+        4.4,
+        1.6,
+        4.4
+      ],
+      "rot": [
+        0,
+        72,
+        12
+      ],
+      "round": 0.12,
+      "role": "solid",
+      "group": 0,
+      "mat": {
+        "base": "Marble",
+        "name": "Marble",
+        "color": "#2c6c74",
+        "color2": "#accfc0",
+        "texture": "marble",
+        "texScale": 0.85,
+        "diffuse": 1,
+        "reflect": 0.1,
+        "metal": 0,
+        "shine": 0.25,
+        "gloss": 0.9,
+        "clear": 0,
+        "ior": 1.33,
+        "bump": 0.33,
+        "glow": 0
+      }
+    },
+    {
+      "id": "tmwwk348oavh",
+      "name": "Lens",
+      "kind": "sphere",
+      "pos": [
+        -4.6,
+        1.1,
+        2.6
+      ],
+      "size": [
+        1.1,
+        1.1,
+        1.1
+      ],
+      "rot": [
+        0,
+        0,
+        0
+      ],
+      "round": 0.022519989369852667,
+      "role": "solid",
+      "group": 0,
+      "mat": {
+        "base": "Marble",
+        "name": "Marble",
+        "color": "#2c6c74",
+        "color2": "#accfc0",
+        "texture": "marble",
+        "texScale": 0.85,
+        "diffuse": 1,
+        "reflect": 0.1,
+        "metal": 0,
+        "shine": 0.25,
+        "gloss": 0.9,
+        "clear": 0,
+        "ior": 1.33,
+        "bump": 0.33,
+        "glow": 0
+      }
+    }
+  ],
+  "cam": {
+    "yaw": 0.55,
+    "pitch": 0.12,
+    "dist": 15,
+    "target": [
+      0,
+      2.8,
+      0
+    ],
+    "fov": 55.5,
+    "roll": 0,
+    "lens": 0,
+    "focus": 16
+  },
+  "views": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+  ],
+  "frame": {
+    "name": "Standard 1024 \u00d7 768",
+    "w": 1024,
+    "h": 768
+  }
+}
