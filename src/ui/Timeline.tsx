@@ -38,6 +38,18 @@ export function Timeline() {
       {on >= 0 && <Tip label="Remove this key"><Button variant="ghost" size="icon-sm" onClick={() => removeKey(on)} aria-label="Remove key"><Trash2 /></Button></Tip>}
       <Tip label="Loop back to the start"><Button variant={anim?.loop ?? true ? "glass" : "ghost"} size="icon-sm" disabled={!anim} onClick={() => edit("anim-loop", (w) => { if (w.anim) w.anim.loop = !w.anim.loop })} aria-label="Loop back to the start" className="max-sm:hidden"><Repeat /></Button></Tip>
       <Tip label="Ease in and out of each key"><Button variant={anim?.ease ?? true ? "glass" : "ghost"} size="icon-sm" disabled={!anim} onClick={() => edit("anim-ease", (w) => { if (w.anim) w.anim.ease = !w.anim.ease })} aria-label="Ease in and out" className="max-sm:hidden"><Spline /></Button></Tip>
+      {anim && <select aria-label="Camera zoom timing" value={anim.zoomCurve ?? "follow"} className="h-7 w-40 rounded-sm bg-muted/60 text-xs max-sm:w-20"
+        onChange={(event) => {
+          const curve = event.currentTarget.value
+          edit("anim-zoom-curve", (w) => {
+            if (w.anim) w.anim.zoomCurve = curve === "linear" || curve === "smooth" ? curve : undefined
+          })
+          seek(get().playhead)
+        }}>
+        <option value="follow">Zoom · follow timeline</option>
+        <option value="linear">Zoom · constant speed</option>
+        <option value="smooth">Zoom · ease in/out</option>
+      </select>}
       <select value={seconds} disabled={!anim} onChange={(e) => edit("anim-secs", (w) => { if (w.anim) w.anim.seconds = +e.target.value })} aria-label="Length" title="How long the animation lasts" className="h-7 shrink-0 rounded-sm bg-muted/60 px-1 text-[12px] outline-none focus-visible:ring-2 focus-visible:ring-ring">{[2, 4, 6, 8, 10, 15, 20, 30].map((n) => <option key={n} value={n}>{n}s</option>)}</select>
       <Tip label="Close the timeline"><Button variant="ghost" size="icon-sm" onClick={() => patch({ timeline: false, playing: false })} aria-label="Close timeline"><X /></Button></Tip>
     </div>

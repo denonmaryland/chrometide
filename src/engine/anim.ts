@@ -24,8 +24,13 @@ export function at(w: World, t: number): World {
     const ring = an.loop ? [...keys, { t: 1 + keys[0].t, pose: keys[0].pose }] : keys
     let tt = t; if (an.loop && tt < keys[0].t) tt += 1
     let i = ring.findIndex((k) => k.t > tt); if (i === -1) i = ring.length; const a = ring[Math.max(0, i - 1)], b = ring[Math.min(ring.length - 1, i)]
-    let k = a === b || b.t === a.t ? 0 : Math.min(1, Math.max(0, (tt - a.t) / (b.t - a.t))); if (an.ease) k = k * k * (3 - 2 * k)
-    p = a === b ? a.pose : mix(a.pose, b.pose, k)
+    const progress = a.t === b.t ? 0 : Math.min(1, Math.max(0, (tt - a.t) / (b.t - a.t)))
+    const smooth = progress * progress * (3 - 2 * progress)
+    p = a === b ? a.pose : mix(a.pose, b.pose, an.ease ? smooth : progress)
+    if (a !== b && an.zoomCurve) {
+      const zoom = an.zoomCurve === "smooth" ? smooth : progress
+      p.cam.dist = a.pose.cam.dist + (b.pose.cam.dist - a.pose.cam.dist) * zoom
+    }
   }
   const q = clone(p)
   return { ...w, sky: q.sky, sea: q.sea, cam: q.cam, things: q.things, title: q.title, land: { ...q.land, sculpt: w.land.sculpt } }

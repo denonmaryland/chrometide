@@ -113,7 +113,7 @@ export interface SoundSet {
 }
 export const soundSet = (o: Partial<SoundSet> = {}): SoundSet => ({ pulse: 0.5, pulseTo: "bass", float: 0.4, ripple: 0.5, glow: 0.5, twinkle: 0.5, breathe: 0.3, meters: 0.8, orbit: 0.3, kick: 0, punch: 0.2, journey: "off", every: 16, ...o })
 export type Pose = Pick<World, "sky" | "sea" | "land" | "cam" | "things" | "title">
-export interface Anim { seconds: number; loop: boolean; ease: boolean; keys: { t: number; pose: Pose }[] }
+export interface Anim { seconds: number; loop: boolean; ease: boolean; zoomCurve?: "linear" | "smooth"; keys: { t: number; pose: Pose }[] }
 
 // ---------- materials (all original) ----------
 const M = (name: string, color: string, o: Partial<Material> = {}): Material => ({
@@ -538,6 +538,7 @@ export function tidyWorld(x: unknown): World {
   if (src.sound && typeof src.sound === "object") { const s = fit(soundSet(), src.sound); s.pulseTo = oneOf(s.pulseTo, ["bass", "mid", "high", "beat"] as const, "bass"); s.journey = oneOf(s.journey, ["off", "sunset", "candy", "night", "surprise"] as const, "off"); s.every = Math.round(numIn(s.every, 16, 1, 256)); w.sound = s }
   const an = obj(src.anim); if (Array.isArray(an.keys)) {
     w.anim = { seconds: numIn(an.seconds, 6, 0.5, 600), loop: an.loop !== false, ease: an.ease !== false,
+      zoomCurve: an.zoomCurve === "linear" || an.zoomCurve === "smooth" ? an.zoomCurve : undefined,
       keys: an.keys.slice(0, 60).filter((k: unknown) => k && typeof k === "object").map((k: any) => { const p = obj(k.pose), pose: Pose = { sky: tidySky(p.sky), sea: tidySea(p.sea), land: tidyLand(p.land, false), cam: tidyCam(p.cam), things: tidyThings(p.things), title: tidyTitle(p.title) }
         if (!pose.title) delete pose.title; return { t: numIn(k.t, 0, 0, 1), pose } }).sort((a: { t: number }, b: { t: number }) => a.t - b.t) }
   }
